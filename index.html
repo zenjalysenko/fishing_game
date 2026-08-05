@@ -9,11 +9,13 @@
 <body>
   <main class="game location-pier" id="game">
     <div class="scene" id="scene"><canvas id="worldCanvas" aria-label="Процедурная сцена рыбалки: море, пирс, удочка и рыба"></canvas><div class="scene-vignette"></div></div>
+    <div class="equipped-rod" id="equippedRod" aria-hidden="true"><img id="equippedRodImage" src="assets/rods/rod-01.png" alt=""></div>
 
     <section class="depth-panel glass"><div class="panel-title">ГЛУБИНА И ЗАБРОС</div><div class="depth-graph"><svg viewBox="0 0 240 70" preserveAspectRatio="none"><path d="M0 45 L25 41 L48 49 L72 32 L100 42 L128 24 L154 37 L182 17 L210 28 L240 12 V70 H0Z"/></svg><b id="depthNeedle"></b></div><div class="depth-meta"><span>🪝 <b id="hookName">Медный поплавок</b></span><span id="locationLabel">Пирс · бухта</span></div></section>
 
-    <nav class="left-menu"><button data-modal="keepnet">🐟<span>Садок</span></button><button data-modal="map">🗺<span>Карта</span></button><button data-modal="bag">🎒<span>Рюкзак</span></button><button data-modal="profile">🧑<span>Рыбак</span></button><button data-modal="journal">📖<span>Дневник</span></button><button data-modal="index">◈<span>Индекс</span></button></nav>
+    <nav class="left-menu"><button data-modal="keepnet">🐟<span>Садок</span></button><button data-modal="map">🗺<span>Карта</span></button><button data-modal="bag">🎒<span>Рюкзак</span></button><button data-modal="auction">🔨<span>Аукцион</span></button><button data-modal="profile">🧑<span>Рыбак</span></button><button data-modal="journal">📖<span>Дневник</span></button><button data-modal="index">◈<span>Индекс</span></button></nav>
     <aside class="session glass"><small>СЕССИЯ</small><b id="sessionTime">00:00</b><span>Лучший улов: <strong id="bestCatch">—</strong></span></aside>
+    <aside class="progression glass"><strong>Уровень <b id="playerLevel">1</b></strong><div class="xp-meter"><i id="xpBar"></i></div><small id="contractLabel">Контракт: 0/8 · 300 ◉</small></aside>
 
     <div class="shop-signs"><button data-modal="shops" data-shop="rods" class="shop-sign lava">♨<small>Удочки</small></button><button data-modal="shops" data-shop="knives" class="shop-sign abyss">✦<small>Ножи</small></button><button data-modal="shops" data-shop="hooks" class="shop-sign galaxy">✧<small>Крючки</small></button></div>
     <section class="cast-control"><div class="cast-message" id="castMessage">Зажмите ПКМ для заброса · удерживайте ЛКМ для подтяжки</div><div class="power-meter"><i id="castPower"></i></div></section>
@@ -24,12 +26,14 @@
 
   <div class="modal" id="keepnet"><section><button class="close">×</button><h2>Садок</h2><p class="muted">Очистите рыбу ножом подходящего уровня и продайте добычу.</p><div id="keepnetList" class="fish-list"></div><button class="sell-all" id="sellAll">Продать всю очищенную рыбу</button></section></div>
   <div class="modal" id="map"><section><button class="close">×</button><h2>Карта морей</h2><div class="location-grid" id="locationGrid"></div></section></div>
-  <div class="modal" id="bag"><section><button class="close">×</button><h2>Рюкзак</h2><div id="bagContent" class="loadout"></div></section></div>
+  <div class="modal" id="bag"><section><button class="close">×</button><h2>Рюкзак</h2><div id="bagContent" class="loadout"></div><div class="photo-gallery"><figure><img src="assets/fishing-rods.png" alt="Реалістичні вудки"><figcaption>Індивідуальні вудки та котушки</figcaption></figure><figure><img src="assets/freshwater-fish.png" alt="Реалістичні прісноводні риби"><figcaption>Окунь, щука та короп</figcaption></figure><figure><img src="assets/fishing-bobbers.png" alt="Реалістичні поплавки"><figcaption>Поплавки для різних умов</figcaption></figure></div></section></div>
   <div class="modal" id="profile"><section><button class="close">×</button><h2>Карточка рыбака</h2><div id="profileContent" class="profile-card"></div></section></div>
   <div class="modal" id="journal"><section><button class="close">×</button><h2>Дневник приключений</h2><div id="journalContent" class="journal"></div></section></div>
   <div class="modal" id="index"><section><button class="close">×</button><h2>Индекс рыб</h2><p class="muted">Найдите все виды в каждой редкости.</p><div id="indexContent" class="index-grid"></div></section></div>
-  <div class="modal" id="shops"><section class="shop-window"><button class="close">×</button><h2>Магазины курорта</h2><div class="shop-tabs"><button data-shop="rods">♨ Удочки</button><button data-shop="knives">✦ Ножи</button><button data-shop="hooks">✧ Крючки</button></div><div id="shopContent" class="shop-items"></div></section></div>
+  <div class="modal" id="shops"><section class="shop-window"><button class="close">×</button><h2>Магазины курорта</h2><div class="shop-tabs"><button data-shop="rods">♨ Удочки</button><button data-shop="knives">✦ Ножи</button><button data-shop="hooks">✧ Крючки</button><button data-shop="floats">🎈 Поплавки</button><button data-shop="baits">🪱 Наживки</button></div><div id="shopContent" class="shop-items"></div></section></div>
+  <div class="modal" id="auction"><section><button class="close">×</button><h2>Аукцион рыб</h2><p class="muted">Очищенную рыбу можно выставить из садка. Покупатели сами повышают ставку, пока не истечёт время лота.</p><div id="auctionContent" class="auction-list"></div></section></div>
   <div class="modal" id="pets"><section><button class="close">×</button><h2>Дикие питомцы</h2><div id="petContent" class="pets-grid"></div></section></div>
+  <div class="modal catch-modal" id="catch" aria-live="polite"><section class="catch-dialog"><button class="close">×</button><p class="catch-kicker">УЛОВ ДОСТАВЛЕНО НА БЕРЕГ</p><img id="catchFishImage" src="assets/freshwater-fish.png" alt="Пойманная рыба"><h2 id="catchFishName">Рыба поймана</h2><p class="muted" id="catchFishMeta"></p><p class="catch-extra" id="catchFishExtra"></p><button class="catch-close close-dialog">Продолжить рыбалку</button></section></div>
   <script src="script.js"></script>
 </body>
 </html>
