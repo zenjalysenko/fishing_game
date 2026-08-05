@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Русская Рыбалка — Морской курорт</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="game location-pier" id="game">
+    <div class="scene" id="scene"><canvas id="worldCanvas" aria-label="Процедурная сцена рыбалки: море, пирс, удочка и рыба"></canvas><div class="scene-vignette"></div></div>
+
+    <section class="depth-panel glass"><div class="panel-title">ГЛУБИНА И ЗАБРОС</div><div class="depth-graph"><svg viewBox="0 0 240 70" preserveAspectRatio="none"><path d="M0 45 L25 41 L48 49 L72 32 L100 42 L128 24 L154 37 L182 17 L210 28 L240 12 V70 H0Z"/></svg><b id="depthNeedle"></b></div><div class="depth-meta"><span>🪝 <b id="hookName">Медный поплавок</b></span><span id="locationLabel">Пирс · бухта</span></div></section>
+
+    <nav class="left-menu"><button data-modal="keepnet">🐟<span>Садок</span></button><button data-modal="map">🗺<span>Карта</span></button><button data-modal="bag">🎒<span>Рюкзак</span></button><button data-modal="profile">🧑<span>Рыбак</span></button><button data-modal="journal">📖<span>Дневник</span></button><button data-modal="index">◈<span>Индекс</span></button></nav>
+    <aside class="session glass"><small>СЕССИЯ</small><b id="sessionTime">00:00</b><span>Лучший улов: <strong id="bestCatch">—</strong></span></aside>
+
+    <div class="shop-signs"><button data-modal="shops" data-shop="rods" class="shop-sign lava">♨<small>Удочки</small></button><button data-modal="shops" data-shop="knives" class="shop-sign abyss">✦<small>Ножи</small></button><button data-modal="shops" data-shop="hooks" class="shop-sign galaxy">✧<small>Крючки</small></button></div>
+    <section class="cast-control"><div class="cast-message" id="castMessage">Зажмите ПКМ для заброса · удерживайте ЛКМ для подтяжки</div><div class="power-meter"><i id="castPower"></i></div></section>
+    <button id="autoClean" class="auto-clean">САМООЧИСТКА</button>
+
+    <footer class="bottom-bar glass"><div class="equipment"><div>🎣<small>Удилище</small><b id="rodLevel">I</b></div><div>🪝<small>Крючок</small><b id="hookLevel">I</b></div><div>🔪<small>Нож</small><b id="knifeLevel">I</b></div></div><div class="currency"><span>◉ <b id="coins">30</b></span><small>🐟 <b id="fishCount">0</b> шт.</small></div><div class="bottom-center"><nav class="tabs"><button class="active">Рыбалка</button><button data-modal="map">Локация</button><button data-modal="shops">Магазины</button><button data-modal="pets">Питомцы</button><button data-modal="journal">Мировой</button></nav><div class="rarity-display" id="rarityDisplay"><i></i><span>Ожидание поклёвки</span></div></div></footer>
+  </main>
+
+  <div class="modal" id="keepnet"><section><button class="close">×</button><h2>Садок</h2><p class="muted">Очистите рыбу ножом подходящего уровня и продайте добычу.</p><div id="keepnetList" class="fish-list"></div><button class="sell-all" id="sellAll">Продать всю очищенную рыбу</button></section></div>
+  <div class="modal" id="map"><section><button class="close">×</button><h2>Карта морей</h2><div class="location-grid" id="locationGrid"></div></section></div>
+  <div class="modal" id="bag"><section><button class="close">×</button><h2>Рюкзак</h2><div id="bagContent" class="loadout"></div></section></div>
+  <div class="modal" id="profile"><section><button class="close">×</button><h2>Карточка рыбака</h2><div id="profileContent" class="profile-card"></div></section></div>
+  <div class="modal" id="journal"><section><button class="close">×</button><h2>Дневник приключений</h2><div id="journalContent" class="journal"></div></section></div>
+  <div class="modal" id="index"><section><button class="close">×</button><h2>Индекс рыб</h2><p class="muted">Найдите все виды в каждой редкости.</p><div id="indexContent" class="index-grid"></div></section></div>
+  <div class="modal" id="shops"><section class="shop-window"><button class="close">×</button><h2>Магазины курорта</h2><div class="shop-tabs"><button data-shop="rods">♨ Удочки</button><button data-shop="knives">✦ Ножи</button><button data-shop="hooks">✧ Крючки</button></div><div id="shopContent" class="shop-items"></div></section></div>
+  <div class="modal" id="pets"><section><button class="close">×</button><h2>Дикие питомцы</h2><div id="petContent" class="pets-grid"></div></section></div>
+  <script src="script.js"></script>
+</body>
+</html>
