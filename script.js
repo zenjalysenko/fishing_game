@@ -335,12 +335,12 @@ function render(){
   $('bestCatch').textContent=state.best; syncWorld();
   $('playerLevel').textContent=playerLevel(); $('xpBar').style.width=levelProgress()+'%'; $('contractLabel').textContent=`Контракт: ${state.contract.progress}/${state.contract.target} · ${state.contract.reward} ◉`;
   if(!casting){setTension();updateDepth()}
-  renderKeepnet(); renderCatchActions(); renderMap(); renderBag(); renderProfile(); renderJournal(); renderIndex(); renderProgress(); renderShop(); renderPets(); renderAuctions(); renderBase(); renderBaseUpgrades(); save();
+  renderKeepnet(); renderMarketRequest(); renderCatchActions(); renderMap(); renderBag(); renderProfile(); renderJournal(); renderIndex(); renderProgress(); renderShop(); renderPets(); renderAuctions(); renderBase(); renderBaseUpgrades(); save();
 }
 function openModal(id){cancelCharge();if(casting)loseFish('Снасть витягнуто перед відкриттям меню.');closeAll();$(id).classList.add('open');render()}
 function closeAll(){document.querySelectorAll('.modal').forEach(x=>x.classList.remove('open'));if(document.activeElement?.closest('.modal'))$('castButton').focus({preventScroll:true})}
 function note(text){$('castMessage').textContent=text}
-function time(){session++; $('sessionTime').textContent=`${String(Math.floor(session/60)).padStart(2,'0')}:${String(session%60).padStart(2,'0')}`;if(session%20===0){syncWorld();renderDailyGift()}}
+function time(){session++; $('sessionTime').textContent=`${String(Math.floor(session/60)).padStart(2,'0')}:${String(session%60).padStart(2,'0')}`;if(session%20===0){syncWorld();renderDailyGift();renderMarketRequest()}}
 setInterval(time,1000);
 class ProceduralScene {
   constructor(canvas){this.c=canvas;this.x=50;this.y=61;this.cast=0;this.reel=0;this.tension=0;this.biting=false;this.pulling=false;this.fish=null;this.fightOffset={x:0,y:0,targetX:0,targetY:0,next:0};this.t0=performance.now();this.resize();addEventListener('resize',()=>this.resize());requestAnimationFrame(t=>this.frame(t))}
@@ -413,7 +413,8 @@ const cutsNeeded=()=>Math.max(1,4-Math.floor((state.knives+1)/3));
 function advanceContract(count){state.contract.progress+=count;if(state.contract.progress<state.contract.target)return;const reward=state.contract.reward;state.coins+=reward;state.total+=reward;state.xp+=80;state.contract={target:state.contract.target+4,progress:0,reward:Math.round(reward*1.6)};state.journal.unshift(`Контракт выполнен: +${reward} монет и 80 XP.`);note(`Контракт выполнен! +${reward} ◉`)}
 function settleAuctions(){const now=Date.now();state.auctions=state.auctions.filter(a=>{if(a.endsAt>now)return true;state.coins+=a.bid;state.total+=a.bid;state.auctionLog.unshift(`${a.fish.name} продана на аукционе за ${a.bid} ◉.`);return false});state.auctionLog=state.auctionLog.slice(0,4)}
 const auctionEligible=(fish)=>fish.rarity>=3||['trophy','record'].includes(fish.quality);
-function auctionFish(id){const i=state.inventory.findIndex(f=>f.id==id),fish=state.inventory[i];if(!fish||!fish.clean||fish.favorite)return;if(!auctionEligible(fish)){note('На аукцион принимают эпический и более редкий либо трофейный улов.');return}state.inventory.splice(i,1);const bid=Math.round(price(fish)*(1.3+fish.rarity*.18));state.auctions.unshift({id:Date.now()+Math.random(),fish,bid,bidders:1,endsAt:Date.now()+45000});state.journal.unshift(`Рыба выставлена на аукцион: ${fish.name}.`);openModal('auction')}
+const auctionStartBid=fish=>Math.round(price(fish)*(1.3+fish.rarity*.18));
+function auctionFish(id){const i=state.inventory.findIndex(f=>f.id==id),fish=state.inventory[i];if(!fish||!fish.clean||fish.favorite)return;if(!auctionEligible(fish)){note('На аукцион принимают эпический и более редкий либо трофейный улов.');return}state.inventory.splice(i,1);const bid=auctionStartBid(fish);state.auctions.unshift({id:Date.now()+Math.random(),fish,bid,bidders:1,endsAt:Date.now()+45000});state.journal.unshift(`Рыба выставлена на аукцион: ${fish.name}.`);openModal('auction')}
 function auctionTick(){let changed=false;state.auctions.forEach(a=>{if(a.endsAt>Date.now()&&Math.random()<.45){a.bid+=Math.max(10,Math.round(a.bid*.08));a.bidders++;changed=true}});const active=state.auctions.length;settleAuctions();if(active!==state.auctions.length){note('Аукционный лот продан — монеты зачислены.');render();return}if(changed&&$('auction').classList.contains('open'))renderAuctions();if(changed)save()}
 setInterval(auctionTick,1500);
 function cutFish(id){const f=state.inventory.find(x=>x.id==id);if(!f||f.clean||f.favorite)return;if(state.knives<Math.min(f.rarity,5)){note('Нужен нож поострее!');return}f.cuts++;if(f.cuts>=cutsNeeded()){f.clean=true;state.materials.fish++;state.journal.unshift(`Рыба очищена: ${f.name}`);note(`${f.name} готова к продаже. +1 рыбный материал.`)}render()}
@@ -438,16 +439,44 @@ function buyTraderBait(){const bait=traderOffer(),cost=Math.max(1,Math.ceil(bait
 function upgradeSkill(id){if(!(id in state.skills)||skillPoints()<1||state.skills[id]>=5)return;state.skills[id]++;state.journal.unshift(`Улучшен навык: ${id}.`);render()}
 function sell(id){const i=state.inventory.findIndex(x=>x.id==id);if(i<0)return;const f=state.inventory[i];if(f.favorite)return;if(!f.clean){note('Сначала разделайте рыбу.');return}state.inventory.splice(i,1);const earned=price(f);state.coins+=earned;state.total+=earned;state.journal.unshift(`Продано: ${f.name} за ${earned} монет.`);render()}
 function sellAll(){const cleaned=state.inventory.filter(f=>f.clean&&!f.favorite);if(!cleaned.length){note('В садке нет очищенной рыбы.');return}const earned=cleaned.reduce((n,f)=>n+price(f),0);state.inventory=state.inventory.filter(f=>!f.clean||f.favorite);state.coins+=earned;state.total+=earned;state.journal.unshift(`Продано очищенной рыбы на ${earned} монет.`);render()}
+let marketRequest='clean';
+function openMarketRequest(type){
+  if(!['trophy','clean','order'].includes(type))return;
+  marketRequest=type;openModal('marketRequests');$('marketRequestTitle').focus();
+}
+function marketRequestMatches(fish){
+  return marketRequest==='trophy'?auctionEligible(fish):marketRequest==='order'?fish.name===dailyMarket().fish:fish.clean;
+}
+function marketRequestOffers(){
+  const market=dailyMarket(),localPool=locations[state.location].fishPool,allFish=Object.values(locations).flatMap(location=>location.fishPool);
+  const names=marketRequest==='order'?[market.fish]:[...new Set([...localPool.map(fish=>fish.name),...state.inventory.filter(marketRequestMatches).map(fish=>fish.name)])];
+  return names.map(name=>{
+    const species=localPool.find(fish=>fish.name===name)||state.inventory.find(fish=>fish.name===name)||allFish.find(fish=>fish.name===name);
+    const fish={...species,name,weight:1,quality:marketRequest==='trophy'?'trophy':'normal'};
+    return {fish,value:marketRequest==='trophy'?auctionStartBid(fish):price(fish),where:Object.values(locations).filter(location=>location.fish.includes(name)).map(location=>location.name)};
+  });
+}
+function renderMarketRequest(){
+  if(!$('marketRequests').classList.contains('open'))return;
+  const market=dailyMarket(),trophy=marketRequest==='trophy',order=marketRequest==='order';
+  $('marketRequestTitle').textContent=trophy?'Трофейний улов':order?'Замовлення дня':'Приймаємо очищену рибу';
+  $('marketRequestTerms').textContent=trophy?'Потрібна очищена риба епічної або вищої рідкості, або будь-яка риба трофейної чи рекордної якості. Нижче — стартові ставки за 1 кг трофейної якості. Ставки покупців можуть зростати.':order?`Сьогодні шукаємо: ${market.fish}. Доплата +${Math.round(market.bonus*100)}% уже включена в ціну. Будь-яка вага та якість; перед продажем очистіть рибу. Ціна нижче — за 1 кг звичайної якості. Замовлення змінюється о 00:00 UTC.`:`Приймаємо будь-яку очищену рибу без обмеження ваги чи кількості. Нижче — запити для локації «${locations[state.location].name}» та види з вашого садка. Ціни за 1 кг звичайної якості; трофеї та рекорди коштують більше.`;
+  $('marketOffers').innerHTML=marketRequestOffers().map(({fish,value,where})=>`<article class="market-offer ${order?'daily-order':''}"><img src="${fish.image||fishImages[fish.name]}" alt="${fish.name}" loading="lazy"><div><small>ПОТРІБНО · ${rarities[fish.rarity-1].name}</small><h3>${fish.name}</h3><b>${trophy?'Старт аукціону: ':''}${value} ◉ / 1 кг</b><p>${trophy?'Трофейна якість · очищена':'Будь-яка якість · очищена'}${order?` · +${Math.round(market.bonus*100)}%`:''}</p><small>Де ловити: ${where.join(' · ')||locations[fish.location]?.name||'дивіться альбом улову'}</small></div></article>`).join('');
+  const matches=state.inventory.filter(marketRequestMatches),ready=matches.filter(fish=>fish.clean&&!fish.favorite);
+  $('marketRequestCount').textContent=`Готово: ${ready.length} / ${matches.length}`;
+  $('marketRequestFish').innerHTML=matches.length?matches.map(renderFishCard).join(''):'<p class="muted">Відповідної риби ще немає. Спіймайте її за запитом вище та принесіть до садка.</p>';
+}
 function renderKeepnet(){
   const cleaned=state.inventory.filter(f=>f.clean&&!f.favorite),total=cleaned.reduce((sum,fish)=>sum+price(fish),0),protectedCount=state.inventory.filter(f=>f.favorite).length;
   $('keepnetSummary').textContent=`До продажу: ${cleaned.length} · ${total} ◉${protectedCount?` · ★ ${protectedCount} захищено`:''}`;
   $('sellAll').disabled=!cleaned.length;
   $('sellAll').textContent=`Продати незахищену очищену рибу · ${total} ◉`;
-  $('keepnetList').innerHTML=state.inventory.length?state.inventory.map(f=>{
+  $('keepnetList').innerHTML=state.inventory.length?state.inventory.map(renderFishCard).join(''):'<p class="muted">Садок порожній — час закинути вудку.</p>';
+}
+function renderFishCard(f){
     const rarity=rarities[f.rarity-1],quality=qualityOf(f),needed=cutsNeeded();
-    const action=f.clean?`<button onclick="sell('${f.id}')" ${f.favorite?'disabled':''}>Продати ${price(f)} ◉</button>${auctionEligible(f)?`<button class="auction-button" onclick="auctionFish('${f.id}')" ${f.favorite?'disabled':''}>На аукціон</button>`:''}`:`<button onclick="cutFish('${f.id}')" ${f.favorite||state.knives<Math.min(f.rarity,5)?'disabled':''}>Розібрати ${f.cuts}/${needed}</button><button class="release-button" onclick="releaseFish('${f.id}')" ${f.favorite||f.cuts>0?'disabled':''}>Відпустити · +${f.rarity+1} реп.</button>`;
+    const action=f.clean?`<button onclick="sell('${f.id}')" ${f.favorite?'disabled':''}>Продати ${price(f)} ◉</button>${auctionEligible(f)?`<button class="auction-button" onclick="auctionFish('${f.id}')" ${f.favorite?'disabled':''}>Аукціон від ${auctionStartBid(f)} ◉</button>`:''}`:`<button onclick="cutFish('${f.id}')" ${f.favorite||state.knives<Math.min(f.rarity,5)?'disabled':''}>Розібрати ${f.cuts}/${needed}</button><button class="release-button" onclick="releaseFish('${f.id}')" ${f.favorite||f.cuts>0?'disabled':''}>Відпустити · +${f.rarity+1} реп.</button>`;
     return `<article class="fish-card ${f.favorite?'protected-fish':''}" data-fish-id="${f.id}" style="--rarity:${rarity.color}"><span class="fish-icon">${fishIcon(f.rarity)}</span><div class="fish-info"><b>${f.name}</b><br><small>${rarity.name} · ${quality.name} · ${fishWeight(f)} · ${price(f)} ◉${marketMultiplier(f)>1?' · замовлення ринку':''}${f.clean?' · очищена':''}</small>${!f.clean?`<div class="cut-progress"><i style="width:${Math.min(100,f.cuts/needed*100)}%"></i></div>`:''}</div><div class="fish-actions"><button class="favorite-button" aria-pressed="${!!f.favorite}" onclick="toggleFavorite('${f.id}')">${f.favorite?'★ Захищено':'☆ Трофей'}</button>${action}</div></article>`;
-  }).join(''):'<p class="muted">Садок порожній — час закинути вудку.</p>';
 }
 function selectMap(region){if(region!=='home'&&!travelRegions[region])return;mapRegion=region;renderMap()}
 function setTravelDays(days){state.travelDays=Math.max(1,Math.min(10,Number(days)||1));renderMap()}

@@ -111,3 +111,18 @@ button:focus-visible{outline:3px solid #ffe078;outline-offset:3px}
 @media(max-width:700px){.equipped-rod{width:108vw}}
 @media(max-width:700px) and (max-height:740px){body{overflow-y:auto}.left-menu{display:flex;top:215px;flex-direction:row}.left-menu button{width:40px}.auto-clean{bottom:340px}}
 @media(max-width:380px){.depth-panel{width:calc(100vw - 160px);transform:none}.sonar-header{letter-spacing:0}.sonar-status{font-size:.4rem}.sonar-lock small{max-width:130px}.left-menu{top:245px}}
+
+/* Clickable notices and the fish requests they open. */
+button.market-note{width:100%;border:2px solid transparent;border-radius:0;white-space:normal}
+button.market-note:hover:not(:disabled),button.market-note:focus-visible{transform:translateY(-3px);border-color:#6f391e;filter:brightness(1.04)}
+.market-request-window .fish-market-title h2{margin:0;color:#642614;font:900 1.45rem Georgia,serif}
+.market-request-terms{margin:0 0 13px;padding:12px;border:1px solid #ccaa74;background:#f8e7bd;color:#562818;font-size:.78rem;line-height:1.5}
+.market-offers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:320px;overflow:auto;margin-bottom:14px;padding:2px}
+.market-offer{display:flex;align-items:flex-start;gap:10px;padding:10px;border:2px solid #b98d57;background:#fff1cf;color:#562818}
+.market-offer img{width:96px;aspect-ratio:4/3;border:1px solid #9f7c50;object-fit:cover}.market-offer div{min-width:0}
+.market-offer h3{margin:3px 0 6px;font:700 .95rem Georgia,serif}.market-offer b{display:block;color:#713715;font-size:.8rem}
+.market-offer p{margin:5px 0;font-size:.68rem}.market-offer small{display:block;font-size:.61rem;line-height:1.4;color:#795333}
+.market-offer.daily-order{grid-column:1/-1;border-color:#3c7896;background:#e3f1ee}.market-offer.daily-order b{color:#175674}
+.market-back{min-height:44px;margin-top:12px;padding:9px 14px;border:1px solid #ffe1a5;border-radius:4px;background:#f0c277;color:#562818;font-weight:800}
+.market-request-window .market-list{max-height:240px}
+@media(max-width:600px){.market-offers{grid-template-columns:1fr;max-height:290px}.market-offer img{width:80px}.market-request-window .fish-market-title h2{font-size:1.1rem}.market-request-terms{font-size:.7rem}.market-request-window .market-list{max-height:220px}}
