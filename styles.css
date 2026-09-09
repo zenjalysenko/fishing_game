@@ -72,3 +72,70 @@ button{position:relative;border:1px solid #8be9f066;background:linear-gradient(1
 .left-menu{top:225px}@media(max-width:700px){.left-menu{top:205px}}
 .shop-items.reel-items{grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr))}
 .shop-card.reels{display:grid;grid-template-columns:minmax(112px,.7fr) minmax(0,1.3fr);gap:14px;align-items:center;padding:14px;background:linear-gradient(135deg,#071f31,#0d4e68 58%,#123044);box-shadow:inset 0 1px #d5ffff1c,0 10px 20px #00172566}.shop-card.reels.current{border-color:#ffe07e;background:linear-gradient(135deg,#123c4c,#14716d 56%,#284827)}.reel-title small{color:#9feef1;font-size:.62rem;font-weight:850;letter-spacing:.11em}.reel-title h3{margin:5px 0 7px;color:#f2fbfb;font-size:1.02rem;line-height:1.08}.reel-title>b{display:block;color:#ffe188;font-size:.77rem}.reel-showcase{display:grid;grid-template-columns:minmax(112px,.92fr) minmax(105px,1fr);gap:10px;align-items:center}.reel-photo{display:block;width:100%;aspect-ratio:1/1;min-height:108px;border:1px solid #8aeaf073;border-radius:10px;background:#051a29;box-shadow:inset 0 0 20px #001827,0 7px 16px #00172588;object-fit:cover;object-position:center}.shop-card.reels p{min-height:0;margin:0 0 9px;color:#d7eef0;font-size:.72rem;line-height:1.35}.shop-card.reels p small{display:inline-block;margin-top:5px;color:#87ece4;font-size:.67rem;font-weight:800}.shop-card.reels button{padding:7px 6px;font-size:.7rem}@media(max-width:650px){.shop-card.reels{grid-template-columns:1fr;gap:10px}.reel-showcase{grid-template-columns:minmax(118px,.8fr) 1fr}.reel-photo{min-height:0;aspect-ratio:4/3}}@media(max-width:390px){.reel-showcase{grid-template-columns:1fr}.reel-photo{aspect-ratio:16/9}}
+
+/* Active tackle and fishing controls. */
+.bottom-bar{width:min(1120px,calc(100% - 32px));display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 18px;padding:10px 12px}
+.equipment{grid-column:1/-1;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.equipment-slot{display:flex;align-items:center;gap:5px;min-width:0;min-height:70px;padding:6px;border:1px solid #78cfd150;border-radius:9px;background:#041e2eea;text-align:left}
+.equipment-slot:hover{background:#12536b;border-color:#ffdf85}
+.equipment-slot img,.equipment-slot .gear-icon{flex:0 0 38px;width:38px;height:46px;object-fit:contain}
+.equipment-slot[data-gear="rods"] img{transform:rotate(-12deg) scale(1.15)}
+.equipment-slot[data-gear="reels"] img,.equipment-slot[data-gear="lines"] img{height:38px;border-radius:5px;object-fit:cover}
+.gear-copy{display:grid;gap:3px;min-width:0}.equipment .gear-copy small{color:#b8e0e3;font-size:.55rem}.gear-copy strong{overflow:hidden;color:#f0fafa;font-size:.63rem;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}.equipment .gear-copy b{font-size:.6rem;color:#ffdf85}
+.gear-emoji{flex:0 0 30px;text-align:center;font-size:1.55rem}.equipment-slot.empty{border-color:#ff947d}.equipment-slot.empty b{color:#ffad99}.equipment-slot.unequipped{background:#172b35}
+.bottom-bar .currency{min-width:105px;border:0;padding:0}.bottom-bar .tabs{justify-content:flex-end}.bottom-bar .rarity-display{justify-content:flex-end}
+.equipped-rod{inset:auto auto 145px 8%;width:min(80vw,1120px);aspect-ratio:3/2;transform:none;transform-origin:bottom left}
+.equipped-rod img{inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
+.equipped-rod.pulling{transform:translate(-8px,-12px)}
+.equipped-rod.strained{animation:equipped-strain .18s infinite alternate}
+@keyframes equipped-strain{to{translate:0 3px}}
+.equipped-float{position:absolute;z-index:9;width:44px;height:62px;object-fit:contain;transform:translate(-50%,-67%);pointer-events:none;filter:drop-shadow(0 2px 3px #001)}
+.equipped-float[hidden]{display:none}.equipped-float.night-float{filter:drop-shadow(0 0 7px #b5ff96)}
+.cast-control{bottom:180px;width:min(420px,70vw)}
+.cast-message{min-height:2.5em;display:grid;align-items:end;margin-bottom:7px;font-size:.75rem;line-height:1.3}
+.power-meter{position:relative;height:12px}.power-meter .perfect-zone{position:absolute;top:0;bottom:0;left:66%;width:12%;border:1px solid #fff2ad;background:#ffe07866;box-shadow:0 0 6px #ffdf85}
+.power-meter.on-target{box-shadow:0 0 12px #ffe078}
+.cast-hint{display:block;margin-top:5px;color:#fff4d2;font-size:.6rem;text-shadow:0 1px 4px #001}
+.fishing-buttons{display:flex;justify-content:center;gap:8px;margin-top:9px}.fishing-buttons button{min-height:44px;min-width:140px;padding:6px 13px;border:1px solid #9ee7e6;border-radius:10px;background:#073e50ed;color:#f3ffff;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none}
+.fishing-buttons button small{display:block;margin-top:2px;font-size:.55rem;font-weight:400;color:#c2e9e9}.fishing-buttons button.holding{background:#327b72;border-color:#ffdf85;box-shadow:0 0 14px #ffe07866}
+.auto-clean{bottom:181px}
+.daily-gift{position:absolute;z-index:12;right:18px;top:287px;width:145px;min-height:69px;padding:8px;border:1px solid #ffd97a99;border-radius:12px;text-align:left;color:#ffe5a2;background:#173e43eb}
+.daily-gift b{font-size:.68rem}.daily-gift small{display:block;margin-top:5px;font-size:.58rem;line-height:1.35;color:#d2e9dc}.daily-gift:disabled{opacity:.8;cursor:default}
+.fish-market .fish-card{align-items:center;flex-wrap:wrap}.fish-info{flex:1;min-width:150px}.fish-market .fish-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;max-width:280px}.fish-market .fish-actions button{min-height:34px}.fish-market .protected-fish{background:#fff0b8;border-left-color:#af742b}.fish-market .favorite-button[aria-pressed="true"]{background:#725418}.fish-market .release-button{background:#276454}.fish-market .market-list{max-height:min(43vh,380px)}.fish-market .muted{color:#71452c}
+.catch-footer{flex-wrap:wrap}.catch-extra{flex:1 1 100%}.catch-actions{display:flex;flex-wrap:wrap;gap:8px}.catch-actions button{min-height:40px;padding:7px 10px;border:1px solid #e9c58a;border-radius:7px;color:#ffeec9;background:#713c24;font-size:.73rem}.catch-actions button[aria-pressed="true"]{background:#65612a}.butcher-knife{display:inline-block;width:48px;vertical-align:middle}.butcher-knife svg{width:100%}
+button:focus-visible{outline:3px solid #ffe078;outline-offset:3px}
+@media(max-width:1000px){.equipment-slot{flex-direction:column;gap:2px;text-align:center;min-height:85px}.equipment-slot img,.equipment-slot .gear-icon{flex-basis:auto;width:30px;height:29px}.equipment-slot[data-gear="reels"] img,.equipment-slot[data-gear="lines"] img{height:29px}.gear-copy{width:100%;gap:2px}.gear-emoji{flex-basis:auto;font-size:1.4rem;line-height:29px}.cast-control{bottom:195px}.auto-clean{bottom:196px}}
+@media(max-width:700px){
+  .game{height:100dvh;min-height:700px}.bottom-bar{bottom:8px;width:calc(100% - 16px);gap:6px;padding:7px}.equipment{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+  .equipment-slot{flex-direction:row;min-height:52px;padding:4px;text-align:left}.equipment-slot img,.equipment-slot .gear-icon{flex:0 0 24px;width:24px;height:32px}.gear-copy{width:auto;flex:1}.gear-copy strong{font-size:.56rem}.equipment .gear-copy small{font-size:.49rem}.equipment .gear-copy b{font-size:.53rem}.gear-emoji{flex:0 0 24px;font-size:1.15rem}
+  .bottom-bar .currency{min-width:60px}.bottom-bar .tabs{justify-content:flex-start;overflow:auto}.bottom-bar .tabs button{white-space:nowrap;padding:4px;font-size:.53rem}.bottom-bar .rarity-display{font-size:.54rem;justify-content:flex-start}
+  .cast-control{bottom:200px;width:min(420px,calc(100% - 24px))}.cast-message{font-size:.68rem}.cast-hint{font-size:.54rem}.auto-clean{bottom:340px;left:9px;padding:8px;font-size:.52rem}
+  .equipped-rod{left:-8%;bottom:230px;width:115vw}.equipped-rod img{inset:0;width:100%;height:100%}.daily-gift{right:9px;top:261px;width:123px;min-height:65px;padding:7px}.daily-gift b{font-size:.6rem}.daily-gift small{font-size:.52rem}
+  .fish-market .fish-actions{max-width:none;width:100%;justify-content:flex-start}.fish-market .fish-actions button{min-height:40px}.catch-actions{width:100%}.catch-actions button{flex:1}
+}
+@media(prefers-reduced-motion:reduce){.equipped-rod.strained{animation:none}.equipped-rod{transition:none}}
+/* Keep the sonar readout separate from the moving depth needle. */
+.depth-graph .sonar-reading b{position:static;width:auto;height:auto;background:none;box-shadow:none}
+.depth-graph .sonar-reading b:before{display:none}
+@media(max-width:700px){.equipped-rod{width:108vw}}
+@media(max-width:700px) and (max-height:740px){body{overflow-y:auto}.left-menu{display:flex;top:215px;flex-direction:row}.left-menu button{width:40px}.auto-clean{bottom:340px}}
+@media(max-width:380px){.depth-panel{width:calc(100vw - 160px);transform:none}.sonar-header{letter-spacing:0}.sonar-status{font-size:.4rem}.sonar-lock small{max-width:130px}.left-menu{top:245px}}
+
+/* Clickable notices and the fish requests they open. */
+button.market-note{width:100%;border:2px solid transparent;border-radius:0;white-space:normal}
+button.market-note:hover:not(:disabled),button.market-note:focus-visible{transform:translateY(-3px);border-color:#6f391e;filter:brightness(1.04)}
+.market-request-window .fish-market-title h2{margin:0;color:#642614;font:900 1.45rem Georgia,serif}
+.market-request-terms{margin:0 0 13px;padding:12px;border:1px solid #ccaa74;background:#f8e7bd;color:#562818;font-size:.78rem;line-height:1.5}
+.market-offers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:320px;overflow:auto;margin-bottom:14px;padding:2px}
+.market-offer{display:flex;align-items:flex-start;gap:10px;padding:10px;border:2px solid #b98d57;background:#fff1cf;color:#562818}
+.market-offer img{width:96px;aspect-ratio:4/3;border:1px solid #9f7c50;object-fit:cover}.market-offer div{min-width:0}
+.market-offer h3{margin:3px 0 6px;font:700 .95rem Georgia,serif}.market-offer b{display:block;color:#713715;font-size:.8rem}
+.market-offer p{margin:5px 0;font-size:.68rem}.market-offer small{display:block;font-size:.61rem;line-height:1.4;color:#795333}
+.market-offer.daily-order{grid-column:1/-1;border-color:#3c7896;background:#e3f1ee}.market-offer.daily-order b{color:#175674}
+.market-back{min-height:44px;margin-top:12px;padding:9px 14px;border:1px solid #ffe1a5;border-radius:4px;background:#f0c277;color:#562818;font-weight:800}
+.market-request-window .market-list{max-height:240px}
+@media(max-width:600px){.market-offers{grid-template-columns:1fr;max-height:290px}.market-offer img{width:80px}.market-request-window .fish-market-title h2{font-size:1.1rem}.market-request-terms{font-size:.7rem}.market-request-window .market-list{max-height:220px}}
+
+.save-warning{position:fixed;z-index:150;top:8px;left:50%;display:flex;align-items:center;gap:12px;width:min(550px,calc(100% - 24px));padding:12px 14px;transform:translateX(-50%);border:1px solid #ffc773;border-radius:9px;background:#743519;color:#fff1d2;box-shadow:0 5px 18px #0008;font-size:.75rem}
+.save-warning[hidden]{display:none}.save-warning button{flex:0 0 auto;min-height:40px;padding:6px 9px;border-radius:5px;background:#ffe0a4;color:#542710;font-size:.7rem;font-weight:700}
+@media(max-width:500px){.save-warning{align-items:stretch;flex-direction:column;gap:7px}}
