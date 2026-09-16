@@ -206,8 +206,25 @@ const timeData={day:{name:'День',bite:1},night:{name:'Ночь',bite:.78}};
 const eventData={calm:{name:'Тихий сезон',bite:1,weight:1,rarity:0,desc:'Стабильный клёв без особых условий.'},migration:{name:'Миграция рыбы',bite:1.3,weight:1.1,rarity:1,desc:'Рыба подходит ближе к берегу.'},storm:{name:'Штормовой фронт',bite:.78,weight:1.45,rarity:1,weather:'wind',desc:'Поклёвок меньше, но трофеи тяжелее.'},nightRun:{name:'Ночной клёв',bite:1.5,weight:1,rarity:1,nightOnly:true,time:'night',desc:'Ночная рыба активнее обычного.'},festival:{name:'Рыбацкий фестиваль',bite:1.15,weight:1.15,rarity:1,desc:'Праздничный день с повышенным шансом трофея.'},tournament:{name:'Соревнование у пристани',bite:1.08,weight:1.2,rarity:1,desc:'Турнирный улов идёт в зачёт дня.'}};
 const techniques={float:{name:'Поплавок',icon:'🎈',desc:'Быстрая поклёвка и спокойный контроль.',bite:1.12,weight:1,rarity:0},feeder:{name:'Фидер',icon:'🪝',desc:'Меньше поклёвок, зато крупнее рыба.',bite:.84,weight:1.28,rarity:0},spin:{name:'Спиннинг',icon:'🎣',desc:'Шанс на хищника и редкий трофей.',bite:.94,weight:1.08,rarity:1},ice:{name:'Зимняя удочка',icon:'❄',desc:'Сильна на Северном озере.',bite:.45,weight:.9,rarity:0}};
 const baseUpgrades={pier:{name:'Причал',icon:'⚓',cost:120,desc:'+8% к активности рыбы за уровень.'},smokehouse:{name:'Коптильня',icon:'🔥',cost:180,desc:'+10% к цене очищенной рыбы за уровень.'},workshop:{name:'Мастерская',icon:'🔧',cost:240,desc:'+6% к скорости и тормозу катушки за уровень.'},aquarium:{name:'Аквариум',icon:'🐠',cost:300,desc:'+1 репутация за редкую рыбу за уровень.'}};
-const initial = {coins:30, rods:1, lines:1, knives:1, hooks:1, reels:1, ownedReels:[1], floats:1, sonar:false, bait:'bread', baitStock:{bread:18,worm:0,shrimp:0,trout:0,sturgeon:0,sea:0}, technique:'float', npcQuest:null, location:'pier', inventory:[], discovered:[], journal:['Вы прибыли на Лесное озеро.'], pets:[], total:30, best:'—', xp:0, reputation:0, localReputation:{}, completedQuests:0, questReel:false, records:{}, market:null, materials:{plants:0,worms:0,shells:0,fish:0}, treasures:[], achievements:{}, skills:{casting:0,hook:0,trophy:0}, base:{pier:0,smokehouse:0,workshop:0,aquarium:0}, tournament:null, bossKills:{}, auctions:[], auctionLog:[], trip:null, travelDays:3, contract:{target:8,progress:0,reward:300}};
+const initial = {coins:30, credit:{debt:0,borrowedTotal:0,repaidTotal:0}, rods:1, lines:1, knives:1, hooks:1, reels:1, ownedReels:[1], floats:1, sonar:false, bait:'bread', baitStock:{bread:18,worm:0,shrimp:0,trout:0,sturgeon:0,sea:0}, technique:'float', npcQuest:null, location:'pier', inventory:[], discovered:[], journal:['Вы прибыли на Лесное озеро.'], pets:[], total:30, best:'—', xp:0, reputation:0, localReputation:{}, completedQuests:0, questReel:false, records:{}, market:null, materials:{plants:0,worms:0,shells:0,fish:0}, treasures:[], achievements:{}, skills:{casting:0,hook:0,trophy:0}, base:{pier:0,smokehouse:0,workshop:0,aquarium:0}, tournament:null, bossKills:{}, auctions:[], auctionLog:[], trip:null, travelDays:3, contract:{target:8,progress:0,reward:300}};
+const boats=[
+  {id:'rowboat',name:'Вёсельная лодка',icon:'🛶',price:180,depth:12,rarity:1,weight:1.12,scale:0.82,height:76,desc:'Тихий ход к первым свалам. Открывает глубокую воду.'},
+  {id:'inflatable',name:'Надувная моторка',icon:'🚤',price:950,depth:24,rarity:2,weight:1.28,scale:1,height:92,desc:'Быстро выходит на дальние ямы и усиливает шанс редких видов.'},
+  {id:'cutter',name:'Катер',icon:'🛥️',price:3200,depth:42,rarity:3,weight:1.48,scale:1.2,height:110,desc:'Полный доступ к трофейным ямам и самым тяжёлым обитателям.'}
+];
+const boatProfiles={
+  rowboat:{id:'rowboat',shape:'rowboat',scale:0.82,height:76,body:'compact',outline:'narrow'},
+  inflatable:{id:'inflatable',shape:'inflatable',scale:1,height:92,body:'rounded',outline:'mid'},
+  cutter:{id:'cutter',shape:'cutter',scale:1.2,height:110,body:'wide',outline:'long'}
+};
+function drawBoatArt(item){
+  const profile=boatProfiles[item.id]||boatProfiles.rowboat;
+  return `<div class="boat-art boat-${profile.shape}" data-profile="${profile.shape}" aria-label="${item.name}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">${item.icon}</div>`;
+}
 let state,savedState; try { savedState=JSON.parse(localStorage.getItem(SAVE_KEY)); state={...initial,...savedState}; } catch { savedState={}; state={...initial}; }
+state.ownedBoats=Array.isArray(state.ownedBoats)?state.ownedBoats.filter(id=>boats.some(boat=>boat.id===id)):[];
+state.boat=state.ownedBoats.includes(state.boat)?state.boat:null;
+state.atDepth=Boolean(state.atDepth&&state.boat);
 Object.keys(gear).forEach(type=>state[type]=Math.max(1,Math.min(gear[type].length,Math.trunc(Number(state[type]))||1)));
 state.baitStock={...initial.baitStock,...(state.baitStock||{})}; state.records={...(state.records||{})}; state.sonar=Boolean(state.sonar); const savedReels=Array.isArray(savedState?.ownedReels)?state.ownedReels:Array.from({length:state.reels},(_,index)=>index+1); state.ownedReels=[...new Set(savedReels.map(Number).filter(level=>Number.isInteger(level)&&level>=1&&level<=gear.reels.length))]; if(!state.ownedReels.length)state.ownedReels=[1]; if(!state.ownedReels.includes(state.reels))state.ownedReels.push(state.reels); state.reputation=Math.max(0,state.reputation||0); state.localReputation={...(state.localReputation||{})}; state.materials={...initial.materials,...(state.materials||{})}; state.treasures=[...(state.treasures||[])]; state.achievements={...(state.achievements||{})}; state.skills={...initial.skills,...(state.skills||{})}; state.base={...initial.base,...(state.base||{})}; Object.keys(state.base).forEach(key=>state.base[key]=Math.max(0,Math.min(3,Number(state.base[key])||0))); state.bossKills={...(state.bossKills||{})}; state.completedQuests=Math.max(0,state.completedQuests||0); state.travelDays=Math.max(1,Math.min(10,Number(state.travelDays)||3)); if(!state.trip||!travelRegions[state.trip.region]||!Number.isFinite(state.trip.until))state.trip=null; if(!baitTypes.some(bait=>bait.id===state.bait))state.bait='bread';
 // Convert legacy bait levels only once; newer saves already store a selected bait.
@@ -221,7 +238,9 @@ state.inventory=(Array.isArray(state.inventory)?state.inventory:[]).map(fish=>{c
 state.dailyReward=state.dailyReward&&Number.isInteger(state.dailyReward.day)&&Number.isInteger(state.dailyReward.streak)&&state.dailyReward.streak>0?state.dailyReward:null;
 state.released=Math.max(0,Number(state.released)||0);
 state.perfectCasts=Math.max(0,Number(state.perfectCasts)||0);
+state.credit=typeof state.credit==='object'&&state.credit!==null?{debt:Math.max(0,Number(state.credit.debt)||0),borrowedTotal:Math.max(0,Number(state.credit.borrowedTotal)||0),repaidTotal:Math.max(0,Number(state.credit.repaidTotal)||0)}:{debt:Math.max(0,Number(state.loan)||0),borrowedTotal:0,repaidTotal:0};
 let charge=0, charging=false, castTimer, casting=false, pulling=false, pullTimer, biteTimer, perfectCast=false, reel=0, session=0, shop='rods', mapRegion='home', world={weather:'clear',time:'day',event:'calm',season:'spring'};
+let fightState=null;
 function save(){
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));$('saveWarning').hidden=true;return true}
   catch{$('saveWarning').hidden=false;return false}
@@ -346,21 +365,43 @@ function renderWorld(){
   $('questContent').innerHTML=quest.completed?`<b>👩‍✈️ ${quest.npc} · задание выполнено</b><p>Отличная работа. Новый заказ появится завтра.</p><small>Награда получена: ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутации.</small>`:`<b>👩‍✈️ ${quest.npc} · ежедневное задание</b><p>Поймать ${quest.target} × ${quest.fish} весом от ${quest.weight} кг.</p><div class="quest-meter"><i style="width:${quest.progress/quest.target*100}%"></i></div><small>${quest.progress} / ${quest.target} · ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутации · ${bait.name} ×${quest.reward.amount}</small>`;
   if($('marketContent'))$('marketContent').innerHTML=`<b>🧺 Продавец Олег</b><p>Предложение: ${offer.name} ×3 за ${offerCost} ◉ · репутация ${localRep(state.location)}/10.</p><button onclick="buyTraderBait()" ${localRep(state.location)<10||state.coins<offerCost?'disabled':''}>Купить у продавца</button><hr><b>📈 Заказ на сегодня: ${market.fish}</b><small>Рынок платит на ${Math.round(market.bonus*100)}% больше за этот вид.</small>`
 }
-function syncWorld(){const weather=Object.keys(weatherData),times=Object.keys(timeData),rareEvents=Object.keys(eventData).filter(key=>key!=='calm'),seasonKeys=Object.keys(seasons),phase=Math.floor(session/20),eventPhase=Math.floor(session/60),eventKey=eventPhase%3===0?rareEvents[Math.floor(eventPhase/3)%rareEvents.length]:'calm',event=eventData[eventKey];world={weather:event.weather||weather[phase%weather.length],time:event.time||times[Math.floor(session/40)%times.length],event:eventKey,season:seasonKeys[Math.floor(session/90)%seasonKeys.length]};$('game').className=`game location-${state.location} time-${world.time} weather-${world.weather} season-${world.season}`;$('weatherFx').className=`weather-fx weather-${world.weather}`;renderWorld()}
+function syncWorld(){const weather=Object.keys(weatherData),times=Object.keys(timeData),rareEvents=Object.keys(eventData).filter(key=>key!=='calm'),seasonKeys=Object.keys(seasons),phase=Math.floor(session/20),eventPhase=Math.floor(session/60),eventKey=eventPhase%3===0?rareEvents[Math.floor(eventPhase/3)%rareEvents.length]:'calm',event=eventData[eventKey];world={weather:event.weather||weather[phase%weather.length],time:event.time||times[Math.floor(session/40)%times.length],event:eventKey,season:seasonKeys[Math.floor(session/90)%seasonKeys.length]};$('game').className=`game location-${state.location} time-${world.time} weather-${world.weather} season-${world.season} ${state.atDepth?'deep-water':''}`;$('weatherFx').className=`weather-fx weather-${world.weather}`;renderWorld()}
 function setTension(load=0){const {limit}=tackleLimits(),ratio=Math.min(1,load/limit),bar=$('tensionBar');$('tensionValue').textContent=`${load.toFixed(1)} / ${limit.toFixed(1)} кг`;bar.style.width=(ratio*100)+'%';bar.style.background=ratio>.82?'#ff6e60':ratio>.6?'#ffe067':'#58e5d0';$('equippedRod').classList.toggle('strained',ratio>.82);sceneRenderer.tension=ratio*100;return ratio}
 console.assert(playerLevel()>=1&&playerLevel()<=12,'Некорректный уровень игрока');console.assert(Object.keys(baseUpgrades).every(id=>Number.isInteger(state.base[id])),'Некорректные улучшения базы');
 function renderBase(){const root=$('baseStatus');if(!root)return;const location=locations[state.location],market=dailyMarket();root.innerHTML=`<span>📍 <b>${location.name}</b><small>${location.sub}</small></span><span>◉ <b>${state.coins.toLocaleString('ru-RU')}</b><small>монет в кошельке</small></span><span>⭐ <b>${playerLevel()} уровень</b><small>Заказ: ${market.fish}</small></span><button class="base-upgrade-launch" onclick="openModal('baseUpgrades')">🏗️ Улучшения базы</button>`}
+function renderBoats(){
+  const selectedBoat=boats.find(item=>item.id===state.boat),boat=boatProfiles[selectedBoat?.id]||null,status=$('boatStatus'),root=$('boatsContent'),launch=$('boatLaunchLabel');
+  if(launch)launch.textContent=state.atDepth&&selectedBoat?`Глубина · ${selectedBoat.depth} м`:'Берег';
+  if(!status||!root)return;
+  status.innerHTML=selectedBoat?`<b>${selectedBoat.icon} ${selectedBoat.name}</b><span>${state.atDepth?`На глубине ${selectedBoat.depth} м · трофейный пул активен`:'У причала · выйдите на глубину'}</span>`:`<b>Береговая ловля</b><span>Купите лодку, чтобы добраться до трофейных ям.</span>`;
+  root.innerHTML=boats.map(item=>{const profile=boatProfiles[item.id]||boatProfiles.rowboat,const owned=state.ownedBoats.includes(item.id),equipped=state.boat===item.id,canBuy=state.coins>=item.price;const action=!owned?`Купить · ${item.price.toLocaleString('ru-RU')} ◉`:equipped?(state.atDepth?'Вернуться к берегу':'Выйти на глубину'):'Экипировать';return `<article class="boat-card ${equipped?'equipped':''}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">${drawBoatArt(item)}<small>ГЛУБИНА ДО ${item.depth} М</small><h3>${item.name}</h3><p>${item.desc}</p><div class="boat-bonus">★ +${item.rarity} к редкости · ×${item.weight.toFixed(2)} к весу</div><button onclick="manageBoat('${item.id}')" ${!owned&&!canBuy?'disabled':''}>${action}</button></article>`}).join('');
+}
+function manageBoat(id){
+  const boat=boats.find(item=>item.id===id);if(!boat)return;
+  if(!state.ownedBoats.includes(id)){
+    if(state.coins<boat.price)return;
+    state.coins-=boat.price;state.ownedBoats.push(id);state.boat=id;state.atDepth=false;state.journal.unshift(`Куплено плавсредство: ${boat.name}.`);note(`${boat.name} готова у причала.`);
+  }else if(state.boat!==id){state.boat=id;state.atDepth=false;note(`Экипировано: ${boat.name}.`)}
+  else {state.atDepth=!state.atDepth;note(state.atDepth?`${boat.name}: вы вышли на глубину ${boat.depth} м. Трофейные ямы доступны.`:'Вы вернулись к берегу.');}
+  render();
+}
+window.manageBoat=manageBoat;
+$('releaseLine').onclick=releaseLine;
+let lastFightPointerX=null,lastHookPointerY=null;
+window.addEventListener('pointermove',event=>{if(lastFightPointerX!==null&&fightState?.direction){const delta=event.clientX-lastFightPointerX;if(Math.abs(delta)>24)parryFight(delta<0?'left':'right')}if(lastHookPointerY!==null&&sceneRenderer.fish?.hookWindowUntil>Date.now()&&lastHookPointerY-event.clientY>28)beginPull();lastFightPointerX=event.clientX;lastHookPointerY=event.clientY});
+window.addEventListener('keydown',event=>{if(event.repeat)return;if(event.code==='KeyA'){parryFight('left')}if(event.code==='KeyD'){parryFight('right')}if(event.code==='KeyS'){releaseLine()}});
 function render(){
+  renderBoats();
   activeTrip(); if(!locations[state.location])state.location='pier'; const location=locations[state.location];
   if(!techniques[state.technique])state.technique='float'; ensureNpcQuest();
   settleAuctions();
-  $('coins').textContent=state.coins.toLocaleString('ru-RU'); $('fishCount').textContent=state.inventory.length;
+  $('coins').textContent=state.coins.toLocaleString('ru-RU'); $('fishCount').textContent=state.inventory.length; const debt=state.credit?.debt||0,debtBadge=$('debtBadge');if(debtBadge){debtBadge.hidden=debt<=0;if(debt>0)$('debtAmount').textContent=debt.toLocaleString('ru-RU')}
   renderEquipment(); renderDailyGift(); updateFishingControls();
   $('hookName').textContent=gear.hooks[state.hooks-1][0]; $('locationLabel').textContent=`${location.name} · ${location.sub}`; $('depthPanel').classList.toggle('locked',!state.sonar); Object.assign($('scene').style,{backgroundImage:`url('${location.image}')`,backgroundSize:'cover',backgroundPosition:'center center',backgroundRepeat:'no-repeat'});
   $('bestCatch').textContent=state.best; syncWorld();
   $('playerLevel').textContent=playerLevel(); $('xpBar').style.width=levelProgress()+'%'; $('contractLabel').textContent=`Контракт: ${state.contract.progress}/${state.contract.target} · ${state.contract.reward} ◉`;
   if(!casting){setTension();updateDepth()}
-  renderKeepnet(); renderMarketRequest(); renderCatchActions(); renderMap(); renderBag(); renderProfile(); renderJournal(); renderIndex(); renderProgress(); renderShop(); renderPets(); renderAuctions(); renderBase(); renderBaseUpgrades(); save();
+  renderKeepnet(); renderMarketRequest(); renderCatchActions(); renderMap(); renderBag(); renderProfile(); renderJournal(); renderIndex(); renderProgress(); renderShop(); renderPets(); renderAuctions(); renderBase(); renderBaseUpgrades(); renderBank(); save();
 }
 function openModal(id){cancelCharge();if(casting)loseFish('Снасть витягнуто перед відкриттям меню.');closeAll();$(id).classList.add('open');render()}
 function closeAll(){document.querySelectorAll('.modal').forEach(x=>x.classList.remove('open'));if(document.activeElement?.closest('.modal'))$('castButton').focus({preventScroll:true})}
@@ -370,16 +411,46 @@ setInterval(time,1000);
 class ProceduralScene {
   constructor(canvas){this.c=canvas;this.x=50;this.y=61;this.cast=0;this.reel=0;this.tension=0;this.biting=false;this.pulling=false;this.fish=null;this.biteMode='idle';this.surface=false;this.fightOffset={x:0,y:0,targetX:0,targetY:0,next:0};this.t0=performance.now();this.resize();addEventListener('resize',()=>this.resize());requestAnimationFrame(t=>this.frame(t))}
   resize(){const d=Math.min(devicePixelRatio||1,2),r=this.c.getBoundingClientRect();this.w=Math.max(1,r.width);this.h=Math.max(1,r.height);this.c.width=this.w*d;this.c.height=this.h*d;this.g=this.c.getContext('2d');this.g.setTransform(d,0,0,d,0,0)}
-  startCast(power){this.cast=power;this.reel=0;this.x=31+power*.55;this.y=60;this.biting=false;this.fish=null;this.biteMode='idle';this.surface=false;const fl=$('equippedFloat');if(fl)fl.hidden=true;this.fightOffset={x:0,y:0,targetX:0,targetY:0,next:0}}
+  startCast(power){this.cast=power;this.reel=0;this.x=state.atDepth?52+power*.35:31+power*.55;this.y=state.atDepth?56:60;this.biting=false;this.fish=null;this.biteMode='idle';this.surface=false;const fl=$('equippedFloat');if(fl)fl.hidden=true;this.fightOffset={x:0,y:0,targetX:0,targetY:0,next:0}}
   beginBite(fish){this.fish=fish||this.fish;this.biteMode=this.fish?.reaction||'idle';this.surface=this.biteMode==='surface';if(this.biteMode==='escape')this.fightOffset.targetX=(Math.random()*2-1)*18;}
   clear(){this.cast=0;this.reel=0;this.tension=0;this.biting=false;this.pulling=false;this.fish=null;this.biteMode='idle';this.surface=false;const fl=$('equippedFloat');if(fl)fl.hidden=true;this.fightOffset={x:0,y:0,targetX:0,targetY:0,next:0}}
   floatPoint(w,h,now=performance.now()){const p=this.pulling?this.reel/100:0,base={x:w*(this.x+(56-this.x)*p)/100,y:h*(this.y+(84-this.y)*p)/100};if(this.pulling&&this.fish){const resistance=Math.min(1,Math.max(.2,this.fish.weight/Math.max(1,tackleLimits().rod))),amplitude=(this.biteMode==='surface'?12:(this.biteMode==='escape'?15:7)+resistance*24)*(1-p);if(now>=this.fightOffset.next){this.fightOffset.targetX=(Math.random()*2-1)*amplitude;this.fightOffset.targetY=(Math.random()*2-1)*amplitude*.65;this.fightOffset.next=now+Math.max(55,190-resistance*105)}this.fightOffset.x+=(this.fightOffset.targetX-this.fightOffset.x)*.13;this.fightOffset.y+=(this.fightOffset.targetY-this.fightOffset.y)*.13}else{this.fightOffset.x*=.82;this.fightOffset.y*=.82}return{x:Math.max(w*.05,Math.min(w*.95,base.x+this.fightOffset.x)),y:Math.max(h*.53,Math.min(h*.91,base.y+this.fightOffset.y))}}
   // Follow the artwork in its actual layout, including narrow screens.
-  rodTip(w,h){const image=$('equippedRodImage');if(image&&image.naturalWidth){const rect=image.getBoundingClientRect(),canvas=this.c.getBoundingClientRect(),scale=Math.min(rect.width/(image.naturalWidth||1536),rect.height/(image.naturalHeight||1024)),width=(image.naturalWidth||1536)*scale,height=(image.naturalHeight||1024)*scale;return {x:rect.left-canvas.left+(rect.width-width)/2+width*.97,y:rect.top-canvas.top+(rect.height-height)/2+height*.05}}return innerWidth<=700?{x:w*.47,y:h*.18}:{x:w*.43,y:h*.16}}
-  frame(now){const t=(now-this.t0)/1000,g=this.g,w=this.w,h=this.h;g.clearRect(0,0,w,h);this.ripples(g,w,h,t,now);this.line(g,w,h,now);if(this.cast)this.bobber(g,w,h,t,now);if(this.pulling&&this.surface)this.surfaceFight(g,w,h,t,now);requestAnimationFrame(n=>this.frame(n))}
+  rodTip(w,h){if(state.atDepth)return {x:w*.72,y:h*.28};const image=$('equippedRodImage');if(image&&image.naturalWidth){const rect=image.getBoundingClientRect(),canvas=this.c.getBoundingClientRect(),scale=Math.min(rect.width/(image.naturalWidth||1536),rect.height/(image.naturalHeight||1024)),width=(image.naturalWidth||1536)*scale,height=(image.naturalHeight||1024)*scale;return {x:rect.left-canvas.left+(rect.width-width)/2+width*.97,y:rect.top-canvas.top+(rect.height-height)/2+height*.05}}return innerWidth<=700?{x:w*.47,y:h*.18}:{x:w*.43,y:h*.16}}
+  frame(now){const t=(now-this.t0)/1000,g=this.g,w=this.w,h=this.h;g.clearRect(0,0,w,h);if(state.atDepth)this.deepWater(g,w,h,t);this.ripples(g,w,h,t,now);this.line(g,w,h,now);if(this.cast)this.bobber(g,w,h,t,now);if(this.pulling&&this.surface)this.surfaceFight(g,w,h,t,now);requestAnimationFrame(n=>this.frame(n))}
+  deepWater(g,w,h,t){
+    const roll=Math.sin(t*1.25)*.018,sway=Math.sin(t*1.7)*5,cx=w*.5,cy=h*.72;
+    g.save();
+    const ocean=g.createLinearGradient(0,h*.36,0,h);ocean.addColorStop(0,'rgba(28,129,162,.42)');ocean.addColorStop(.35,'rgba(5,90,125,.30)');ocean.addColorStop(1,'rgba(0,22,54,.62)');g.fillStyle=ocean;g.fillRect(0,h*.34,w,h);
+    // Layered waves: short bright crests in front and small, calmer waves on the horizon.
+    for(let row=0;row<30;row++){const p=row/29,y=h*(.42+p*.59),amp=2+p*10,step=18+p*31;g.strokeStyle=`rgba(188,244,250,${.18*(1-p)+.025})`;g.lineWidth=.55+p*1.05;g.beginPath();for(let x=-step;x<=w+step;x+=step){const wave=Math.sin(x*.028+t*(1.25+p*1.9)+row*1.73)*amp+Math.sin(x*.071-t*1.9+row)*amp*.38;x===-step?g.moveTo(x,y+wave):g.lineTo(x,y+wave)}g.stroke()}
+    for(let i=0;i<34;i++){const x=(i*97+t*(22+i%5*8))%(w+100)-50,y=h*(.48+((i*37)%100)/190),size=3+(i%5)*3;g.fillStyle=`rgba(220,255,255,${.05+(i%4)*.018})`;g.beginPath();g.ellipse(x,y,size,size*.22,0,0,Math.PI*2);g.fill()}
+    // First-person cockpit: the bow fills the foreground, so the player is sitting inside it.
+    g.translate(0,sway);g.rotate(roll);
+    const cockpit=g.createLinearGradient(0,h*.58,0,h);cockpit.addColorStop(0,'#c6d7cf');cockpit.addColorStop(.13,'#497d83');cockpit.addColorStop(.14,'#092e3b');cockpit.addColorStop(1,'#021520');g.fillStyle=cockpit;g.beginPath();g.moveTo(0,h*.66);g.quadraticCurveTo(w*.5,h*.53,w,h*.66);g.lineTo(w,h);g.lineTo(0,h);g.closePath();g.fill();
+    g.strokeStyle='#c9f3e8';g.lineWidth=2;g.beginPath();g.moveTo(0,h*.66);g.quadraticCurveTo(w*.5,h*.53,w,h*.66);g.stroke();
+    const inner=g.createLinearGradient(0,h*.67,0,h);inner.addColorStop(0,'#183f48');inner.addColorStop(1,'#061a26');g.fillStyle=inner;g.beginPath();g.moveTo(w*.11,h);g.lineTo(w*.26,h*.72);g.quadraticCurveTo(w*.5,h*.63,w*.74,h*.72);g.lineTo(w*.89,h);g.closePath();g.fill();
+    g.strokeStyle='rgba(166,231,225,.34)';g.lineWidth=1;for(let i=1;i<7;i++){const x=w*i/7;g.beginPath();g.moveTo(x,h);g.lineTo(w*.5+(x-w*.5)*.43,h*.68);g.stroke()}
+    // Player's sleeves and hands in front of the camera.
+    g.lineCap='round';g.strokeStyle='#314c68';g.lineWidth=Math.max(20,w*.035);g.beginPath();g.moveTo(w*.24,h*1.03);g.lineTo(w*.43,h*.78);g.moveTo(w*.78,h*1.03);g.lineTo(w*.59,h*.78);g.stroke();
+    g.strokeStyle='#e8ae79';g.lineWidth=Math.max(13,w*.022);g.beginPath();g.moveTo(w*.43,h*.78);g.lineTo(w*.52,h*.73);g.moveTo(w*.59,h*.78);g.lineTo(w*.55,h*.73);g.stroke();
+    g.strokeStyle='#c7e9ee';g.lineWidth=3;g.beginPath();g.moveTo(w*.535,h*.73);g.lineTo(w*.63,h*.47);g.lineTo(w*.72,h*.28);g.stroke();g.fillStyle='#ffdb79';g.beginPath();g.arc(w*.72,h*.28,3,0,Math.PI*2);g.fill();
+    g.restore();
+  }
   ripples(g,w,h,t,now){if(!this.cast)return;const p=this.floatPoint(w,h,now);for(let i=0;i<3;i++){const r=(t*30+i*19)%70;g.strokeStyle=`rgba(225,255,255,${.46-r/170})`;g.lineWidth=1.2;g.beginPath();g.ellipse(p.x,p.y,r,r*.3,0,0,Math.PI*2);g.stroke()}}
   surfaceFight(g,w,h,t,now){const p=this.floatPoint(w,h,now),jump=Math.sin(t*12)*5;g.save();g.strokeStyle='rgba(235,255,255,.78)';g.lineWidth=1.6;for(let i=0;i<4;i++){const a=t*5+i*Math.PI/2,x=p.x+Math.cos(a)*20,y=p.y+Math.sin(a)*7+jump;g.beginPath();g.moveTo(p.x,y);g.lineTo(x,y-9-Math.abs(Math.sin(a))*8);g.stroke()}g.fillStyle='rgba(220,250,255,.72)';g.beginPath();g.ellipse(p.x-11,p.y+jump,13,4,-.35,0,Math.PI*2);g.fill();g.restore()}
-  line(g,w,h,now){if(!this.cast)return;const p=this.floatPoint(w,h,now),tip=this.rodTip(w,h);g.save();g.strokeStyle=this.tension>82?'#ff8a7d':this.tension>60?'#ffe078':(lineColors?.[state.lines-1]||'#e5fbffdd');g.lineWidth=.9+state.lines*.16+this.tension/100;g.beginPath();g.moveTo(tip.x,tip.y);g.lineTo(p.x,p.y);g.stroke();g.restore()}
+  line(g,w,h,now){
+    if(!this.cast)return;
+    const p=this.floatPoint(w,h,now),tip=this.rodTip(w,h),dx=p.x-tip.x,dy=p.y-tip.y;
+    // A real cast has a slight sag; while fighting, the line becomes straight and taut.
+    const slack=this.pulling?2:Math.min(22,Math.max(7,Math.hypot(dx,dy)*.11));
+    const controlX=tip.x+dx*.52,controlY=tip.y+dy*.48+slack;
+    const color=this.tension>82?'#ff8a7d':this.tension>60?'#ffe078':(lineColors?.[state.lines-1]||'#e5fbffdd');
+    g.save();g.lineCap='round';g.shadowColor=color;g.shadowBlur=state.atDepth?5:2;g.strokeStyle=color;g.lineWidth=1.2+state.lines*.16+this.tension/95;
+    g.beginPath();g.moveTo(tip.x,tip.y);g.quadraticCurveTo(controlX,controlY,p.x,p.y);g.stroke();
+    // Small guide marker makes the connection point at the bobber unambiguous.
+    g.shadowBlur=0;g.fillStyle='#f4ffff';g.beginPath();g.arc(p.x,p.y,1.7,0,Math.PI*2);g.fill();g.restore();
+  }
   sky(g,w,h,t,loc){const sets={pier:['#103c71','#ef9274','#ffd68a'],ocean:['#06345f','#6e9fc0','#d5dbca'],swamp:['#1a302a','#63765c','#b0a77c']}[loc];const sky=g.createLinearGradient(0,0,0,h*.58);sky.addColorStop(0,sets[0]);sky.addColorStop(.72,sets[1]);sky.addColorStop(1,sets[2]);g.fillStyle=sky;g.fillRect(0,0,w,h*.6);const sx=w*.77,sy=h*.22;const sun=g.createRadialGradient(sx,sy,2,sx,sy,h*.11);sun.addColorStop(0,'#fff9cf');sun.addColorStop(.35,'#ffe8a4');sun.addColorStop(1,'#ffcf8400');g.fillStyle=sun;g.fillRect(0,0,w,h*.6);g.fillStyle='rgba(255,246,232,.35)';for(let i=0;i<5;i++){let x=((i*263+t*9)% (w+220))-110,y=h*(.12+i*.055);g.beginPath();g.ellipse(x,y,90,12,0,0,Math.PI*2);g.ellipse(x+45,y-10,38,20,0,0,Math.PI*2);g.fill()}g.fillStyle=loc==='swamp'?'#244437':'#1a5660';g.beginPath();g.moveTo(0,h*.51);for(let x=0;x<=w;x+=35){const y=h*(.43+((Math.sin(x*.027)+Math.sin(x*.071))*0.025));g.lineTo(x,y)}g.lineTo(w,h*.57);g.lineTo(0,h*.57);g.fill();if(loc!=='swamp'){g.fillStyle='#263f4b';g.beginPath();g.moveTo(w*.73,h*.47);g.lineTo(w*.76,h*.39);g.lineTo(w*.79,h*.47);g.fill();g.fillRect(w*.755,h*.445,w*.045,2)}}
   water(g,w,h,t,loc){const top=h*.51,sets={pier:['#1786a0','#043150'],ocean:['#087da6','#012642'],swamp:['#496f49','#102d2b']}[loc],grad=g.createLinearGradient(0,top,0,h);grad.addColorStop(0,sets[0]);grad.addColorStop(1,sets[1]);g.fillStyle=grad;g.fillRect(0,top,w,h-top);for(let row=0;row<18;row++){const y=top+row*18;g.strokeStyle=`rgba(210,255,255,${.11-row*.004})`;g.lineWidth=1;g.beginPath();for(let x=0;x<=w;x+=8){const wave=Math.sin(x*.025+t*(1.5+(loc==='ocean'?1:0))+row*.8)*((row+2)/10)+Math.sin(x*.07-t*1.7)*1.5; x?g.lineTo(x,y+wave):g.moveTo(x,y+wave)}g.stroke()}const rx=w*.77;for(let i=0;i<18;i++){const yy=top+18+i*i*1.5;const ww=Math.max(3,5+i*5);g.fillStyle=`rgba(255,239,178,${.22-i*.01})`;g.fillRect(rx-ww/2+Math.sin(t*3+i)*5,yy,ww,1.5)}if(this.cast){const x=w*this.x/100,y=h*this.y/100;for(let i=0;i<3;i++){const r=((t*42+i*19)%72);g.strokeStyle=`rgba(220,255,255,${.5-r/145})`;g.beginPath();g.ellipse(x,y,r,r*.3,0,0,Math.PI*2);g.stroke()}}}
   pier(g,w,h){g.save();g.fillStyle='#51311f';g.beginPath();g.moveTo(0,h);g.lineTo(w,h);g.lineTo(w*.72,h*.78);g.lineTo(w*.28,h*.78);g.closePath();g.fill();g.strokeStyle='#9a6139';g.lineWidth=3;for(let i=0;i<9;i++){const x=w*.28+(w*.44/8)*i;g.beginPath();g.moveTo(x,h*.78);g.lineTo(x+(x-w*.5)*.7,h);g.stroke()}g.restore()}
@@ -399,6 +470,13 @@ function pickBiteReaction(fish={}){
   return 'normal';
 }
 function pickFish(){
+  const boat=boats.find(item=>item.id===state.boat);
+  if(state.atDepth&&boat&&Math.random()<.12+boat.rarity*.035){
+    const deepPool=activePool().filter(item=>item.weight[1]>=1.5);
+    const species=deepPool[Math.floor(Math.random()*deepPool.length)]||activePool()[0],range=species.weight;
+    const weight=+((range[1]*1.3+Math.random()*range[1]*(1.1+boat.rarity*.25))*boat.weight).toFixed(2);
+    return {id:Date.now()+Math.random(),name:`Трофейный ${species.name}`,rarity:5,weight,pricePerKg:Math.round(species.pricePerKg*(2.2+boat.rarity*.35)),clean:false,cuts:0,location:state.location,image:fishImages[species.name],reaction:pickBiteReaction({weight}),deep:true};
+  }
   const technique=activeTechnique(),event=eventData[world.event],bait=activeBait(),eventRarity=event.nightOnly&&world.time!=='night'?0:event.rarity,max=Math.min(5,state.rods),bonus=Math.max(0,state.rods-1)+bait.rarity+technique.rarity+eventRarity; let weights=[Math.max(18,64-bonus*4),24+bonus,8+bonus,3+Math.ceil(bonus/2),1+Math.floor(bonus/3)]; if(petBonus('luck')){weights=[weights[0]-8,weights[1]+2,weights[2]+2,weights[3]+2,weights[4]+2]}
   const boss=availableBoss();if(boss&&Math.random()<.025){const weight=+(boss.weight[0]+Math.random()*(boss.weight[1]-boss.weight[0])).toFixed(2);return {id:Date.now()+Math.random(),name:boss.name,rarity:5,weight,pricePerKg:boss.pricePerKg,clean:false,cuts:0,location:state.location,boss:boss.id,image:fishImages[boss.base],reaction:pickBiteReaction({weight})}}
   const pool=activePool();
@@ -434,7 +512,7 @@ function bite(){
   if(!casting)return;sceneRenderer.biting=true;
   const falseBite=Math.random()<Math.min(.42,Math.max(.05,.18/worldActivity()));
   if(falseBite){note('Ложная поклёвка — рыба ушла с приманкой.');biteTimer=setTimeout(()=>loseFish('Ложная поклёвка: улова нет.'),900);return}
-  sceneRenderer.fish=pickFish();sceneRenderer.beginBite(sceneRenderer.fish);updateFishingControls();
+  sceneRenderer.fish=pickFish();sceneRenderer.fish.hookWindowUntil=Date.now()+1000;sceneRenderer.beginBite(sceneRenderer.fish);updateFishingControls();
   if(sceneRenderer.biteMode==='cautious'){note('Осторожная поклёвка — рыба осторожно взяла наживку. Не делайте резких рывков.');}
   else if(sceneRenderer.biteMode==='escape'){note('Рыба резко ушла в сторону! Она готова рвануть в любой момент.');}
   else if(sceneRenderer.biteMode==='surface'){note('Рыба бьётся у поверхности — держите снасть ровно и не давайте ей уйти.');sceneRenderer.surface=true;}
@@ -450,19 +528,31 @@ function bite(){
     else{loseFish('Рыба сорвалась: вы не успели подтянуть снасть.')}
   }, reactionWindow + Math.random()*1100);
 }
+function updateFightHud(){const hud=$('fightHud');if(!hud)return;const active=fightState&&(fightState.direction||fightState.snag);hud.hidden=!active;if(!active)return;const arrow=$('fightArrow'),title=$('fightTitle'),hint=$('fightHint'),timer=$('fightTimer'),release=$('releaseLine');hud.classList.toggle('snag',!!fightState.snag);release.hidden=!fightState.snag;if(fightState.snag){title.textContent='ЗАЦЕП ЗА КОРЯГУ';arrow.textContent='⚓';hint.textContent='Стравьте леску аккуратно, чтобы спасти крючок и наживку';timer.style.width=`${Math.max(0,100-(Date.now()-fightState.snagAt)/42)}%`;return}title.textContent='РЫБА ТЯНЕТ';arrow.textContent=fightState.direction==='left'?'←':'→';hint.textContent=`Парируйте ${fightState.direction==='left'?'влево':'вправо'}: ${fightState.direction==='left'?'A':'D'} или движением мыши`;timer.style.width=`${Math.max(0,(fightState.deadline-Date.now())/16)}%`}
+function clearFight(){if(fightState?.timer)clearInterval(fightState.timer);fightState=null;updateFightHud()}
+function startDirectionChallenge(fish){if(!casting||!pulling||fightState?.snag)return;const direction=Math.random()<.5?'left':'right',deadline=Date.now()+1600;fightState={direction,deadline,fish,timer:setInterval(()=>{if(!casting||!pulling){clearFight();return}if(Date.now()>=deadline){clearInterval(fightState.timer);fightState.penaltyUntil=Date.now()+1600;fightState.direction=null;note('Рывок не парирован — натяжение удвоено!');updateFightHud();setTimeout(()=>startDirectionChallenge(fish),700);return}updateFightHud()},60)};updateFightHud()}
+function startFightChallenge(fish){clearFight();setTimeout(()=>startDirectionChallenge(fish),850)}
+function parryFight(direction){if(!fightState?.direction||fightState.direction!==direction||Date.now()>fightState.deadline)return;clearInterval(fightState.timer);fightState.direction=null;fightState.penaltyUntil=0;note('Парирование выполнено — натяжение под контролем.');updateFightHud();setTimeout(()=>startDirectionChallenge(fightState.fish),900)}
+function startSnag(fish){if(fightState?.snag)return;fish.snagAt=Date.now();fightState={fish,snag:true,snagAt:fish.snagAt,timer:setInterval(()=>{if(!casting||!fightState?.snag){clearFight();return}if(Date.now()-fightState.snagAt>4200)loseFish('Зацеп за корягу: крючок и наживка потеряны.');else updateFightHud()},60)};note('Зацеп за корягу! Стравьте леску клавишей S или кнопкой.');updateFightHud()}
+function releaseLine(){const fish=sceneRenderer.fish;if(!casting||!fish||!fightState?.snag)return;clearInterval(fightState.timer);fish.snagResolved=true;fish.snagAt=0;reel=Math.max(8,reel-19);sceneRenderer.reel=reel;setTension(Math.max(0,fightLoad(fish,reel)*.45));note('Леска стравлена — крючок спасён.');fightState=null;updateFightHud();setTimeout(()=>startDirectionChallenge(fish),750)}
 function startPull(e){if(e.button===0&&!e.target.closest('button,input,select,.modal,.butcher-overlay'))beginPull()}
 function beginPull(){
   if(!casting||pulling||fishingBlocked())return;
   const fish=sceneRenderer.fish;if(!fish){note('Это была ложная поклёвка.');return}
+  if(fish.hookWindowUntil&&Date.now()<=fish.hookWindowUntil){fish.idealHook=true;state.xp+=10;note('Идеальная подсечка! Шанс схода заметно снижен.');}
   const limits=tackleLimits();
   if(fish.weight>limits.hook){loseFish('Крючок слишком мал для этого улова.');return}
   if(fish.weight>limits.rod){loseFish('Удилище не выдержало вес улова.');return}
-  pulling=true;sceneRenderer.pulling=true;sceneRenderer.surface=fish.reaction==='surface';
+  pulling=true;sceneRenderer.pulling=true;sceneRenderer.surface=fish.reaction==='surface';startFightChallenge(fish);
   $('equippedRod').classList.add('pulling');updateFishingControls();
   note(fish.reaction==='cautious'?'Осторожная поклёвка: аккуратно подматывайте, чтобы не спугнуть рыбу.':fish.reaction==='escape'?'Резкий уход: удерживайте леску и не бросайте рыбу в сторону!':fish.reaction==='surface'?'Бой у поверхности: держите снасть ровно и давите сверху.':`Подтягивайте снасть: ${fishWeight(fish)} на крючке.`);
   pullTimer=setInterval(()=>{
     reel=Math.min(100,reel+8*limits.reel);sceneRenderer.reel=reel;updateDepth(true);$('depthNeedle').style.left=(20+reel*.7)+'%';
-    const load=fightLoad(fish,reel);
+    let load=fightLoad(fish,reel),parryPenalty=fightState?.penaltyUntil>Date.now()?2:1;
+    if(fish.idealHook)load*=.78;
+    if(reel>34&&!fish.snagChecked){fish.snagChecked=true;if(Math.random()<.18){startSnag(fish);return}}
+    if(fightState?.snag){setTension(load*2);return}
+    load*=parryPenalty;
     if(fish.reaction==='escape'&&reel>55&&Math.random()<.24){loseFish('Резкий уход: рыба бросилась в сторону и сорвала снасть.');return}
     if(fish.reaction==='cautious'&&reel>76&&Math.random()<.17){loseFish('Осторожная рыба сбежала с крючка: слишком резкая подмотка.');return}
     if(fish.reaction==='surface'){sceneRenderer.surface=true;sceneRenderer.fish.reaction='surface';setTension(load*1.06)}
@@ -472,17 +562,20 @@ function beginPull(){
 }
 function stopPull(e){
   if(e.button!==0||!pulling)return;
+  clearFight();
   pulling=false;sceneRenderer.pulling=false;sceneRenderer.surface=(sceneRenderer.fish&&sceneRenderer.fish.reaction==='surface');
   $('equippedRod').classList.remove('pulling');clearInterval(pullTimer);updateFishingControls();
   const fish=sceneRenderer.fish;if(fish)setTension(fightLoad(fish,reel)*.65);
   if(casting)note(fish&&fish.reaction==='escape'?'Рыба всё ещё в панике — держите снасть без резких рывков.':fish&&fish.reaction==='cautious'?'Тут рыба ещё настороже — лучше немного выждать.':'Риба пручається — продовжуй підтягувати.');
 }
 function loseFish(reason){
+  clearFight();
   if(!casting)return;perfectCast=false;casting=false;pulling=false;clearInterval(pullTimer);clearTimeout(biteTimer);
   $('equippedRod').classList.remove('pulling');sceneRenderer.clear();setTension();resetTournamentStreak();
   updateFishingControls();state.journal.unshift(reason);state.journal=state.journal.slice(0,30);note(reason);render();
 }
 function landFish(){
+  clearFight();
   if(!casting)return; const visibleFish=sceneRenderer.fish; casting=false; pulling=false; clearInterval(pullTimer); clearTimeout(biteTimer); $('equippedRod').classList.remove('pulling'); sceneRenderer.clear(); setTension();
   const catches=[]; if(visibleFish)catches.push(visibleFish); while(catches.length<state.hooks)catches.push(pickFish()); catches.forEach(fish=>{assignQuality(fish);fish.bait=state.bait;fish.perfectCast=perfectCast}); state.inventory.unshift(...catches);
   if(perfectCast){state.xp+=15;state.perfectCasts++;state.journal.unshift('🎯 Точний закид: +15 XP за успішний улов.')}perfectCast=false;
