@@ -374,7 +374,14 @@ function renderBoats(){
   if(launch)launch.textContent=state.atDepth&&selectedBoat?`Глубина · ${selectedBoat.depth} м`:'Берег';
   if(!status||!root)return;
   status.innerHTML=selectedBoat?`<b>${selectedBoat.icon} ${selectedBoat.name}</b><span>${state.atDepth?`На глубине ${selectedBoat.depth} м · трофейный пул активен`:'У причала · выйдите на глубину'}</span>`:`<b>Береговая ловля</b><span>Купите лодку, чтобы добраться до трофейных ям.</span>`;
-  root.innerHTML=boats.map(item=>{const profile=boatProfiles[item.id]||boatProfiles.rowboat,const owned=state.ownedBoats.includes(item.id),equipped=state.boat===item.id,canBuy=state.coins>=item.price;const action=!owned?`Купить · ${item.price.toLocaleString('ru-RU')} ◉`:equipped?(state.atDepth?'Вернуться к берегу':'Выйти на глубину'):'Экипировать';return `<article class="boat-card ${equipped?'equipped':''}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">${drawBoatArt(item)}<small>ГЛУБИНА ДО ${item.depth} М</small><h3>${item.name}</h3><p>${item.desc}</p><div class="boat-bonus">★ +${item.rarity} к редкости · ×${item.weight.toFixed(2)} к весу</div><button onclick="manageBoat('${item.id}')" ${!owned&&!canBuy?'disabled':''}>${action}</button></article>`}).join('');
+  root.innerHTML=boats.map(item=>{
+    const profile=boatProfiles[item.id]||boatProfiles.rowboat;
+    const owned=state.ownedBoats.includes(item.id);
+    const equipped=state.boat===item.id;
+    const canBuy=state.coins>=item.price;
+    const action=!owned?`Купить · ${item.price.toLocaleString('ru-RU')} ◉`:equipped?(state.atDepth?'Вернуться к берегу':'Выйти на глубину'):'Экипировать';
+    return `<article class="boat-card ${equipped?'equipped':''}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">${drawBoatArt(item)}<small>ГЛУБИНА ДО ${item.depth} М</small><h3>${item.name}</h3><p>${item.desc}</p><div class="boat-bonus">★ +${item.rarity} к редкости · ×${item.weight.toFixed(2)} к весу</div><button onclick="manageBoat('${item.id}')" ${!owned&&!canBuy?'disabled':''}>${action}</button></article>`;
+  }).join('');
 }
 function manageBoat(id){
   const boat=boats.find(item=>item.id===id);if(!boat)return;
