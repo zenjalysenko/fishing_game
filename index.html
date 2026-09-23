@@ -7,7 +7,7 @@
   <meta name="description" content="Українська Рибалка — атмосферна браузерна гра про риболовлю: понад 50 видів риб, десятки водойм, снасті, турніри та експедиції.">
   <title>Українська Рибалка — Морський курорт</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=game-fixes-6">
+  <link rel="stylesheet" href="styles.css?v=boat-visuals-2">
 </head>
 <body>
   <aside class="save-warning" id="saveWarning" role="alert" hidden>
@@ -18,73 +18,73 @@
   <main class="game location-pier" id="game">
     <!-- Верхня панель швидких налаштувань (звук, повноекранний режим) -->
     <header class="top-quick-bar" aria-label="Швидкі налаштування">
-      <button type="button" id="soundToggle" class="quick-btn" title="Увімкнути/вимкнути звук (M)" aria-label="Звук">🔊</button>
-      <input type="range" id="soundVolume" class="volume-slider" min="0" max="1" step="0.05" value="0.7" title="Гучність звуку" aria-label="Гучність">
-      <button type="button" id="fullscreenToggle" class="quick-btn" title="Повноекранний режим" aria-label="Повноекранний режим">⛶</button>
-      <button type="button" data-modal="settings" class="quick-btn" title="Налаштування та збереження" aria-label="Налаштування">⚙</button>
+      <button type="button" id="soundToggle" class="quick-btn" title="Увімкнути/вимкнути звук (M)" data-i18n-title="soundToggleTitle" aria-label="Звук">🔊</button>
+      <input type="range" id="soundVolume" class="volume-slider" min="0" max="1" step="0.05" value="0.7" title="Гучність звуку" data-i18n-title="soundVolumeTitle" aria-label="Гучність">
+      <button type="button" id="fullscreenToggle" class="quick-btn" title="Повноекранний режим" data-i18n-title="fullscreenTitle" aria-label="Повноекранний режим">⛶</button>
+      <button type="button" data-modal="settings" class="quick-btn" title="Налаштування та збереження" data-i18n-title="settingsBtnTitle" aria-label="Налаштування">⚙</button>
     </header>
 
     <section class="fight-hud glass" id="fightHud" hidden aria-live="polite">
       <div class="fight-header">
-        <span class="fight-badge">⚡ БОРОТЬБА</span>
-        <b class="fight-title" id="fightTitle">РИБА ПРУЧАЄТЬСЯ</b>
+        <span class="fight-badge" data-i18n="fightBadge">⚡ БОРОТЬБА</span>
+        <b class="fight-title" id="fightTitle" data-i18n="fightTitle">РИБА ПРУЧАЄТЬСЯ</b>
       </div>
       <div class="fight-body">
         <div class="fight-direction">
           <b id="fightArrow" aria-hidden="true">↔</b>
-          <span id="fightHint">Ривок! Послабте волосінь (S)</span>
+          <span id="fightHint" data-i18n="fightHint">Ривок! Послабте волосінь (S)</span>
         </div>
         <div class="fight-timer" title="Рівень натягу волосіні">
           <i id="fightTimer"></i>
         </div>
       </div>
       <button type="button" id="releaseLine" class="fight-release-btn" title="Послабити волосінь, щоб запобігти обриву (S)">
-        <span>ПОСЛАБИТИ ВОЛОСІНЬ</span>
+        <span data-i18n="releaseLine">ПОСЛАБИТИ ВОЛОСІНЬ</span>
         <kbd>S</kbd>
       </button>
     </section>
 
-    <button class="boat-launch glass" data-modal="boats" type="button" aria-label="Плавзасіб">⚓ <span>ТРАНСПОРТ</span><small id="boatLaunchLabel">Берег</small></button>
+    <button class="boat-launch glass" data-modal="boats" type="button" aria-label="Плавзасіб">⚓ <span data-i18n="transport">ТРАНСПОРТ</span><small id="boatLaunchLabel" data-i18n="boatLaunchLabel">Берег</small></button>
     <div class="modal" id="boats"><section class="boat-window"><button class="close">×</button><header class="boat-header"><span>⚓ Човнова станція</span><small>ПЛАВЗАСОБИ ДЛЯ ВИХОДУ НА ГЛИБОКІ ТРОФЕЙНІ ЯМИ</small></header><p class="boat-intro">На глибині тримаються трофейні гіганти, недоступні з берега. Купіть плавзасіб, екіпіруйте його та вийдіть у відкриту воду.</p><div class="boat-status" id="boatStatus"></div><div class="boats-grid" id="boatsContent"></div></section></div>
 
     <div class="scene" id="scene"><canvas id="worldCanvas" aria-label="Сцена риболовлі: море, причал, вудка та риба"></canvas><div class="scene-vignette"></div></div>
     <div class="weather-fx" id="weatherFx" aria-hidden="true"></div>
     <div class="equipped-rod" id="equippedRod" aria-hidden="true"><img id="equippedRodImage" src="assets/rods/rod-01.png" alt="Вудка"></div>
-    <img id="equippedFloat" class="equipped-float" src="assets/floats/float-01.png" alt="Поплавок" aria-hidden="true" hidden>
+    <img id="equippedFloat" class="equipped-float" src="assets/floats/float-01.png" alt="Поплавок" aria-hidden="true">
 
     <section class="depth-panel glass" id="depthPanel" aria-label="Ехолот">
-      <header class="sonar-header"><span class="sonar-brand"><i aria-hidden="true">⌁</i> ЕХОЛОТ</span><span class="sonar-status"><i></i> СКАНУВАННЯ</span></header>
-      <div class="depth-graph"><div class="sonar-scale" aria-hidden="true"><span>0</span><span>5</span><span>10</span><span>15 м</span></div><svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="M0 58 L24 53 L47 62 L72 41 L98 54 L124 30 L150 46 L179 21 L207 36 L240 15 V96 H0Z"/></svg><b id="depthNeedle" aria-hidden="true"></b><div class="sonar-reading"><b id="depthReadout">8.4</b><span>М ГЛИБИНА</span></div></div>
-      <div class="depth-meta"><span><small>ОСНАЩЕННЯ</small><b id="hookName">Мідний гачок</b></span><span><small>ЛОКАЦІЯ</small><b id="locationLabel">Лісове озеро · тиха бухта</b></span></div>
-      <div class="tension"><span>НАВАНТАЖЕННЯ СНАСТІ</span><b id="tensionValue">0.0 / 3.0 кг</b><i><em id="tensionBar"></em></i></div>
-      <div class="sonar-lock" id="sonarLock"><i aria-hidden="true">⌁</i><b>Ехолот не встановлено</b><small>Відкрийте рельєф дна та навантаження снасті</small><span>МАГАЗИН → ЕХОЛОТ</span></div>
+      <header class="sonar-header"><span class="sonar-brand"><i aria-hidden="true">⌁</i> <span data-i18n="sonarBrand">ЕХОЛОТ</span></span><span class="sonar-status"><i></i> <span data-i18n="sonarStatus">СКАНУВАННЯ</span></span></header>
+      <div class="depth-graph"><div class="sonar-scale" aria-hidden="true"><span>0</span><span>5</span><span>10</span><span>15 м</span></div><svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="M0 58 L24 53 L47 62 L72 41 L98 54 L124 30 L150 46 L179 21 L207 36 L240 15 V96 H0Z"/></svg><b id="depthNeedle" aria-hidden="true"></b><div class="sonar-reading"><b id="depthReadout">8.4</b><span data-i18n="sonarDepthUnit">М ГЛИБИНА</span></div></div>
+      <div class="depth-meta"><span><small data-i18n="sonarGearLabel">ОСНАЩЕННЯ</small><b id="hookName">Мідний гачок</b></span><span><small data-i18n="sonarLocationLabel">ЛОКАЦІЯ</small><b id="locationLabel">Лісове озеро · тиха бухта</b></span></div>
+      <div class="tension"><span data-i18n="tensionLabel">НАВАНТАЖЕННЯ СНАСТІ</span><b id="tensionValue">0.0 / 3.0 кг</b><i><em id="tensionBar"></em></i></div>
+      <div class="sonar-lock" id="sonarLock"><i aria-hidden="true">⌁</i><b data-i18n="sonarLockTitle">Ехолот не встановлено</b><small data-i18n="sonarLockHint">Відкрийте рельєф дна та навантаження снасті</small><span data-i18n="sonarLockAction">МАГАЗИН → ЕХОЛОТ</span></div>
     </section>
 
     <nav class="left-menu" aria-label="Швидкі дії">
-      <button data-modal="keepnet"><img class="menu-icon" src="assets/ui/keepnet-icon.png" alt=""><span>Садок</span></button>
-      <button data-modal="base" class="base-entry"><img class="menu-icon" src="assets/ui/base-icon.png" alt=""><span>База</span></button>
-      <button data-modal="profile"><img class="menu-icon" src="assets/ui/profile-icon.png" alt=""><span>Рибалка</span></button>
-      <button data-modal="journal"><img class="menu-icon" src="assets/ui/journal-icon.png" alt=""><span>Щоденник</span></button>
+      <button data-modal="keepnet"><img class="menu-icon" src="assets/ui/keepnet-icon.png" alt=""><span data-i18n="menuKeepnet">Садок</span></button>
+      <button data-modal="base" class="base-entry"><img class="menu-icon" src="assets/ui/base-icon.png" alt=""><span data-i18n="menuBase">База</span></button>
+      <button data-modal="profile"><img class="menu-icon" src="assets/ui/profile-icon.png" alt=""><span data-i18n="menuProfile">Рибалка</span></button>
+      <button data-modal="journal"><img class="menu-icon" src="assets/ui/journal-icon.png" alt=""><span data-i18n="menuJournal">Щоденник</span></button>
     </nav>
 
-    <aside class="session glass"><small>СЕСІЯ</small><b id="sessionTime">00:00</b><span>Кращий улов: <strong id="bestCatch">—</strong></span></aside>
-    <aside class="progression glass"><strong>Рівень <b id="playerLevel">1</b></strong><div class="xp-meter"><i id="xpBar"></i></div><small id="contractLabel">Контракт: 0/8 · 300 ◉</small></aside>
+    <aside class="session glass"><small data-i18n="sessionLabel">СЕСІЯ</small><b id="sessionTime">00:00</b><span><span data-i18n="bestCatchLabel">Кращий улов: </span><strong id="bestCatch">—</strong></span></aside>
+    <aside class="progression glass"><strong><span data-i18n="levelLabel">Рівень </span><b id="playerLevel">1</b></strong><div class="xp-meter"><i id="xpBar"></i></div><small id="contractLabel">Контракт: 0/8 · 300 ◉</small></aside>
     <button class="world-panel glass" data-modal="world"><small id="weatherStatus">☀ Ясно</small><b id="timeStatus">День</b><span id="eventStatus">Тихий сезон</span></button>
 
     <button class="daily-gift glass" id="dailyGift" type="button"></button>
 
     <section class="cast-control" aria-label="Керування риболовлею">
-      <div class="cast-message" id="castMessage" role="status">Закид: ПКМ або пробіл · підтягування: ЛКМ або R</div>
+      <div class="cast-message" id="castMessage" role="status" data-i18n="castMessage">Закид: ПКМ або пробіл · підтягування: ЛКМ або R</div>
       <div class="power-meter" id="powerMeter" role="progressbar" aria-label="Сила закиду" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="castPower"></i><span class="perfect-zone" title="Точний закид: 66–78%"></span></div>
-      <small class="cast-hint">Золота зона 66–78%: швидший кльов і +15 XP за улов</small>
+      <small class="cast-hint" data-i18n="castHint">Золота зона 66–78%: швидший кльов і +15 XP за улов</small>
       <div class="fishing-buttons">
-        <button id="castButton" type="button" aria-keyshortcuts="Space">Закинути <small>утримуй · пробіл</small></button>
-        <button id="pullButton" type="button" aria-keyshortcuts="R">Підтягнути <small>утримуй · R</small></button>
+        <button id="castButton" type="button" aria-keyshortcuts="Space"><span data-i18n="castBtn">Закинути</span> <small data-i18n="castBtnSub">утримуй · пробіл</small></button>
+        <button id="pullButton" type="button" aria-keyshortcuts="R"><span data-i18n="pullBtn">Підтягнути</span> <small data-i18n="pullBtnSub">утримуй · R</small></button>
       </div>
     </section>
 
     <!-- Кнопка розбирання риби -->
-    <button id="autoClean" class="auto-clean" title="Відкрити стіл розбирання улову">РОЗБИРАННЯ <span id="uncleanCount" class="badge"></span></button>
+    <button id="autoClean" class="auto-clean" title="Відкрити стіл розбирання улову"><span data-i18n="autoCleanBtn">РОЗБИРАННЯ</span> <span id="uncleanCount" class="badge"></span></button>
 
     <footer class="bottom-bar glass">
       <nav class="equipment" id="equipmentBar" aria-label="Активне спорядження — натисни, щоб відкрити магазин"></nav>
@@ -95,14 +95,14 @@
       </div>
       <div class="bottom-center">
         <nav class="tabs">
-          <button class="active">Риболовля</button>
-          <button data-modal="map">Локація</button>
-          <button data-modal="shops">Магазини</button>
-          <button data-modal="pets">Улюбленці</button>
-          <button data-modal="kitchen">🍳 Кухня</button>
-          <button data-modal="trophy">🏆 Трофеї</button>
-          <button data-modal="bank">💳 Банк</button>
-          <button data-modal="journal">Світовий</button>
+          <button class="active" data-i18n="tabFishing">Риболовля</button>
+          <button data-modal="map" data-i18n="tabLocation">Локація</button>
+          <button data-modal="shops" data-i18n="tabShops">Магазини</button>
+          <button data-modal="pets" data-i18n="tabPets">Улюбленці</button>
+          <button data-modal="kitchen" data-i18n="tabKitchen">🍳 Кухня</button>
+          <button data-modal="trophy" data-i18n="tabTrophy">🏆 Трофеї</button>
+          <button data-modal="bank" data-i18n="tabBank">💳 Банк</button>
+          <button data-modal="journal" data-i18n="tabWorld">Світовий</button>
         </nav>
         <div class="rarity-display" id="rarityDisplay"><i></i><span>Очікування клювання</span></div>
       </div>
@@ -253,33 +253,58 @@
   <div class="modal" id="settings">
     <section class="settings-window">
       <button class="close">×</button>
-      <h2>⚙️ Налаштування та збереження</h2>
+      <h2 data-i18n="settingsModalTitle">⚙️ Налаштування та збереження</h2>
+
       <div class="settings-block">
-        <h3>Аудіо та візуальні ефекти</h3>
-        <label class="settings-row"><span>Звукові ефекти (Web Audio)</span><input type="checkbox" id="settingsSoundEnabled" checked></label>
-        <label class="settings-row"><span>Гучність ефектів</span><input type="range" id="settingsVolumeRange" min="0" max="1" step="0.05" value="0.7"></label>
-        <label class="settings-row"><span>Вібрація на смартфонах (Haptic)</span><input type="checkbox" id="settingsVibrationEnabled" checked></label>
+        <h3 data-i18n="languageSectionTitle">🌐 Мова гри / Language</h3>
+        <p class="muted" data-i18n="languageHint">Виберіть зручну мову для інтерфейсу, написів та меню:</p>
+        <div class="lang-switch-group">
+          <button type="button" class="lang-btn" data-lang-code="en" title="English">
+            <span class="lang-flag">🇬🇧</span> <span class="lang-title">English</span>
+          </button>
+          <button type="button" class="lang-btn" data-lang-code="ru" title="Русский">
+            <span class="lang-flag">🇷🇺</span> <span class="lang-title">Русский</span>
+          </button>
+          <button type="button" class="lang-btn" data-lang-code="uk" title="Українська">
+            <span class="lang-flag">🇺🇦</span> <span class="lang-title">Українська</span>
+          </button>
+        </div>
+        <div class="lang-select-wrapper">
+          <label for="settingsLanguageSelect"><span data-i18n="quickSelect">Швидкий вибір зі списку:</span></label>
+          <select id="settingsLanguageSelect" class="settings-lang-select" aria-label="Language selector">
+            <option value="en">🇬🇧 English</option>
+            <option value="ru">🇷🇺 Русский</option>
+            <option value="uk">🇺🇦 Українська</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-block">
+        <h3 data-i18n="audioVisual">Аудіо та візуальні ефекти</h3>
+        <label class="settings-row"><span data-i18n="audioEffects">Звукові ефекти (Web Audio)</span><input type="checkbox" id="settingsSoundEnabled" checked></label>
+        <label class="settings-row"><span data-i18n="effectVolume">Гучність ефектів</span><input type="range" id="settingsVolumeRange" min="0" max="1" step="0.05" value="0.7"></label>
+        <label class="settings-row"><span data-i18n="haptics">Вібрація на смартфонах (Haptic)</span><input type="checkbox" id="settingsVibrationEnabled" checked></label>
       </div>
       <div class="settings-block">
-        <h3>Резервне копіювання прогресу</h3>
-        <p class="muted">Експортуйте файл або код збереження, щоб перенести гру на телефон або інший браузер.</p>
+        <h3 data-i18n="backup">Резервне копіювання прогресу</h3>
+        <p class="muted" data-i18n="backupHint">Експортуйте файл або код збереження, щоб перенести гру на телефон або інший браузер.</p>
         <div class="save-actions">
-          <button type="button" class="settings-btn" onclick="exportSave()">📤 Експорт у файл (JSON)</button>
-          <button type="button" class="settings-btn" onclick="copySaveToClipboard()">📋 Скопіювати код</button>
+          <button type="button" class="settings-btn" onclick="exportSave()" data-i18n="exportJson">📤 Експорт у файл (JSON)</button>
+          <button type="button" class="settings-btn" onclick="copySaveToClipboard()" data-i18n="copyCode">📋 Скопіювати код</button>
         </div>
         <hr>
-        <label for="importSaveInput"><b>Імпорт збереження:</b></label>
-        <textarea id="importSaveInput" placeholder="Вставте JSON-код збереження сюди..." rows="3"></textarea>
+        <label for="importSaveInput"><b data-i18n="importSave">Імпорт збереження:</b></label>
+        <textarea id="importSaveInput" data-i18n-placeholder="pasteJson" placeholder="Вставте JSON-код збереження сюди..." rows="3"></textarea>
         <div class="save-actions">
-          <button type="button" class="settings-btn import-btn" onclick="importSave()">📥 Завантажити код</button>
+          <button type="button" class="settings-btn import-btn" onclick="importSave()" data-i18n="loadCode">📥 Завантажити код</button>
           <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importSaveFile(event)">
-          <button type="button" class="settings-btn" onclick="$('importFileInput').click()">📁 Вибрати файл .json</button>
+          <button type="button" class="settings-btn" onclick="$('importFileInput').click()" data-i18n="selectJson">📁 Вибрати файл .json</button>
         </div>
       </div>
       <div class="settings-block danger-zone">
-        <h3>Небезпечна зона</h3>
-        <p class="muted">Скидання видалить весь прогрес, монети, спорядження та улов.</p>
-        <button type="button" class="reset-game-btn" onclick="resetGameProgress()">⚠️ Почати гру спочатку</button>
+        <h3 data-i18n="dangerZone">Небезпечна зона</h3>
+        <p class="muted" data-i18n="dangerHint">Скидання видалить весь прогрес, монети, спорядження та улов.</p>
+        <button type="button" class="reset-game-btn" onclick="resetGameProgress()" data-i18n="resetGame">⚠️ Почати гру спочатку</button>
       </div>
     </section>
   </div>
@@ -343,12 +368,25 @@
     </section>
   </div>
 
-  <script src="script.js?v=game-fixes-6"></script>
+  <script src="lang.js?v=boat-visuals-2"></script>
+  <script src="script.js?v=boat-visuals-2"></script>
   <script>
-    // Реєстрація Service Worker для офлайн-режиму PWA
+    if (window.i18n) {
+      window.i18n.ensureLanguageStyles();
+      window.i18n.ensureLanguageSelectorUI();
+      window.i18n.applyLanguage(window.i18n.getLanguage());
+      window.i18n.bindLanguageEvents();
+    }
+
+    // Реєстрація Service Worker для офлайн-режиму PWA з очищенням старого кешу
+    if ('caches' in window) {
+      caches.delete('ukr-fishing-v1').catch(() => {});
+    }
     if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration error:', err));
+        navigator.serviceWorker.register('sw.js?v=2').then(reg => {
+          reg.update();
+        }).catch(err => console.log('SW registration error:', err));
       });
     }
   </script>

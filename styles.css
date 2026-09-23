@@ -49,8 +49,8 @@ button{position:relative;border:1px solid #8be9f066;background:linear-gradient(1
 
 /* Tension fight styles are consolidated in the modern fight-hud section */
 
-/* The full-size shore rod is hidden while the player fishes from the rendered boat. */
-.deep-water .scene{background-image:radial-gradient(ellipse at 55% 15%,#73c9dd55,transparent 24%),linear-gradient(#173f68 0 45%,#0c6280 46%,#032a4b 100%)!important}.deep-water .equipped-rod{display:none}.deep-water .scene-vignette{background:radial-gradient(ellipse at center,transparent 24%,#00172a78 100%)}
+/* The equipped rod remains visible and beautifully positioned while the player fishes from the boat. */
+.deep-water .scene{background-image:radial-gradient(ellipse at 55% 15%,#73c9dd55,transparent 24%),linear-gradient(#173f68 0 45%,#0c6280 46%,#032a4b 100%)!important}.deep-water .equipped-rod{display:block!important;opacity:1!important;pointer-events:none;z-index:9;transform:rotate(-2deg) translate(1%, 2%)}.deep-water .scene-vignette{background:radial-gradient(ellipse at center,transparent 24%,#00172a78 100%)}
 
 /* Independent reel products: name on the left, photo and specifications on the right. */
 .shop-card.lines{position:relative;overflow:hidden;background:linear-gradient(135deg,#13324a,#2e6c86,#172939)}.shop-card.lines:before,.shop-card.lines:after{display:none}.shop-photo.line-photo{object-fit:cover;border-color:#9beeff66}
@@ -228,4 +228,15 @@ button.market-note:hover:not(:disabled),button.market-note:focus-visible{transfo
 .danger-zone{border-color:#ff695577;background:#240906}
 .danger-zone h3{color:#ff8d7c}
 .reset-game-btn{margin-top:8px;padding:10px 16px;border:1px solid #ff7c68;border-radius:8px;background:linear-gradient(135deg,#b92c1a,#601309);color:#fff;font-weight:900;font-size:.8rem}
+
+/* Language switch in settings */
+.lang-switch-group{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:10px 0 12px}
+.lang-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:1px solid #8beff044;border-radius:10px;background:#031c2d;color:#d8f4f6;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .18s ease;user-select:none}
+.lang-btn:hover{background:#093b54;border-color:#5ce4d0;transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.3)}
+.lang-btn.active{background:linear-gradient(135deg,#0d5568,#073244);border-color:#5ce4d0;color:#5ef1dc;box-shadow:0 0 12px #5ce4d044;outline:1px solid #5ce4d088}
+.lang-btn .lang-flag{font-size:1.15rem;line-height:1}
+.lang-btn .lang-title{font-size:.86rem;letter-spacing:.02em}
+.lang-select-wrapper{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:6px;padding-top:10px;border-top:1px dashed #ffffff18;font-size:.8rem;color:#b2dce4}
+.settings-lang-select{padding:6px 12px;border:1px solid #8beff055;border-radius:8px;background:#021522;color:#d8f4f6;font-size:.82rem;font-weight:600;outline:none;cursor:pointer}
+.settings-lang-select:focus{border-color:#5ce4d0;box-shadow:0 0 8px #5ce4d055}
 

@@ -1003,7 +1003,7 @@ class ProceduralScene {
     this.biteMode = 'idle';
     this.surface = false;
     const fl = $('equippedFloat');
-    if (fl) fl.hidden = true;
+    if (fl) fl.hidden = false;
     this.fightOffset = {x:0, y:0, targetX:0, targetY:0, next:0};
   }
   beginBite(fish) {
@@ -1022,8 +1022,6 @@ class ProceduralScene {
     this.fish = null;
     this.biteMode = 'idle';
     this.surface = false;
-    const fl = $('equippedFloat');
-    if (fl) fl.hidden = true;
     this.fightOffset = {x:0, y:0, targetX:0, targetY:0, next:0};
   }
   addSplash(x, y, count = 6) {
@@ -1038,6 +1036,12 @@ class ProceduralScene {
     }
   }
   floatPoint(w, h, now = performance.now()) {
+    if (!this.cast) {
+      const idleX = state.atDepth ? w * 0.50 : w * 0.44;
+      const idleY = state.atDepth ? h * 0.58 : h * 0.65;
+      const wave = Math.sin(now * 0.0022) * 2.5;
+      return { x: idleX, y: idleY + wave };
+    }
     const p = this.pulling ? this.reel / 100 : 0;
     const base = {x: w * (this.x + (56 - this.x) * p) / 100, y: h * (this.y + (84 - this.y) * p) / 100};
     if (this.pulling && this.fish) {
@@ -1061,16 +1065,17 @@ class ProceduralScene {
   }
   rodTip(w, h) {
     const image = $('equippedRodImage');
-    if (!image) return {x: w * 0.8, y: h * 0.2};
-    const rect = image.getBoundingClientRect();
-    const canvas = this.c.getBoundingClientRect();
-    const scale = Math.min(rect.width / (image.naturalWidth || 1536), rect.height / (image.naturalHeight || 1024));
-    const width = (image.naturalWidth || 1536) * scale;
-    const height = (image.naturalHeight || 1024) * scale;
-    return {
-      x: rect.left - canvas.left + (rect.width - width) / 2 + width * 0.97,
-      y: rect.top - canvas.top + (rect.height - height) / 2 + height * 0.05
-    };
+    if (image && image.naturalWidth) {
+      const rect = image.getBoundingClientRect();
+      const canvas = this.c.getBoundingClientRect();
+      if (rect.width > 40) {
+        return {
+          x: Math.min(w * 0.96, rect.left - canvas.left + rect.width * 0.95),
+          y: Math.max(h * 0.04, rect.top - canvas.top + rect.height * 0.06)
+        };
+      }
+    }
+    return state.atDepth ? {x: w * 0.64, y: h * 0.38} : {x: w * 0.44, y: h * 0.18};
   }
   frame(now) {
     const dt = 0.016;
@@ -1082,13 +1087,11 @@ class ProceduralScene {
     if (state.atDepth) this.deepWater(g, w, h, t);
     this.ripples(g, w, h, t, now);
 
-    // Підводна тінь риби (перед клюванням або під час виважування)
-    if (this.cast && (this.biting || this.pulling || Math.sin(t * 0.8) > 0.2)) {
-      this.drawFishShadow(g, w, h, t, now);
-    }
+    // Рибка, яка реалістично плаває біля поплавка
+    this.drawSwimmingFish(g, w, h, t, now);
 
     this.line(g, w, h, now);
-    if (this.cast) this.bobber(g, w, h, t, now);
+    this.bobber(g, w, h, t, now);
     if (this.pulling && this.surface) this.surfaceFight(g, w, h, t, now);
 
     // Частинки бризок
@@ -1101,24 +1104,108 @@ class ProceduralScene {
 
     requestAnimationFrame(n => this.frame(n));
   }
-  drawFishShadow(g, w, h, t, now) {
+  drawSwimmingFish(g, w, h, t, now) {
     const p = this.floatPoint(w, h, now);
-    const angle = t * 1.8;
-    const dist = this.biting ? 12 : 28 + Math.sin(t * 1.2) * 14;
-    const sx = p.x + Math.cos(angle) * dist;
-    const sy = p.y + Math.sin(angle) * dist * 0.4 + 14;
+    // Траєкторія плавного руху рибки навколо поплавка
+    const speed = this.biting ? 3.4 : this.pulling ? 4.6 : 1.1;
+    const orbitTime = t * speed;
+    const radiusX = this.biting ? 13 : this.pulling ? 24 : 34 + Math.sin(t * 0.65) * 12;
+    const radiusY = radiusX * 0.45;
+
+    const fx = p.x + Math.cos(orbitTime) * radiusX;
+    const fy = p.y + Math.sin(orbitTime) * radiusY + (this.pulling ? Math.sin(t * 12) * 4 : 5);
+
+    // Кут повороту риби по напрямку руху
+    const angle = Math.atan2(-Math.sin(orbitTime) * radiusY, Math.cos(orbitTime) * radiusX) + Math.PI / 2;
+
+    // Частота коливання хвостика
+    const tailFreq = this.biting ? 18 : this.pulling ? 24 : 8;
+    const tailWag = Math.sin(t * tailFreq) * 0.38;
+
     g.save();
-    g.fillStyle = 'rgba(6, 32, 45, 0.42)';
+
+    // Підводна тінь рибки
+    g.fillStyle = 'rgba(0, 20, 32, 0.28)';
     g.beginPath();
-    g.ellipse(sx, sy, 22, 9, Math.cos(angle) * 0.35, 0, Math.PI * 2);
+    g.ellipse(fx, fy + 10, 16, 7, angle * 0.5, 0, Math.PI * 2);
     g.fill();
-    // Хвостик тіні
+
+    g.translate(fx, fy);
+    g.rotate(angle);
+
+    const fishLen = 32;
+    const fishWidth = 9.5;
+
+    // Напівпрозорість під водою
+    g.globalAlpha = (this.pulling && this.surface) ? 0.96 : 0.82;
+
+    // Градієнт тіла риби
+    const fishGrad = g.createLinearGradient(0, -fishWidth, 0, fishWidth);
+    if (state.atDepth) {
+      fishGrad.addColorStop(0, '#1a4b62');
+      fishGrad.addColorStop(0.35, '#2e8ba4');
+      fishGrad.addColorStop(0.7, '#8ce2ed');
+      fishGrad.addColorStop(1, '#eafcff');
+    } else {
+      fishGrad.addColorStop(0, '#2e4823');
+      fishGrad.addColorStop(0.4, '#57833a');
+      fishGrad.addColorStop(0.75, '#b4ce64');
+      fishGrad.addColorStop(1, '#f3f8be');
+    }
+
+    // Тіло риби
+    g.fillStyle = fishGrad;
     g.beginPath();
-    g.moveTo(sx - 18, sy);
-    g.lineTo(sx - 28, sy - 6);
-    g.lineTo(sx - 28, sy + 6);
+    g.moveTo(fishLen * 0.5, 0); // мордочка
+    g.quadraticCurveTo(fishLen * 0.15, -fishWidth, -fishLen * 0.25, -fishWidth * 0.55);
+    g.quadraticCurveTo(-fishLen * 0.45, -fishWidth * 0.25, -fishLen * 0.55, 0); // основа хвоста
+    g.quadraticCurveTo(-fishLen * 0.45, fishWidth * 0.25, -fishLen * 0.25, fishWidth * 0.55);
+    g.quadraticCurveTo(fishLen * 0.15, fishWidth, fishLen * 0.5, 0);
     g.closePath();
     g.fill();
+
+    // Спинний плавець
+    g.fillStyle = state.atDepth ? 'rgba(25, 95, 125, 0.72)' : 'rgba(70, 105, 45, 0.72)';
+    g.beginPath();
+    g.moveTo(-fishLen * 0.05, -fishWidth * 0.75);
+    g.quadraticCurveTo(-fishLen * 0.2, -fishWidth * 1.55, -fishLen * 0.35, -fishWidth * 0.45);
+    g.closePath();
+    g.fill();
+
+    // Грудні плавці
+    const finFlutter = Math.sin(t * tailFreq) * 0.18;
+    g.save();
+    g.translate(fishLen * 0.1, fishWidth * 0.25);
+    g.rotate(0.3 + finFlutter);
+    g.beginPath();
+    g.ellipse(0, 0, fishLen * 0.2, fishWidth * 0.32, 0.4, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(215, 245, 255, 0.55)';
+    g.fill();
+    g.restore();
+
+    // Хвіст, який реалістично виляє
+    g.save();
+    g.translate(-fishLen * 0.55, 0);
+    g.rotate(tailWag);
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(-fishLen * 0.38, -fishWidth * 0.85);
+    g.quadraticCurveTo(-fishLen * 0.22, 0, -fishLen * 0.38, fishWidth * 0.85);
+    g.closePath();
+    g.fillStyle = state.atDepth ? 'rgba(45, 150, 185, 0.82)' : 'rgba(165, 195, 75, 0.82)';
+    g.fill();
+    g.restore();
+
+    // Очко рибки
+    g.fillStyle = '#ffdf78';
+    g.beginPath();
+    g.arc(fishLen * 0.36, -fishWidth * 0.26, 2.2, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#061722';
+    g.beginPath();
+    g.arc(fishLen * 0.38, -fishWidth * 0.26, 1.2, 0, Math.PI * 2);
+    g.fill();
+
     g.restore();
   }
   updateSplashes(g, dt) {
@@ -1155,35 +1242,260 @@ class ProceduralScene {
     g.restore();
   }
   deepWater(g, w, h, t) {
+    const boatId = state.boat || (state.ownedBoats && state.ownedBoats[0]) || 'cutter';
+    const skyH = h * 0.40;
+
+    // Глибоководний морський простір
     g.save();
-    const grad = g.createRadialGradient(w * 0.5, h * 0.75, 40, w * 0.5, h * 0.75, w * 0.65);
-    grad.addColorStop(0, 'rgba(3, 14, 26, 0.4)');
-    grad.addColorStop(1, 'rgba(0, 8, 16, 0.85)');
-    g.fillStyle = grad;
-    g.fillRect(0, h * 0.52, w, h * 0.48);
+    const ocean = g.createLinearGradient(0, skyH, 0, h);
+    ocean.addColorStop(0, '#0a364a');
+    ocean.addColorStop(0.3, '#084860');
+    ocean.addColorStop(0.65, '#052b3d');
+    ocean.addColorStop(1, '#011520');
+    g.fillStyle = ocean;
+    g.fillRect(0, skyH, w, h - skyH);
+
+    // Анімовані океанські хвилі та гребені води
+    for (let row = 0; row < 18; row++) {
+      const p = row / 17;
+      const y = skyH + (h - skyH) * (0.05 + p * 0.88);
+      const amp = 1.5 + p * 8;
+      const step = 20 + p * 25;
+      g.strokeStyle = `rgba(180, 245, 255, ${0.12 * (1 - p * 0.5) + 0.04})`;
+      g.lineWidth = 0.8 + p * 1.5;
+      g.beginPath();
+      for (let x = -step; x <= w + step; x += step) {
+        const wave = Math.sin(x * 0.025 + t * (1.2 + p * 1.8) + row * 1.6) * amp + Math.sin(x * 0.06 - t * 1.6 + row) * amp * 0.35;
+        x === -step ? g.moveTo(x, y + wave) : g.lineTo(x, y + wave);
+      }
+      g.stroke();
+    }
+
+    // Погойдування човна на хвилях
+    const sway = Math.sin(t * 1.4) * 4;
+    const roll = Math.sin(t * 1.1) * 0.012;
+    const pitch = Math.cos(t * 1.3) * 3;
+
+    g.translate(sway, pitch);
+    g.translate(w * 0.5, h);
+    g.rotate(roll);
+    g.translate(-w * 0.5, -h);
+
+    // Буруни та біла піна води біля бортів човна
+    g.strokeStyle = 'rgba(215, 250, 255, 0.35)';
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.moveTo(w * 0.1, h);
+    g.quadraticCurveTo(w * 0.28, h * 0.76, w * 0.45, h * 0.68);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(w * 0.9, h);
+    g.quadraticCurveTo(w * 0.72, h * 0.76, w * 0.55, h * 0.68);
+    g.stroke();
+
+    if (boatId === 'cutter') {
+      // === МОРСЬКИЙ КАТЕР (CUTTER) ===
+      // Склопластиковий корпус катера (біло-синій глянець)
+      const hullGrad = g.createLinearGradient(0, h * 0.64, 0, h);
+      hullGrad.addColorStop(0, '#f2f8fc');
+      hullGrad.addColorStop(0.12, '#d6e6f0');
+      hullGrad.addColorStop(0.22, '#143e59');
+      hullGrad.addColorStop(0.7, '#071e2e');
+      hullGrad.addColorStop(1, '#020b12');
+      g.fillStyle = hullGrad;
+      g.beginPath();
+      g.moveTo(w * 0.02, h);
+      g.lineTo(w * 0.18, h * 0.73);
+      g.quadraticCurveTo(w * 0.5, h * 0.61, w * 0.82, h * 0.73);
+      g.lineTo(w * 0.98, h);
+      g.closePath();
+      g.fill();
+
+      // Захисний брус та бірюзова смуга
+      g.strokeStyle = '#36d3ca';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(w * 0.03, h);
+      g.lineTo(w * 0.18, h * 0.73);
+      g.quadraticCurveTo(w * 0.5, h * 0.61, w * 0.82, h * 0.73);
+      g.lineTo(w * 0.97, h);
+      g.stroke();
+
+      // Тікова палуба на носі
+      const deckGrad = g.createLinearGradient(0, h * 0.66, 0, h);
+      deckGrad.addColorStop(0, '#9e6d3e');
+      deckGrad.addColorStop(0.5, '#764d26');
+      deckGrad.addColorStop(1, '#4a2e15');
+      g.fillStyle = deckGrad;
+      g.beginPath();
+      g.moveTo(w * 0.22, h);
+      g.lineTo(w * 0.28, h * 0.76);
+      g.quadraticCurveTo(w * 0.5, h * 0.66, w * 0.72, h * 0.76);
+      g.lineTo(w * 0.78, h);
+      g.closePath();
+      g.fill();
+
+      // Палубні шви тікового дерева
+      g.strokeStyle = 'rgba(40, 20, 10, 0.45)';
+      g.lineWidth = 1;
+      for (let i = 1; i <= 8; i++) {
+        const lx = w * (0.24 + i * 0.06);
+        g.beginPath();
+        g.moveTo(lx, h);
+        g.lineTo(w * 0.5 + (lx - w * 0.5) * 0.45, h * 0.72);
+        g.stroke();
+      }
+
+      // Хромований леєр (рейлінг) на носі
+      g.strokeStyle = '#e6fbff';
+      g.lineWidth = 3.5;
+      g.beginPath();
+      g.moveTo(w * 0.15, h * 0.82);
+      g.lineTo(w * 0.26, h * 0.65);
+      g.quadraticCurveTo(w * 0.5, h * 0.54, w * 0.74, h * 0.65);
+      g.lineTo(w * 0.85, h * 0.82);
+      g.stroke();
+
+      // Стійки леєрного огородження
+      g.strokeStyle = '#c4ecf7';
+      g.lineWidth = 2.5;
+      [0.26, 0.38, 0.5, 0.62, 0.74].forEach(px => {
+        g.beginPath();
+        g.moveTo(w * px, h * 0.63);
+        g.lineTo(w * px, h * 0.74);
+        g.stroke();
+      });
+
+      // Бортові ходові вогні катера
+      g.fillStyle = '#ff4a4a'; // червоний лівий
+      g.beginPath();
+      g.arc(w * 0.28, h * 0.72, 3.5, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#4aff7a'; // зелений правий
+      g.beginPath();
+      g.arc(w * 0.72, h * 0.72, 3.5, 0, Math.PI * 2);
+      g.fill();
+
+    } else if (boatId === 'inflatable') {
+      // === НАДУВНИЙ МОТОРНИЙ ЧОВЕН (INFLATABLE) ===
+      const tubeGrad = g.createRadialGradient(w * 0.5, h * 0.66, 20, w * 0.5, h * 0.75, w * 0.55);
+      tubeGrad.addColorStop(0, '#538c9c');
+      tubeGrad.addColorStop(0.4, '#245a68');
+      tubeGrad.addColorStop(0.8, '#0e2e38');
+      tubeGrad.addColorStop(1, '#05141a');
+      g.fillStyle = tubeGrad;
+      g.beginPath();
+      g.moveTo(0, h);
+      g.lineTo(w * 0.12, h * 0.72);
+      g.quadraticCurveTo(w * 0.5, h * 0.58, w * 0.88, h * 0.72);
+      g.lineTo(w, h);
+      g.closePath();
+      g.fill();
+
+      // Гумовий привальний брус
+      g.strokeStyle = '#0a171d';
+      g.lineWidth = 6;
+      g.beginPath();
+      g.moveTo(0, h * 0.95);
+      g.lineTo(w * 0.12, h * 0.72);
+      g.quadraticCurveTo(w * 0.5, h * 0.58, w * 0.88, h * 0.72);
+      g.lineTo(w, h * 0.95);
+      g.stroke();
+
+      // Леєрний трос уздовж балонів
+      g.strokeStyle = '#ffe48a';
+      g.lineWidth = 2.5;
+      g.beginPath();
+      g.moveTo(w * 0.08, h * 0.85);
+      g.quadraticCurveTo(w * 0.22, h * 0.68, w * 0.35, h * 0.65);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(w * 0.92, h * 0.85);
+      g.quadraticCurveTo(w * 0.78, h * 0.68, w * 0.65, h * 0.65);
+      g.stroke();
+
+      // Алюмінієвий настил кокпіта
+      g.fillStyle = '#223844';
+      g.beginPath();
+      g.moveTo(w * 0.24, h);
+      g.lineTo(w * 0.32, h * 0.77);
+      g.quadraticCurveTo(w * 0.5, h * 0.71, w * 0.68, h * 0.77);
+      g.lineTo(w * 0.76, h);
+      g.closePath();
+      g.fill();
+
+    } else {
+      // === ВЕСЕЛЬНИЙ ДЕРЕВ'ЯНИЙ ЧОВЕН (ROWBOAT) ===
+      const woodGrad = g.createLinearGradient(0, h * 0.65, 0, h);
+      woodGrad.addColorStop(0, '#c78446');
+      woodGrad.addColorStop(0.2, '#9c5f2b');
+      woodGrad.addColorStop(0.6, '#5e3415');
+      woodGrad.addColorStop(1, '#2b1607');
+      g.fillStyle = woodGrad;
+      g.beginPath();
+      g.moveTo(w * 0.04, h);
+      g.lineTo(w * 0.2, h * 0.74);
+      g.quadraticCurveTo(w * 0.5, h * 0.62, w * 0.8, h * 0.74);
+      g.lineTo(w * 0.96, h);
+      g.closePath();
+      g.fill();
+
+      // Дерев'яний планшир (бортовий брус)
+      g.strokeStyle = '#e0a058';
+      g.lineWidth = 4;
+      g.beginPath();
+      g.moveTo(w * 0.05, h);
+      g.lineTo(w * 0.2, h * 0.74);
+      g.quadraticCurveTo(w * 0.5, h * 0.62, w * 0.8, h * 0.74);
+      g.lineTo(w * 0.95, h);
+      g.stroke();
+
+      // Весла, складені вздовж бортів
+      g.strokeStyle = '#c4894d';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.moveTo(w * 0.08, h);
+      g.lineTo(w * 0.32, h * 0.68);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(w * 0.92, h);
+      g.lineTo(w * 0.68, h * 0.68);
+      g.stroke();
+
+      // Латунні кочети
+      g.fillStyle = '#ffde6b';
+      g.beginPath();
+      g.arc(w * 0.26, h * 0.75, 4, 0, Math.PI * 2);
+      g.fill();
+      g.beginPath();
+      g.arc(w * 0.74, h * 0.75, 4, 0, Math.PI * 2);
+      g.fill();
+    }
+
     g.restore();
   }
   ripples(g, w, h, t, now) {
-    if (!this.cast) return;
     const p = this.floatPoint(w, h, now);
     for (let i = 0; i < 3; i++) {
-      const r = (t * 30 + i * 19) % 70;
-      g.strokeStyle = `rgba(225,255,255,${0.46 - r / 170})`;
+      const r = (t * (this.biting ? 45 : 22) + i * 19) % 70;
+      g.strokeStyle = `rgba(225,255,255,${(this.biting ? 0.65 : 0.42) - r / 170})`;
       g.lineWidth = 1.2;
       g.beginPath();
-      g.ellipse(p.x, p.y, r, r * 0.3, 0, 0, Math.PI * 2);
+      g.ellipse(p.x, p.y, r, r * 0.32, 0, 0, Math.PI * 2);
       g.stroke();
     }
   }
   line(g, w, h, now) {
-    if (!this.cast) return;
     const p = this.floatPoint(w, h, now), tip = this.rodTip(w, h);
     g.save();
     g.strokeStyle = this.tension > 82 ? '#ff8a7d' : this.tension > 60 ? '#ffe078' : (lineColors[state.lines - 1] || '#b8e7ffaa');
     g.lineWidth = 0.9 + state.lines * 0.16 + this.tension / 100;
     g.beginPath();
     g.moveTo(tip.x, tip.y);
-    g.lineTo(p.x, p.y);
+    const midX = (tip.x + p.x) / 2;
+    const slack = (this.pulling || this.tension > 30) ? 0 : Math.max(10, Math.abs(p.x - tip.x) * 0.08);
+    const midY = (tip.y + p.y) / 2 + slack;
+    g.quadraticCurveTo(midX, midY, p.x, p.y);
     g.stroke();
     g.restore();
   }
@@ -1192,7 +1504,8 @@ class ProceduralScene {
     if (!float) return;
     float.hidden = false;
     float.style.left = p.x + 'px';
-    float.style.top = (p.y + Math.sin(t * (this.biting ? 15 : 4)) * (this.biting ? 9 : 3)) + 'px';
+    const bobOffset = Math.sin(t * (this.biting ? 15 : 3.5)) * (this.biting ? 8 : 2.5);
+    float.style.top = (p.y + bobOffset) + 'px';
     float.classList.toggle('night-float', state.floats >= 4 && world.time === 'night');
   }
   surfaceFight(g, w, h, t, now) {
@@ -3044,6 +3357,9 @@ function openModal(id) {
   closeAll();
   const el = $(id);
   if (el) el.classList.add('open');
+  if (id === 'settings' && typeof ensureLanguageSelectorUI === 'function') {
+    ensureLanguageSelectorUI();
+  }
   render();
 }
 window.openModal = openModal;
