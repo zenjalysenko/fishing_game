@@ -1,0 +1,24 @@
+{
+  "name": "Українська Рибалка — Морський курорт",
+  "short_name": "УкрРибалка",
+  "description": "Реалістична браузерна гра про риболовлю з десятками водойм, видами риб, снастями та експедиціями.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#031624",
+  "theme_color": "#062b3e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "assets/ui/fishing-base-hub.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/ui/keepnet-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
+
