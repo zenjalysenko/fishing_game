@@ -1,58 +1,356 @@
 <!doctype html>
-<html lang="ru">
+<html lang="uk">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Русская Рыбалка — Морской курорт</title>
-  <link rel="stylesheet" href="styles.css?v=game-fixes-5">
+  <meta name="theme-color" content="#062b3e">
+  <meta name="description" content="Українська Рибалка — атмосферна браузерна гра про риболовлю: понад 50 видів риб, десятки водойм, снасті, турніри та експедиції.">
+  <title>Українська Рибалка — Морський курорт</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css?v=game-fixes-6">
 </head>
 <body>
-  <aside class="save-warning" id="saveWarning" role="alert" hidden><span>Не вдалося зберегти прогрес. Гра триває, але зміни можуть загубитися після закриття сторінки.</span><button type="button" onclick="save()">Спробувати знову</button></aside>
+  <aside class="save-warning" id="saveWarning" role="alert" hidden>
+    <span>Не вдалося зберегти прогрес. Гра триває, але зміни можуть втратитися після закриття сторінки.</span>
+    <button type="button" onclick="save()">Спробувати знову</button>
+  </aside>
+
   <main class="game location-pier" id="game">
-    <section class="fight-hud glass" id="fightHud" hidden aria-live="polite"><div class="fight-title" id="fightTitle">РЫБА ТЯНЕТ</div><div class="fight-direction"><b id="fightArrow">↔</b><span id="fightHint">Парируйте: A / D или движением мыши</span></div><div class="fight-timer"><i id="fightTimer"></i></div><button type="button" id="releaseLine" hidden>СТРАВИТЬ ЛЕСКУ <small>S</small></button></section>
-    <button class="boat-launch glass" data-modal="boats" type="button" aria-label="Транспорт">⚓ <span>ТРАНСПОРТ</span><small id="boatLaunchLabel">Берег</small></button>
-    <div class="modal" id="boats"><section class="boat-window"><button class="close">×</button><header class="boat-header"><span>⚓ Лодочная станция</span><small>ПЛАВСРЕДСТВА ДЛЯ ВЫХОДА НА ГЛУБОКИЕ ЯМЫ</small></header><p class="boat-intro">На глубине держатся трофейные гиганты, недоступные с берега. Купите плавсредство, экипируйте его и выходите из бухты.</p><div class="boat-status" id="boatStatus"></div><div class="boats-grid" id="boatsContent"></div></section></div>
-    <div class="scene" id="scene"><canvas id="worldCanvas" aria-label="Процедурная сцена рыбалки: море, пирс, удочка и рыба"></canvas><div class="scene-vignette"></div></div><div class="weather-fx" id="weatherFx" aria-hidden="true"></div>
-    <div class="equipped-rod" id="equippedRod" aria-hidden="true"><img id="equippedRodImage" src="assets/rods/rod-01.png" alt=""></div>
-    <img id="equippedFloat" class="equipped-float" src="assets/floats/float-01.png" alt="" aria-hidden="true" hidden>
+    <!-- Верхня панель швидких налаштувань (звук, повноекранний режим) -->
+    <header class="top-quick-bar" aria-label="Швидкі налаштування">
+      <button type="button" id="soundToggle" class="quick-btn" title="Увімкнути/вимкнути звук (M)" aria-label="Звук">🔊</button>
+      <input type="range" id="soundVolume" class="volume-slider" min="0" max="1" step="0.05" value="0.7" title="Гучність звуку" aria-label="Гучність">
+      <button type="button" id="fullscreenToggle" class="quick-btn" title="Повноекранний режим" aria-label="Повноекранний режим">⛶</button>
+      <button type="button" data-modal="settings" class="quick-btn" title="Налаштування та збереження" aria-label="Налаштування">⚙</button>
+    </header>
 
-    <section class="depth-panel glass" id="depthPanel" aria-label="Эхолот"><header class="sonar-header"><span class="sonar-brand"><i aria-hidden="true">⌁</i> ЭХОЛОТ</span><span class="sonar-status"><i></i> СКАНИРОВАНИЕ</span></header><div class="depth-graph"><div class="sonar-scale" aria-hidden="true"><span>0</span><span>5</span><span>10</span><span>15 м</span></div><svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="M0 58 L24 53 L47 62 L72 41 L98 54 L124 30 L150 46 L179 21 L207 36 L240 15 V96 H0Z"/></svg><b id="depthNeedle" aria-hidden="true"></b><div class="sonar-reading"><b id="depthReadout">8.4</b><span>М ГЛУБИНА</span></div></div><div class="depth-meta"><span><small>ОСНАСТКА</small><b id="hookName">Медный крючок</b></span><span><small>ЛОКАЦИЯ</small><b id="locationLabel">Лесное озеро · тихая бухта</b></span></div><div class="tension"><span>НАГРУЗКА СНАСТИ</span><b id="tensionValue">0.0 / 3.0 кг</b><i><em id="tensionBar"></em></i></div><div class="sonar-lock" id="sonarLock"><i aria-hidden="true">⌁</i><b>Эхолот не установлен</b><small>Откройте рельеф дна и нагрузку снасти</small><span>МАГАЗИН → ЭХОЛОТ</span></div></section>
+    <section class="fight-hud glass" id="fightHud" hidden aria-live="polite">
+      <div class="fight-header">
+        <span class="fight-badge">⚡ БОРОТЬБА</span>
+        <b class="fight-title" id="fightTitle">РИБА ПРУЧАЄТЬСЯ</b>
+      </div>
+      <div class="fight-body">
+        <div class="fight-direction">
+          <b id="fightArrow" aria-hidden="true">↔</b>
+          <span id="fightHint">Ривок! Послабте волосінь (S)</span>
+        </div>
+        <div class="fight-timer" title="Рівень натягу волосіні">
+          <i id="fightTimer"></i>
+        </div>
+      </div>
+      <button type="button" id="releaseLine" class="fight-release-btn" title="Послабити волосінь, щоб запобігти обриву (S)">
+        <span>ПОСЛАБИТИ ВОЛОСІНЬ</span>
+        <kbd>S</kbd>
+      </button>
+    </section>
 
-    <nav class="left-menu" aria-label="Швидкі дії"><button data-modal="keepnet"><img class="menu-icon" src="assets/ui/keepnet-icon.png" alt=""><span>Садок</span></button><button data-modal="base" class="base-entry"><img class="menu-icon" src="assets/ui/base-icon.png" alt=""><span>База</span></button><button data-modal="profile"><img class="menu-icon" src="assets/ui/profile-icon.png" alt=""><span>Рыбак</span></button><button data-modal="journal"><img class="menu-icon" src="assets/ui/journal-icon.png" alt=""><span>Дневник</span></button></nav>
-    <aside class="session glass"><small>СЕССИЯ</small><b id="sessionTime">00:00</b><span>Лучший улов: <strong id="bestCatch">—</strong></span></aside>
-    <aside class="progression glass"><strong>Уровень <b id="playerLevel">1</b></strong><div class="xp-meter"><i id="xpBar"></i></div><small id="contractLabel">Контракт: 0/8 · 300 ◉</small></aside>
+    <button class="boat-launch glass" data-modal="boats" type="button" aria-label="Плавзасіб">⚓ <span>ТРАНСПОРТ</span><small id="boatLaunchLabel">Берег</small></button>
+    <div class="modal" id="boats"><section class="boat-window"><button class="close">×</button><header class="boat-header"><span>⚓ Човнова станція</span><small>ПЛАВЗАСОБИ ДЛЯ ВИХОДУ НА ГЛИБОКІ ТРОФЕЙНІ ЯМИ</small></header><p class="boat-intro">На глибині тримаються трофейні гіганти, недоступні з берега. Купіть плавзасіб, екіпіруйте його та вийдіть у відкриту воду.</p><div class="boat-status" id="boatStatus"></div><div class="boats-grid" id="boatsContent"></div></section></div>
+
+    <div class="scene" id="scene"><canvas id="worldCanvas" aria-label="Сцена риболовлі: море, причал, вудка та риба"></canvas><div class="scene-vignette"></div></div>
+    <div class="weather-fx" id="weatherFx" aria-hidden="true"></div>
+    <div class="equipped-rod" id="equippedRod" aria-hidden="true"><img id="equippedRodImage" src="assets/rods/rod-01.png" alt="Вудка"></div>
+    <img id="equippedFloat" class="equipped-float" src="assets/floats/float-01.png" alt="Поплавок" aria-hidden="true" hidden>
+
+    <section class="depth-panel glass" id="depthPanel" aria-label="Ехолот">
+      <header class="sonar-header"><span class="sonar-brand"><i aria-hidden="true">⌁</i> ЕХОЛОТ</span><span class="sonar-status"><i></i> СКАНУВАННЯ</span></header>
+      <div class="depth-graph"><div class="sonar-scale" aria-hidden="true"><span>0</span><span>5</span><span>10</span><span>15 м</span></div><svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="M0 58 L24 53 L47 62 L72 41 L98 54 L124 30 L150 46 L179 21 L207 36 L240 15 V96 H0Z"/></svg><b id="depthNeedle" aria-hidden="true"></b><div class="sonar-reading"><b id="depthReadout">8.4</b><span>М ГЛИБИНА</span></div></div>
+      <div class="depth-meta"><span><small>ОСНАЩЕННЯ</small><b id="hookName">Мідний гачок</b></span><span><small>ЛОКАЦІЯ</small><b id="locationLabel">Лісове озеро · тиха бухта</b></span></div>
+      <div class="tension"><span>НАВАНТАЖЕННЯ СНАСТІ</span><b id="tensionValue">0.0 / 3.0 кг</b><i><em id="tensionBar"></em></i></div>
+      <div class="sonar-lock" id="sonarLock"><i aria-hidden="true">⌁</i><b>Ехолот не встановлено</b><small>Відкрийте рельєф дна та навантаження снасті</small><span>МАГАЗИН → ЕХОЛОТ</span></div>
+    </section>
+
+    <nav class="left-menu" aria-label="Швидкі дії">
+      <button data-modal="keepnet"><img class="menu-icon" src="assets/ui/keepnet-icon.png" alt=""><span>Садок</span></button>
+      <button data-modal="base" class="base-entry"><img class="menu-icon" src="assets/ui/base-icon.png" alt=""><span>База</span></button>
+      <button data-modal="profile"><img class="menu-icon" src="assets/ui/profile-icon.png" alt=""><span>Рибалка</span></button>
+      <button data-modal="journal"><img class="menu-icon" src="assets/ui/journal-icon.png" alt=""><span>Щоденник</span></button>
+    </nav>
+
+    <aside class="session glass"><small>СЕСІЯ</small><b id="sessionTime">00:00</b><span>Кращий улов: <strong id="bestCatch">—</strong></span></aside>
+    <aside class="progression glass"><strong>Рівень <b id="playerLevel">1</b></strong><div class="xp-meter"><i id="xpBar"></i></div><small id="contractLabel">Контракт: 0/8 · 300 ◉</small></aside>
     <button class="world-panel glass" data-modal="world"><small id="weatherStatus">☀ Ясно</small><b id="timeStatus">День</b><span id="eventStatus">Тихий сезон</span></button>
 
     <button class="daily-gift glass" id="dailyGift" type="button"></button>
+
     <section class="cast-control" aria-label="Керування риболовлею">
       <div class="cast-message" id="castMessage" role="status">Закид: ПКМ або пробіл · підтягування: ЛКМ або R</div>
       <div class="power-meter" id="powerMeter" role="progressbar" aria-label="Сила закиду" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="castPower"></i><span class="perfect-zone" title="Точний закид: 66–78%"></span></div>
       <small class="cast-hint">Золота зона 66–78%: швидший кльов і +15 XP за улов</small>
-      <div class="fishing-buttons"><button id="castButton" type="button" aria-keyshortcuts="Space">Закинути <small>утримуй · пробіл</small></button><button id="pullButton" type="button" aria-keyshortcuts="R">Підтягнути <small>утримуй · R</small></button></div>
+      <div class="fishing-buttons">
+        <button id="castButton" type="button" aria-keyshortcuts="Space">Закинути <small>утримуй · пробіл</small></button>
+        <button id="pullButton" type="button" aria-keyshortcuts="R">Підтягнути <small>утримуй · R</small></button>
+      </div>
     </section>
-    <button id="autoClean" class="auto-clean">САМООЧИСТКА</button>
 
-    <footer class="bottom-bar glass"><nav class="equipment" id="equipmentBar" aria-label="Активне спорядження — натисни, щоб відкрити магазин"></nav><div class="currency" data-modal="bank" role="button" tabindex="0" title="Нажмите, чтобы открыть Рыбацкий Банк и кредит"><span>◉ <b id="coins">30</b></span><small>🐟 <b id="fishCount">0</b> шт.</small><span class="debt-badge" id="debtBadge" hidden>Долг: <b id="debtAmount">0</b> ◉</span></div><div class="bottom-center"><nav class="tabs"><button class="active">Рыбалка</button><button data-modal="map">Локация</button><button data-modal="shops">Магазины</button><button data-modal="pets">Питомцы</button><button data-modal="bank">💳 Банк</button><button data-modal="journal">Мировой</button></nav><div class="rarity-display" id="rarityDisplay"><i></i><span>Ожидание поклёвки</span></div></div></footer>
+    <!-- Кнопка розбирання риби -->
+    <button id="autoClean" class="auto-clean" title="Відкрити стіл розбирання улову">РОЗБИРАННЯ <span id="uncleanCount" class="badge"></span></button>
+
+    <footer class="bottom-bar glass">
+      <nav class="equipment" id="equipmentBar" aria-label="Активне спорядження — натисни, щоб відкрити магазин"></nav>
+      <div class="currency" data-modal="bank" role="button" tabindex="0" title="Натисніть, щоб відкрити Рибальський Банк та кредит">
+        <span>◉ <b id="coins">30</b></span>
+        <small>🐟 <b id="fishCount">0</b> шт.</small>
+        <span class="debt-badge" id="debtBadge" hidden>Борг: <b id="debtAmount">0</b> ◉</span>
+      </div>
+      <div class="bottom-center">
+        <nav class="tabs">
+          <button class="active">Риболовля</button>
+          <button data-modal="map">Локація</button>
+          <button data-modal="shops">Магазини</button>
+          <button data-modal="pets">Улюбленці</button>
+          <button data-modal="kitchen">🍳 Кухня</button>
+          <button data-modal="trophy">🏆 Трофеї</button>
+          <button data-modal="bank">💳 Банк</button>
+          <button data-modal="journal">Світовий</button>
+        </nav>
+        <div class="rarity-display" id="rarityDisplay"><i></i><span>Очікування клювання</span></div>
+      </div>
+    </footer>
   </main>
 
-  <div class="modal" id="baseUpgrades"><section class="base-upgrades-window"><button class="close">×</button><h2>Улучшения базы</h2><p class="muted">Каждый объект можно улучшить до 3 уровня. Бонусы действуют постоянно.</p><div class="base-upgrade-grid" id="baseUpgradeContent"></div></section></div>
+  <!-- Модальні вікна -->
+  <div class="modal" id="baseUpgrades"><section class="base-upgrades-window"><button class="close">×</button><h2>Покращення бази</h2><p class="muted">Кожен об'єкт можна покращити до 3 рівня. Бонуси діють постійно.</p><div class="base-upgrade-grid" id="baseUpgradeContent"></div></section></div>
 
-  <div class="modal base-modal open" id="base" aria-label="Рыболовная база"><section class="base-hub"><button class="close" aria-label="Начать рыбалку">×</button><header class="base-title"><span>Рыболовная база</span><small>Курортная пристань · главный штаб</small></header><div class="base-book"><section class="base-page"><h2>Снаряжение</h2><button class="base-link" data-modal="shops" data-shop="rods"><i>🎣</i><span><b>Рыболовный магазин</b><small>Удочки, лески и катушки</small></span></button><button class="base-link" data-modal="bag"><i>🎒</i><span><b>Рюкзак</b><small>Наживки и активное снаряжение</small></span></button><button class="base-link" data-modal="bank"><i>💳</i><span><b>Рыбацкий Банк</b><small>Беспроцентный кредит и займы</small></span></button><button class="base-link" data-modal="index"><i>🐟</i><span><b>Альбом улова</b><small>Виды, описания и рекорды</small></span></button><button class="base-link" data-modal="pets"><i>🦦</i><span><b>Помощники</b><small>Дикие талисманы рыбака</small></span></button></section><section class="base-page"><h2>Приключения</h2><button class="base-link" data-modal="map"><i>🗺️</i><span><b>Путешествия</b><small>Открытые локации и рыба</small></span></button><button class="base-link" data-modal="world"><i>🌦️</i><span><b>Условия ловли</b><small>Сезон, погода, время и квесты</small></span></button><button class="base-link" data-modal="auction"><i>🔨</i><span><b>Продать улов</b><small>Аукцион редких трофеев</small></span></button><button class="base-link" data-modal="progress"><i>🏆</i><span><b>Турниры и прогресс</b><small>Навыки, мастерская, награды</small></span></button></section></div><footer class="base-status" id="baseStatus"></footer><button class="base-start close-dialog">Выйти на рыбалку <span>→</span></button></section></div>
-  <div class="modal fish-market-modal" id="keepnet"><section class="fish-market"><button class="close">×</button><header class="fish-market-title"><span>Продажа рыбы</span><small>Приём улова у пристани</small></header><div class="market-notices" aria-label="Замовлення рибного ринку"><button type="button" class="market-note trophy-note" data-market-request="trophy" aria-haspopup="dialog" aria-controls="marketRequests" onclick="openMarketRequest('trophy')"><small>ТРОФЕЙНЫЙ УЛОВ</small><b>Ценим выше</b><span>Редкие экземпляры лучше отнести на аукцион</span></button><button type="button" class="market-note clean-note" data-market-request="clean" aria-haspopup="dialog" aria-controls="marketRequests" onclick="openMarketRequest('clean')"><small>ЧИСТАЯ РЫБА</small><b>Принимаем сразу</b><span>Разделайте добычу перед продажей</span></button><button type="button" class="market-note order-note" data-market-request="order" aria-haspopup="dialog" aria-controls="marketRequests" onclick="openMarketRequest('order')"><small>ЗАКАЗ РЫНКА</small><b>Больше монет</b><span>Синяя отметка — выгодная цена сегодня</span></button></div><div class="market-ledger"><header><span>КНИГА ПРИЁМА УЛОВА</span><b id="keepnetSummary">Нет очищенной рыбы</b></header><div id="keepnetList" class="fish-list market-list"></div></div><button class="sell-all" id="sellAll">Продать всю очищенную рыбу</button></section></div>
-  <div class="modal fish-market-modal" id="marketRequests" role="dialog" aria-modal="true" aria-labelledby="marketRequestTitle"><section class="fish-market market-request-window"><button class="close" aria-label="Закрити">×</button><header class="fish-market-title"><h2 id="marketRequestTitle" tabindex="-1">Замовлення ринку</h2><small>Потрібна риба та ціни приймання</small></header><p class="market-request-terms" id="marketRequestTerms"></p><div class="market-offers" id="marketOffers"></div><div class="market-ledger"><header><span>ВАШ УЛОВ ДЛЯ ЦЬОГО ЗАМОВЛЕННЯ</span><b id="marketRequestCount"></b></header><div class="fish-list market-list" id="marketRequestFish"></div></div><button class="market-back" data-modal="keepnet">← До садка</button></section></div>
-  <div class="modal" id="map"><section><button class="close">×</button><h2>Карта локаций</h2><div class="location-grid" id="locationGrid"></div></section></div>
-  <div class="modal" id="bag"><section><button class="close">×</button><h2>Рюкзак</h2><div id="bagContent" class="loadout"></div><div class="photo-gallery"><figure><img src="assets/fishing-rods.png" alt="Реалистичные удочки"><figcaption>Индивидуальные удочки и катушки</figcaption></figure><figure><img src="assets/freshwater-fish.png" alt="Реалистичные пресноводные рыбы"><figcaption>Окунь, щука и карп</figcaption></figure><figure><img src="assets/fishing-bobbers.png" alt="Реалистичные поплавки"><figcaption>Поплавки для разных условий</figcaption></figure></div></section></div>
-  <div class="modal" id="profile"><section><button class="close">×</button><h2>Карточка рыбака</h2><div id="profileContent" class="profile-card"></div></section></div>
-  <div class="modal" id="journal"><section><button class="close">×</button><h2>Дневник приключений</h2><div id="journalContent" class="journal"></div></section></div>
-  <div class="modal" id="index"><section><button class="close">×</button><h2>Индекс улова</h2><p class="muted">Найдите все виды рыб и морских обитателей каждой редкости.</p><div id="indexContent" class="index-grid"></div></section></div>
-  <div class="modal" id="progress"><section><button class="close">×</button><h2>Прогресс рыбака</h2><div id="progressContent"></div></section></div>
-  <div class="modal" id="shops"><section class="shop-window"><button class="close">×</button><h2>Магазины курорта</h2><div class="shop-tabs"><button data-shop="rods">♨ Удочки</button><button data-shop="lines">🧵 Лески</button><button data-shop="knives">✦ Ножи</button><button data-shop="hooks">✧ Крючки</button><button data-shop="reels">⚙ Катушки</button><button data-shop="floats">🎈 Поплавки</button><button data-shop="baits">🪱 Наживки</button><button data-shop="sonar">📡 Эхолот</button></div><div id="shopContent" class="shop-items"></div></section></div>
-  <div class="modal" id="auction"><section><button class="close">×</button><h2>Аукцион рыб</h2><p class="muted">Очищенную рыбу можно выставить из садка. Покупатели сами повышают ставку, пока не истечёт время лота.</p><div id="auctionContent" class="auction-list"></div></section></div>
-  <div class="modal" id="pets"><section><button class="close">×</button><h2>Дикие питомцы</h2><div id="petContent" class="pets-grid"></div></section></div>
-  <div class="modal" id="bank" role="dialog" aria-modal="true" aria-labelledby="bankTitle"><section class="bank-window"><button class="close" aria-label="Закрыть">×</button><header class="bank-header"><span id="bankTitle">💳 Рыбацкий Банк</span><small>БЕСПРОЦЕНТНЫЙ КРЕДИТ И ФИНАНСОВАЯ ПОДДЕРЖКА</small></header><p class="bank-intro">Если у вас не хватает денег на покупку наживки или снастей — возьмите беспроцентный кредит. Возвращайте долг в любое удобное время: частями или за один раз полностью!</p><div class="bank-stats-grid"><article class="bank-stat-card"><small>БАЛАНС В КОШЕЛЬКЕ</small><strong id="bankCoins">0 ◉</strong><span>Доступно для покупок</span></article><article class="bank-stat-card"><small>ДОСТУПНЫЙ ЛИМИТ</small><strong id="bankAvailable">0 ◉</strong><span id="bankMaxLimit">Общий лимит: 500 ◉</span></article><article class="bank-stat-card bank-debt-card"><small>ТЕКУЩИЙ ДОЛГ</small><strong id="bankDebt">0 ◉</strong><span id="bankDebtStatus">Задолженности нет</span></article></div><div class="bank-sections"><section class="bank-block"><h3>Взять кредит (0% годовых)</h3><p class="bank-hint">Моментальное зачисление монет в кошелёк:</p><div class="bank-btn-grid"><button type="button" class="bank-action-btn" onclick="takeLoan(50)">+50 ◉</button><button type="button" class="bank-action-btn" onclick="takeLoan(100)">+100 ◉</button><button type="button" class="bank-action-btn" onclick="takeLoan(250)">+250 ◉</button><button type="button" class="bank-action-btn" onclick="takeLoan(500)">+500 ◉</button><button type="button" class="bank-action-btn bank-max-btn" onclick="takeMaxLoan()">Взять максимум</button></div></section><section class="bank-block"><h3>Погашение кредита</h3><p class="bank-hint">Возвращайте частями или закройте весь долг за один раз:</p><div class="bank-repay-full"><button type="button" class="bank-repay-all-btn" id="bankRepayAllBtn" onclick="repayAllLoan()">Погасить полностью (0 ◉)</button></div><div class="bank-btn-grid"><button type="button" class="bank-action-btn bank-repay-btn" onclick="repayLoan(25)">Вернуть 25 ◉</button><button type="button" class="bank-action-btn bank-repay-btn" onclick="repayLoan(50)">Вернуть 50 ◉</button><button type="button" class="bank-action-btn bank-repay-btn" onclick="repayLoan(100)">Вернуть 100 ◉</button><button type="button" class="bank-action-btn bank-repay-btn" onclick="repayLoan(250)">Вернуть 250 ◉</button></div><form class="bank-custom-repay" id="bankCustomForm" onsubmit="event.preventDefault();submitCustomRepay()"><label for="customRepayInput">Своя сумма:</label><input type="number" id="customRepayInput" min="1" placeholder="Сумма" step="1"><button type="submit" class="bank-custom-btn">Отдать</button></form></section></div><footer class="bank-footer"><small>Рыбацкий кредит беспроцентный, не имеет штрафов и срока давности. Повышайте уровень и репутацию, чтобы увеличить кредитный лимит!</small></footer></section></div>
-  <div class="modal" id="world"><section class="world-window"><button class="close">×</button><h2>Мир рыбалки</h2><div class="world-summary" id="worldSummary"></div><h3>Техника ловли</h3><div class="technique-grid" id="techniqueGrid"></div><h3>Задание от NPC</h3><div class="npc-quest" id="questContent"></div><h3>Рынок</h3><div class="npc-quest" id="marketContent"></div></section></div>
-  <div class="modal catch-modal" id="catch" aria-live="polite"><section class="catch-dialog"><button class="close" aria-label="Закрити">×</button><div class="catch-layout"><section class="catch-details"><p class="catch-kicker">УЛОВ ДОСТАВЛЕНО НА БЕРЕГ</p><h2 id="catchFishName">Риба спіймана</h2><dl class="catch-stats"><div><dt>Вага</dt><dd id="catchFishWeight">—</dd></div><div><dt>Рідкість</dt><dd id="catchFishRarity">—</dd></div><div><dt>Якість</dt><dd id="catchFishQuality">—</dd></div><div><dt>Ціна ринку</dt><dd id="catchFishValue">—</dd></div><div><dt>Локація</dt><dd id="catchFishLocation">—</dd></div><div><dt>Наживка</dt><dd id="catchFishBait">—</dd></div></dl></section><figure class="catch-visual"><div class="catch-image-frame"><img id="catchFishImage" src="assets/freshwater-fish.png" width="1600" height="900" decoding="async" fetchpriority="high" alt="Спіймана риба"></div><figcaption id="catchFishDescription">Деталі улову</figcaption></figure></div><footer class="catch-footer"><p class="catch-extra" id="catchFishExtra"></p><div class="catch-actions" id="catchActions"></div><button class="catch-close close-dialog">До риболовлі <span>→</span></button></footer></section></div>
-  <div class="butcher-overlay" id="butcherTable" aria-hidden="true"><section class="butcher-table" aria-label="Стол разделки"><button class="close-butcher" id="closeButcher" aria-label="Закрыть">×</button><p>СТОЛ РАЗДЕЛКИ · проведите ножом по рыбе</p><div class="butcher-fish" id="butcherFish"><img id="butcherFishImage" src="assets/freshwater-fish.png" alt="Рыба для разделки"><i></i></div><span id="butcherKnife" class="butcher-knife" aria-hidden="true"></span><b id="butcherProgress">0 / 0 надрезов</b><button class="butcher-auto-clean" id="butcherAutoClean">САМООЧИСТКА</button></section></div>
-  <script src="script.js?v=game-fixes-5"></script>
+  <div class="modal base-modal open" id="base" aria-label="Рибальська база">
+    <section class="base-hub">
+      <button class="close" aria-label="Почати риболовлю">×</button>
+      <header class="base-title"><span>Рибальська база</span><small>Курортна пристань · головний штаб</small></header>
+      <div class="base-book">
+        <section class="base-page">
+          <h2>Спорядження та послуги</h2>
+          <button class="base-link" data-modal="shops" data-shop="rods"><i>🎣</i><span><b>Рибальський магазин</b><small>Вудки, волосіні, котушки та гачки</small></span></button>
+          <button class="base-link" data-modal="bag"><i>🎒</i><span><b>Рюкзак</b><small>Наживки та активне спорядження</small></span></button>
+          <button class="base-link" data-modal="bank"><i>💳</i><span><b>Рибальський Банк</b><small>Безвідсотковий кредит та позики</small></span></button>
+          <button class="base-link" data-modal="kitchen"><i>🍳</i><span><b>Кухня рибалки</b><small>Приготування юшки та рибних страв із бафами</small></span></button>
+          <button class="base-link" data-modal="index"><i>🐟</i><span><b>Альбом улову</b><small>Вивчені види, описи та рекорди</small></span></button>
+          <button class="base-link" data-modal="pets"><i>🦦</i><span><b>Дикі улюбленці</b><small>Талісмани та вірні помічники рибалки</small></span></button>
+        </section>
+        <section class="base-page">
+          <h2>Пригоди та рекорди</h2>
+          <button class="base-link" data-modal="map"><i>🗺️</i><span><b>Подорожі</b><small>Відкриті водойми, річки та експедиції</small></span></button>
+          <button class="base-link" data-modal="world"><i>🌦️</i><span><b>Умови ловлі</b><small>Сезон, погода, час доби та завдання</small></span></button>
+          <button class="base-link" data-modal="auction"><i>🔨</i><span><b>Аукціон улову</b><small>Продаж рідкісних трофеїв покупцям</small></span></button>
+          <button class="base-link" data-modal="trophy"><i>🏆</i><span><b>Зала трофеїв</b><small>Рекорди, стенди та 20+ досягнень</small></span></button>
+          <button class="base-link" data-modal="progress"><i>📊</i><span><b>Прогрес та крафт</b><small>Навички, турнір дня та матеріали</small></span></button>
+          <button class="base-link" data-modal="settings"><i>⚙️</i><span><b>Налаштування</b><small>Експорт, імпорт сейвів та звук</small></span></button>
+        </section>
+      </div>
+      <footer class="base-status" id="baseStatus"></footer>
+      <button class="base-start close-dialog">Вийти на риболовлю <span>→</span></button>
+    </section>
+  </div>
+
+  <div class="modal fish-market-modal" id="keepnet">
+    <section class="fish-market">
+      <button class="close">×</button>
+      <header class="fish-market-title"><span>Продаж риби</span><small>Прийом улову біля пристані</small></header>
+      <div class="market-notices" aria-label="Замовлення рибного ринку">
+        <button type="button" class="market-note trophy-note" data-market-request="trophy" aria-haspopup="dialog" aria-controls="marketRequests" onclick="openMarketRequest('trophy')"><small>ТРОФЕЙНИЙ УЛОВ</small><b>Цінуємо вище</b><span>Рідкісні екземпляри краще віднести на аукціон</span></button>
+        <button type="button" class="market-note clean-note" data-market-request="clean" aria-haspopup="dialog" aria-controls="marketRequests" onclick="openMarketRequest('clean')"><small>ЧИСТА РИБА</small><b>Приймаємо одразу</b><span>Розберіть здобич на столі перед продажем</span></button>
+        <button type="button" class="market-note order-note" data-market-request="order" aria-haspopup="dialog" aria-controls="marketRequests" onclick="openMarketRequest('order')"><small>ЗАМОВЛЕННЯ РИНКУ</small><b>Більше монет</b><span>Вигідна надбавка за потрібний сьогодні вид</span></button>
+      </div>
+      <div class="market-ledger">
+        <header><span>КНИГА ПРИЙОМУ УЛОВУ</span><b id="keepnetSummary">Немає очищеної риби</b></header>
+        <div id="keepnetList" class="fish-list market-list"></div>
+      </div>
+      <button class="sell-all" id="sellAll">Продати всю очищену рибу</button>
+    </section>
+  </div>
+
+  <div class="modal fish-market-modal" id="marketRequests" role="dialog" aria-modal="true" aria-labelledby="marketRequestTitle">
+    <section class="fish-market market-request-window">
+      <button class="close" aria-label="Закрити">×</button>
+      <header class="fish-market-title"><h2 id="marketRequestTitle" tabindex="-1">Замовлення ринку</h2><small>Потрібна риба та ціни приймання</small></header>
+      <p class="market-request-terms" id="marketRequestTerms"></p>
+      <div class="market-offers" id="marketOffers"></div>
+      <div class="market-ledger">
+        <header><span>ВАШ УЛОВ ДЛЯ ЦЬОГО ЗАМОВЛЕННЯ</span><b id="marketRequestCount"></b></header>
+        <div class="fish-list market-list" id="marketRequestFish"></div>
+      </div>
+      <button class="market-back" data-modal="keepnet">← До садка</button>
+    </section>
+  </div>
+
+  <div class="modal" id="map"><section><button class="close">×</button><h2>Карта водойм та експедицій</h2><div class="location-grid" id="locationGrid"></div></section></div>
+  <div class="modal" id="bag"><section><button class="close">×</button><h2>Рюкзак та оснащення</h2><div id="bagContent" class="loadout"></div><div class="photo-gallery"><figure><img src="assets/fishing-rods.png" alt="Реалістичні вудки"><figcaption>Індивідуальні вудки та котушки</figcaption></figure><figure><img src="assets/freshwater-fish.png" alt="Реалістична прісноводна риба"><figcaption>Окунь, щука та короп</figcaption></figure><figure><img src="assets/fishing-bobbers.png" alt="Реалістичні поплавки"><figcaption>Поплавки для різних умов</figcaption></figure></div></section></div>
+  <div class="modal" id="profile"><section><button class="close">×</button><h2>Картка рибалки</h2><div id="profileContent" class="profile-card"></div></section></div>
+  <div class="modal" id="journal"><section><button class="close">×</button><h2>Щоденник рибальських пригод</h2><div id="journalContent" class="journal"></div></section></div>
+  <div class="modal" id="index"><section><button class="close">×</button><h2>Альбом улову (51 вид)</h2><p class="muted">Знайдіть усі види риб та мешканців водних глибин кожної рідкості.</p><div id="indexContent" class="index-grid"></div></section></div>
+  <div class="modal" id="progress"><section><button class="close">×</button><h2>Прогрес та майстерність</h2><div id="progressContent"></div></section></div>
+  <div class="modal" id="shops"><section class="shop-window"><button class="close">×</button><h2>Магазини спорядження</h2><div class="shop-tabs"><button data-shop="rods">♨ Вудки</button><button data-shop="lines">🧵 Волосіні</button><button data-shop="knives">✦ Ножі</button><button data-shop="hooks">✧ Гачки</button><button data-shop="reels">⚙ Котушки</button><button data-shop="floats">🎈 Поплавки</button><button data-shop="baits">🪱 Наживки</button><button data-shop="sonar">📡 Ехолот</button></div><div id="shopContent" class="shop-items"></div></section></div>
+  <div class="modal" id="auction"><section class="auction-window"><button class="close">×</button><h2>Аукціон риби</h2><p class="muted">Очищену рідкісну або трофейну рибу можна виставити із садка. Покупці самі підвищують ставки, доки не спливе час лота.</p><div id="auctionContent" class="auction-list"></div></section></div>
+  <div class="modal" id="pets"><section class="pets-window"><button class="close">×</button><h2>Дикі улюбленці та талісмани</h2><p class="muted">Приручіть вірних помічників рибалки, які дають постійні цінні бонуси.</p><div id="petContent" class="pets-grid"></div></section></div>
+
+  <!-- Новий модал: Рибальський Банк -->
+  <div class="modal" id="bank" role="dialog" aria-modal="true" aria-labelledby="bankTitle">
+    <section class="bank-window">
+      <button class="close" aria-label="Закрити">×</button>
+      <header class="bank-header"><span id="bankTitle">💳 Рибальський Банк</span><small>БЕЗВІДСОТКОВИЙ КРЕДИТ ТА ФІНАНСОВА ПІДТРИМКА</small></header>
+      <p class="bank-intro">Якщо вам не вистачає монет на купівлю наживки або снастей — візьміть безвідсотковий кредит. Повертайте борг у будь-який зручний час: частинами або повністю!</p>
+      <div class="bank-stats-grid">
+        <article class="bank-stat-card"><small>БАЛАНС У ГАМАНЦІ</small><strong id="bankCoins">0 ◉</strong><span>Доступно для покупок</span></article>
+        <article class="bank-stat-card"><small>ДОСТУПНИЙ ЛІМІТ</small><strong id="bankAvailable">0 ◉</strong><span id="bankMaxLimit">Загальний ліміт: 500 ◉</span></article>
+        <article class="bank-stat-card bank-debt-card"><small>ПОТОЧНИЙ БОРГ</small><strong id="bankDebt">0 ◉</strong><span id="bankDebtStatus">Заборгованості немає</span></article>
+      </div>
+      <div class="bank-sections">
+        <section class="bank-block">
+          <h3>Взяти кредит (0% річних)</h3>
+          <p class="bank-hint">Швидке зарахування монет у гаманець:</p>
+          <div class="bank-btn-grid">
+            <button type="button" class="bank-action-btn" onclick="takeLoan(50)">+50 ◉</button>
+            <button type="button" class="bank-action-btn" onclick="takeLoan(100)">+100 ◉</button>
+            <button type="button" class="bank-action-btn" onclick="takeLoan(250)">+250 ◉</button>
+            <button type="button" class="bank-action-btn" onclick="takeLoan(500)">+500 ◉</button>
+            <button type="button" class="bank-action-btn bank-max-btn" onclick="takeMaxLoan()">Взяти максимум</button>
+          </div>
+        </section>
+        <section class="bank-block">
+          <h3>Погашення кредиту</h3>
+          <p class="bank-hint">Повертайте частинами або закрийте весь борг за один клік:</p>
+          <div class="bank-repay-full"><button type="button" class="bank-repay-all-btn" id="bankRepayAllBtn" onclick="repayAllLoan()">Погасити повністю (0 ◉)</button></div>
+          <div class="bank-btn-grid">
+            <button type="button" class="bank-action-btn bank-repay-btn" onclick="repayLoan(25)">Повернути 25 ◉</button>
+            <button type="button" class="bank-action-btn bank-repay-btn" onclick="repayLoan(50)">Повернути 50 ◉</button>
+            <button type="button" class="bank-action-btn bank-repay-btn" onclick="repayLoan(100)">Повернути 100 ◉</button>
+            <button type="button" class="bank-action-btn bank-repay-btn" onclick="repayLoan(250)">Повернути 250 ◉</button>
+          </div>
+          <form class="bank-custom-repay" id="bankCustomForm" onsubmit="event.preventDefault();submitCustomRepay()">
+            <label for="customRepayInput">Своя сума:</label>
+            <input type="number" id="customRepayInput" min="1" placeholder="Сума" step="1">
+            <button type="submit" class="bank-custom-btn">Віддати</button>
+          </form>
+        </section>
+      </div>
+      <footer class="bank-footer"><small>Рибальський кредит безвідсотковий, без штрафів та терміну давності. Підвищуйте рівень та репутацію, щоб збільшити ліміт!</small></footer>
+    </section>
+  </div>
+
+  <!-- Новий модал: Кухня рибалки -->
+  <div class="modal" id="kitchen">
+    <section class="kitchen-window">
+      <button class="close">×</button>
+      <h2>🍳 Кухня рибалки</h2>
+      <p class="muted">Готуйте поживні страви зі свіжого улову та матеріалів. Кожна страва дає тривалий корисний баф!</p>
+      <div class="kitchen-active-buffs" id="activeBuffsContainer"></div>
+      <div class="kitchen-recipes-grid" id="kitchenRecipesGrid"></div>
+    </section>
+  </div>
+
+  <!-- Новий модал: Зала трофеїв та досягнення -->
+  <div class="modal" id="trophy">
+    <section class="trophy-window">
+      <button class="close">×</button>
+      <h2>🏆 Зала трофеїв та досягнення</h2>
+      <p class="muted">Ваші рекорди, здобуті кубки та перелік усіх рибальських досягнень.</p>
+      <div class="trophy-records-summary" id="trophyRecordsSummary"></div>
+      <h3>Рибальські досягнення (20+)</h3>
+      <div class="achievements-full-grid" id="achievementsFullGrid"></div>
+    </section>
+  </div>
+
+  <!-- Новий модал: Налаштування та збереження -->
+  <div class="modal" id="settings">
+    <section class="settings-window">
+      <button class="close">×</button>
+      <h2>⚙️ Налаштування та збереження</h2>
+      <div class="settings-block">
+        <h3>Аудіо та візуальні ефекти</h3>
+        <label class="settings-row"><span>Звукові ефекти (Web Audio)</span><input type="checkbox" id="settingsSoundEnabled" checked></label>
+        <label class="settings-row"><span>Гучність ефектів</span><input type="range" id="settingsVolumeRange" min="0" max="1" step="0.05" value="0.7"></label>
+        <label class="settings-row"><span>Вібрація на смартфонах (Haptic)</span><input type="checkbox" id="settingsVibrationEnabled" checked></label>
+      </div>
+      <div class="settings-block">
+        <h3>Резервне копіювання прогресу</h3>
+        <p class="muted">Експортуйте файл або код збереження, щоб перенести гру на телефон або інший браузер.</p>
+        <div class="save-actions">
+          <button type="button" class="settings-btn" onclick="exportSave()">📤 Експорт у файл (JSON)</button>
+          <button type="button" class="settings-btn" onclick="copySaveToClipboard()">📋 Скопіювати код</button>
+        </div>
+        <hr>
+        <label for="importSaveInput"><b>Імпорт збереження:</b></label>
+        <textarea id="importSaveInput" placeholder="Вставте JSON-код збереження сюди..." rows="3"></textarea>
+        <div class="save-actions">
+          <button type="button" class="settings-btn import-btn" onclick="importSave()">📥 Завантажити код</button>
+          <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importSaveFile(event)">
+          <button type="button" class="settings-btn" onclick="$('importFileInput').click()">📁 Вибрати файл .json</button>
+        </div>
+      </div>
+      <div class="settings-block danger-zone">
+        <h3>Небезпечна зона</h3>
+        <p class="muted">Скидання видалить весь прогрес, монети, спорядження та улов.</p>
+        <button type="button" class="reset-game-btn" onclick="resetGameProgress()">⚠️ Почати гру спочатку</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal" id="world">
+    <section class="world-window">
+      <button class="close">×</button>
+      <h2>Світ риболовлі та умови</h2>
+      <div class="world-summary" id="worldSummary"></div>
+      <h3>Стилі та техніка ловлі</h3>
+      <div class="technique-grid" id="techniqueGrid"></div>
+      <h3>Завдання від персонажів (NPC)</h3>
+      <div class="npc-quest" id="questContent"></div>
+      <h3>Місцевий ринок</h3>
+      <div class="npc-quest" id="marketContent"></div>
+    </section>
+  </div>
+
+  <div class="modal catch-modal" id="catch" aria-live="polite">
+    <section class="catch-dialog">
+      <button class="close" aria-label="Закрити">×</button>
+      <div class="catch-layout">
+        <section class="catch-details">
+          <p class="catch-kicker">УЛОВ ДОСТАВЛЕНО НА БЕРЕГ</p>
+          <h2 id="catchFishName">Риба спіймана</h2>
+          <dl class="catch-stats">
+            <div><dt>Вага</dt><dd id="catchFishWeight">—</dd></div>
+            <div><dt>Рідкість</dt><dd id="catchFishRarity">—</dd></div>
+            <div><dt>Якість</dt><dd id="catchFishQuality">—</dd></div>
+            <div><dt>Ціна ринку</dt><dd id="catchFishValue">—</dd></div>
+            <div><dt>Локація</dt><dd id="catchFishLocation">—</dd></div>
+            <div><dt>Наживка</dt><dd id="catchFishBait">—</dd></div>
+          </dl>
+        </section>
+        <figure class="catch-visual">
+          <div class="catch-image-frame"><img id="catchFishImage" src="assets/freshwater-fish.png" width="1600" height="900" decoding="async" fetchpriority="high" alt="Спіймана риба"></div>
+          <figcaption id="catchFishDescription">Деталі улову</figcaption>
+        </figure>
+      </div>
+      <footer class="catch-footer">
+        <p class="catch-extra" id="catchFishExtra"></p>
+        <div class="catch-actions" id="catchActions"></div>
+        <button class="catch-close close-dialog">До риболовлі <span>→</span></button>
+      </footer>
+    </section>
+  </div>
+
+  <div class="butcher-overlay" id="butcherTable" aria-hidden="true">
+    <section class="butcher-table" aria-label="Стіл розбирання">
+      <button class="close-butcher" id="closeButcher" aria-label="Закрити">×</button>
+      <p>СТІЛ РОЗБИРАННЯ · проведіть ножем по рибі для філеювання</p>
+      <div class="butcher-fish" id="butcherFish">
+        <img id="butcherFishImage" src="assets/freshwater-fish.png" alt="Риба для розбирання">
+        <i></i>
+      </div>
+      <span id="butcherKnife" class="butcher-knife" aria-hidden="true"></span>
+      <b id="butcherProgress">0 / 0 надрізів</b>
+      <div class="butcher-actions-row">
+        <button class="butcher-auto-clean" id="butcherAutoClean">ОЧИСТИТИ ВСЮ РИБУ ОДРАЗУ</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js?v=game-fixes-6"></script>
+  <script>
+    // Реєстрація Service Worker для офлайн-режиму PWA
+    if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration error:', err));
+      });
+    }
+  </script>
 </body>
 </html>

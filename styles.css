@@ -47,8 +47,7 @@ button{position:relative;border:1px solid #8be9f066;background:linear-gradient(1
 /* Product-style bait renders for each bait card. */
 .shop-card.baits{position:relative;isolation:isolate;overflow:hidden;padding-top:105px;background:linear-gradient(145deg,#493214,#8d6826 54%,#243218)!important}.shop-card.baits:before,.shop-card.baits:after{content:"";position:absolute;z-index:-1;pointer-events:none}.shop-card.baits:before{top:13px;left:13px;right:13px;height:79px;overflow:hidden;border:1px solid #ffe0a666;border-radius:9px;background:radial-gradient(ellipse at 50% 110%,#160f08a8 0 18%,transparent 38%),linear-gradient(145deg,#201607,#5d4219 54%,#192214);box-shadow:inset 0 0 20px #160c05,0 6px 12px #140b0675}.shop-card.baits:after{top:25px;left:50%;width:70px;height:54px;border-radius:50%;background:radial-gradient(circle at 34% 27%,#fff5cf 0 4%,transparent 5%),radial-gradient(circle at 58% 48%,#eec274 0 8%,transparent 9%),radial-gradient(circle at 38% 62%,#b76f2d 0 7%,transparent 8%),radial-gradient(circle at 64% 70%,#8f481e 0 5%,transparent 6%),radial-gradient(circle at 50% 45%,#e4a653 0 53%,#7c401c 78%,#40200f 100%);box-shadow:inset 8px 8px 12px #fff4bd55,inset -9px -9px 13px #52230e99,0 9px 9px #130a06a8;transform:translateX(-50%) rotate(-9deg)}.shop-card.baits:nth-child(2):after{width:126px;height:22px;border:4px solid #7c3321;border-left-color:#ec8c62;border-top-color:#ffba8d;border-radius:60% 44% 57% 48%;background:repeating-radial-gradient(ellipse at 20px 50%,#f6b187 0 3px,#b54930 4px 7px);box-shadow:inset 0 3px 4px #fff2dc88,0 10px 9px #130a06a8;transform:translateX(-50%) rotate(-13deg)}.shop-card.baits:nth-child(3):after{width:105px;height:51px;border-radius:57% 44% 51% 45%;background:radial-gradient(circle at 76% 23%,#1a160e 0 3px,transparent 4px),repeating-linear-gradient(105deg,transparent 0 12px,#ac402e 13px 16px),linear-gradient(145deg,#ffd4a7,#e8795f 55%,#8e2f31);box-shadow:inset 8px 8px 10px #fff2dc88,inset -8px -7px 11px #71212599,0 9px 9px #130a06a8;transform:translateX(-50%) rotate(-16deg)}.shop-card.baits:nth-child(4):after{width:34px;height:68px;border:2px solid #fff0a4;border-radius:48% 48% 40% 40%;background:repeating-linear-gradient(20deg,#dc821e 0 8px,#fff1a0 9px 13px,#b75213 14px 19px);box-shadow:inset 4px 4px 5px #fff7c999,inset -5px -6px 7px #77330b99,0 9px 9px #130a06a8;transform:translateX(-50%) rotate(-15deg)}.shop-card.baits:nth-child(5):after{width:108px;height:51px;clip-path:polygon(0 50%,28% 8%,75% 18%,100% 0,91% 35%,100% 52%,91% 70%,100% 100%,75% 82%,28% 92%);background:radial-gradient(circle at 68% 38%,#102318 0 3px,transparent 4px),repeating-linear-gradient(28deg,transparent 0 13px,#e4b05b55 14px 16px),linear-gradient(145deg,#d7d8aa,#819c64 56%,#314a31);box-shadow:inset 7px 6px 8px #ffffd477,inset -8px -7px 9px #1b302399,0 9px 9px #130a06a8;transform:translateX(-50%) rotate(-8deg)}.shop-card.baits:nth-child(6):after{width:112px;height:59px;border-radius:44% 53% 43% 48%;background:radial-gradient(ellipse at 70% 43%,#d9e3d4 0 17%,#4f675f 18% 32%,transparent 33%),linear-gradient(121deg,transparent 34%,#efb698 35% 48%,#8d4f48 49% 62%,transparent 63%),radial-gradient(ellipse at 35% 57%,#e6b091 0 22%,#813d40 23% 39%,transparent 40%);box-shadow:inset 7px 7px 9px #fff4d180,inset -8px -7px 11px #1f292499,0 9px 9px #130a06a8;transform:translateX(-50%) rotate(-8deg)}.shop-card.baits.current:before{border-color:#ffe17e;box-shadow:inset 0 0 22px #ffde7b32,0 0 16px #ffd96345}
 
-/* Tension fight: direction parry and snag recovery. */
-.fight-hud{position:absolute;z-index:31;top:48%;left:50%;width:min(330px,calc(100% - 36px));padding:10px 12px;border-color:#ffe184a6;transform:translate(-50%,-50%);text-align:center}.fight-title{color:#ffe48b;font-size:.64rem;font-weight:900;letter-spacing:.15em}.fight-direction{display:flex;align-items:center;justify-content:center;gap:9px;margin:4px 0 7px}.fight-direction b{width:35px;color:#f5fbff;font-size:2rem;line-height:1;text-shadow:0 0 12px #62edf1}.fight-direction span{color:#c1eaeb;font-size:.67rem;font-weight:700}.fight-timer{height:5px;overflow:hidden;border-radius:99px;background:#031723}.fight-timer i{display:block;width:100%;height:100%;background:linear-gradient(90deg,#5de9d8,#ffe27e,#ff7668);transition:width .08s linear}.fight-hud button{margin-top:8px;padding:7px 10px;border:1px solid #ffe28c;border-radius:7px;background:linear-gradient(135deg,#ffe28c,#df8553);color:#35200e;font-size:.63rem;font-weight:900}.fight-hud button small{margin-left:4px;padding:1px 4px;border:1px solid #633b23;border-radius:3px}.fight-hud.snag{border-color:#ff9b74;background:#3a201bdf}.fight-hud.snag .fight-title{color:#ffd2b6}
+/* Tension fight styles are consolidated in the modern fight-hud section */
 
 /* The full-size shore rod is hidden while the player fishes from the rendered boat. */
 .deep-water .scene{background-image:radial-gradient(ellipse at 55% 15%,#73c9dd55,transparent 24%),linear-gradient(#173f68 0 45%,#0c6280 46%,#032a4b 100%)!important}.deep-water .equipped-rod{display:none}.deep-water .scene-vignette{background:radial-gradient(ellipse at center,transparent 24%,#00172a78 100%)}
@@ -149,3 +148,84 @@ button.market-note:hover:not(:disabled),button.market-note:focus-visible{transfo
 .save-warning{position:fixed;z-index:150;top:8px;left:50%;display:flex;align-items:center;gap:12px;width:min(550px,calc(100% - 24px));padding:12px 14px;transform:translateX(-50%);border:1px solid #ffc773;border-radius:9px;background:#743519;color:#fff1d2;box-shadow:0 5px 18px #0008;font-size:.75rem}
 .save-warning[hidden]{display:none}.save-warning button{flex:0 0 auto;min-height:40px;padding:6px 9px;border-radius:5px;background:#ffe0a4;color:#542710;font-size:.7rem;font-weight:700}
 @media(max-width:500px){.save-warning{align-items:stretch;flex-direction:column;gap:7px}}
+
+/* Top quick controls: sound, volume, fullscreen, settings */
+.top-quick-bar{position:absolute;z-index:25;top:18px;left:310px;display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid #7be8f255;border-radius:12px;background:#052436c9;backdrop-filter:blur(10px);box-shadow:0 8px 24px #00152466}
+.quick-btn{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid #8beef066;border-radius:8px;background:linear-gradient(135deg,#0a445a,#072838);color:#fff;font-size:1.1rem;cursor:pointer}
+.quick-btn:hover{background:#115c78;border-color:#b4f8ff}
+.volume-slider{width:75px;accent-color:#5de4d0;cursor:pointer}
+@media(max-width:850px){.top-quick-bar{left:auto;right:170px;top:18px;padding:4px 8px}.volume-slider{display:none}}
+@media(max-width:550px){.top-quick-bar{right:9px;top:68px;gap:5px}.quick-btn{width:30px;height:30px;font-size:.95rem}}
+
+/* --- Modern Fight HUD (Попередження про ривки риби та стравлювання волосіні) --- */
+.fight-hud{display:none!important;position:absolute;z-index:35;bottom:228px;left:50%;transform:translateX(-50%);width:min(370px,calc(100vw - 32px));padding:11px 16px;border:1.5px solid #ff7b63;border-radius:14px;background:linear-gradient(160deg,rgba(32,10,8,.94),rgba(16,5,4,.98));backdrop-filter:blur(12px);box-shadow:0 10px 30px rgba(0,0,0,.65),0 0 20px rgba(255,80,50,.35)}
+.fight-hud[hidden]{display:none!important}
+.fight-hud.active:not([hidden]){display:flex!important;flex-direction:column;align-items:center;gap:7px;animation:fight-pop-in .22s cubic-bezier(.16,1,.3,1),fight-pulse 1.2s infinite alternate}
+.fight-header{display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.fight-badge{display:inline-block;padding:2px 7px;border-radius:99px;background:#ff3b20;color:#fff;font-size:.62rem;font-weight:900;letter-spacing:.08em;text-shadow:0 1px 2px rgba(0,0,0,.5);animation:badge-blink .6s infinite alternate}
+@keyframes badge-blink{from{opacity:.85;transform:scale(.96)}to{opacity:1;transform:scale(1.04)}}
+.fight-title{font-size:.84rem;font-weight:850;letter-spacing:.08em;color:#ffe6de;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.fight-body{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%}
+.fight-direction{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.78rem;color:#f7d5cc}
+.fight-direction b{font-size:1.5rem;color:#ffd15c;line-height:1;text-shadow:0 0 10px rgba(255,209,92,.7);animation:bounce-arrow .35s infinite alternate}
+.fight-direction span{font-weight:600}
+.fight-timer{width:100%;max-width:250px;height:5px;border-radius:99px;background:rgba(0,0,0,.55);box-shadow:inset 0 1px 2px rgba(0,0,0,.7);overflow:hidden}
+.fight-timer i{display:block;height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,#5ce4d0,#ffd25c 50%,#ff4b3a);transition:width .1s ease}
+.fight-release-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:280px;margin-top:3px;padding:7px 14px;border:1px solid #ffa07a;border-radius:9px;background:linear-gradient(135deg,#d84315,#87190c);color:#fff;font-size:.75rem;font-weight:850;letter-spacing:.03em;box-shadow:0 4px 12px rgba(180,40,15,.4),inset 0 1px 0 rgba(255,255,255,.25);cursor:pointer;transition:transform .1s ease,filter .1s ease}
+.fight-release-btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.fight-release-btn:active{transform:translateY(1px) scale(.98);filter:brightness(.95)}
+.fight-release-btn kbd,.fight-release-btn small{display:inline-block;padding:1px 5px;border-radius:4px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.3);font-family:monospace;font-size:.68rem;font-weight:800;color:#ffe082}
+@keyframes fight-pop-in{from{opacity:0;transform:translateX(-50%) translateY(12px) scale(.95)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+@keyframes fight-pulse{from{box-shadow:0 10px 30px rgba(0,0,0,.65),0 0 14px rgba(255,75,45,.28);border-color:#ff684d}to{box-shadow:0 10px 35px rgba(0,0,0,.8),0 0 24px rgba(255,95,65,.5);border-color:#ffa18f}}
+@media(max-width:700px){.fight-hud{bottom:212px;width:min(320px,calc(100vw - 20px));padding:8px 12px}.fight-title{font-size:.75rem}.fight-release-btn{padding:6px 10px;font-size:.7rem}}
+
+/* Badge on autoClean */
+.auto-clean{display:flex;align-items:center;gap:6px}
+.auto-clean .badge{display:inline-block;padding:2px 6px;border-radius:99px;background:#e53b2c;color:#fff;font-size:.65rem;font-weight:900;border:1px solid #fff}
+
+/* Snow weather effect */
+.weather-fx.weather-snow{opacity:.75;background-image:radial-gradient(4px 4px at 20px 30px,#fff,transparent),radial-gradient(3px 3px at 40px 70px,#e8f8ff,transparent),radial-gradient(5px 5px at 90px 40px,#fff,transparent),radial-gradient(2px 2px at 150px 120px,#d4f0ff,transparent);background-size:200px 200px;animation:snow 4s linear infinite}
+@keyframes snow{to{background-position:40px 200px}}
+
+/* Kitchen modal styles */
+.kitchen-window{width:min(900px,100%)!important}
+.kitchen-active-buffs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding:9px;border:1px solid #8beff066;border-radius:10px;background:#062335}
+.buff-pill{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;background:linear-gradient(135deg,#135a50,#0c3937);border:1px solid #57e5c9;font-size:.76rem;color:#bffff4}
+.kitchen-recipes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.kitchen-card{display:flex;flex-direction:column;justify-content:space-between;padding:14px;border:1px solid #91eff255;border-radius:12px;background:linear-gradient(145deg,#0a3246,#051c28)}
+.kitchen-card h3{margin:0 0 6px;color:#ffe28b;font-size:.95rem}
+.kitchen-card p{margin:0 0 10px;font-size:.75rem;color:#d5f3f4}
+.kitchen-card small{display:block;margin-bottom:10px;color:#98d2dc;font-size:.7rem}
+.kitchen-card button{padding:8px 12px;border-radius:8px;background:linear-gradient(135deg,#7be8d1,#3ebdb4);color:#032029;font-weight:900;font-size:.75rem}
+
+/* Trophy modal styles */
+.trophy-window{width:min(920px,100%)!important}
+.trophy-records-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:18px}
+.trophy-record-card{padding:12px;border:1px solid #ffd57766;border-radius:11px;background:linear-gradient(135deg,#342409,#0c2635);text-align:center}
+.trophy-record-card i{font-size:2rem;display:block;margin-bottom:4px}
+.trophy-record-card b{display:block;font-size:1.15rem;color:#ffd779}
+.trophy-record-card small{color:#aadfe3;font-size:.68rem}
+.achievements-full-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;max-height:50vh;overflow-y:auto;padding-right:4px}
+.achievement-card{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid #7be8f244;border-radius:10px;background:#052233}
+.achievement-card.done{border-color:#57e5c9;background:linear-gradient(135deg,#0d3838,#052233)}
+.achievement-card i{font-size:1.6rem;flex:0 0 32px;display:grid;place-items:center}
+.achievement-card div{flex:1}
+.achievement-card b{display:block;color:#e8faff;font-size:.82rem}
+.achievement-card p{margin:3px 0 0;color:#9cd8de;font-size:.68rem}
+.achievement-card small{display:block;margin-top:4px;color:#ffe182;font-size:.65rem;font-weight:800}
+
+/* Settings modal styles */
+.settings-window{width:min(650px,100%)!important}
+.settings-block{margin-bottom:18px;padding:14px;border:1px solid #8beff044;border-radius:12px;background:#052132}
+.settings-block h3{margin:0 0 10px;color:#ffe28a;font-size:.95rem}
+.settings-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:.82rem;color:#d8f4f6;border-bottom:1px solid #ffffff14}
+.settings-row input[type="checkbox"]{width:18px;height:18px;accent-color:#5ce4d0}
+.settings-row input[type="range"]{width:140px;accent-color:#5ce4d0}
+.save-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.settings-btn{padding:8px 14px;border-radius:8px;background:linear-gradient(135deg,#155e77,#09374c);color:#fff;font-size:.76rem;font-weight:700}
+.settings-btn.import-btn{background:linear-gradient(135deg,#1d7565,#0d4a3e)}
+#importSaveInput{width:100%;box-sizing:border-box;margin-top:6px;padding:8px;border:1px solid #8beff055;border-radius:8px;background:#021522;color:#fff;font-family:monospace;font-size:.72rem}
+.danger-zone{border-color:#ff695577;background:#240906}
+.danger-zone h3{color:#ff8d7c}
+.reset-game-btn{margin-top:8px;padding:10px 16px;border:1px solid #ff7c68;border-radius:8px;background:linear-gradient(135deg,#b92c1a,#601309);color:#fff;font-weight:900;font-size:.8rem}
+

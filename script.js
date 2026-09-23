@@ -1,711 +1,3184 @@
+// ========================================================
+// Українська Рибалка — Морський курорт
+// Головний ігровий рушій, фізика, звук та інтерфейс
+// ========================================================
+
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'sea-resort-fishing-v1';
+
+// --------------------------------------------------------
+// Звуковий рушій Web Audio API (без зовнішніх файлів)
+// --------------------------------------------------------
+class SoundEngine {
+  constructor() {
+    this.ctx = null;
+    this.enabled = localStorage.getItem('ukr_fish_sound') !== 'false';
+    this.volume = parseFloat(localStorage.getItem('ukr_fish_vol') || '0.7');
+  }
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+  setVolume(val) {
+    this.volume = Math.max(0, Math.min(1, parseFloat(val) || 0));
+    localStorage.setItem('ukr_fish_vol', this.volume);
+  }
+  toggle() {
+    this.enabled = !this.enabled;
+    localStorage.setItem('ukr_fish_sound', this.enabled);
+    return this.enabled;
+  }
+  beep(freq = 440, type = 'sine', duration = 0.15, vol = 1, ramp = true) {
+    if (!this.enabled || !this.volume) return;
+    this.init();
+    if (!this.ctx) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      const effectiveVol = this.volume * vol * 0.3;
+      gain.gain.setValueAtTime(effectiveVol, this.ctx.currentTime);
+      if (ramp) {
+        gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+      }
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + duration);
+    } catch (_) {}
+  }
+  noise(duration = 0.2, vol = 0.5) {
+    if (!this.enabled || !this.volume) return;
+    this.init();
+    if (!this.ctx) return;
+    try {
+      const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(this.volume * vol * 0.25, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start();
+    } catch (_) {}
+  }
+  playCast() {
+    this.beep(520, 'sine', 0.22, 0.4);
+    setTimeout(() => this.beep(330, 'triangle', 0.28, 0.3), 60);
+  }
+  playSplash() {
+    this.noise(0.25, 0.6);
+    this.beep(180, 'sine', 0.2, 0.5);
+  }
+  playBite() {
+    this.beep(880, 'triangle', 0.15, 0.7);
+    setTimeout(() => this.beep(1320, 'sine', 0.25, 0.8), 90);
+    this.vibrate([40, 30, 60]);
+  }
+  playReel() {
+    this.beep(750 + Math.random() * 120, 'square', 0.03, 0.15);
+  }
+  playStrain() {
+    this.beep(110, 'sawtooth', 0.12, 0.45);
+    this.vibrate(30);
+  }
+  playSnap() {
+    this.noise(0.35, 0.9);
+    this.beep(90, 'sawtooth', 0.3, 0.8);
+    this.vibrate([100, 50, 150]);
+  }
+  playLand() {
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+      setTimeout(() => this.beep(f, 'triangle', 0.35, 0.6), idx * 80);
+    });
+  }
+  playCoin() {
+    this.beep(1864, 'sine', 0.12, 0.5);
+    setTimeout(() => this.beep(2349, 'sine', 0.22, 0.6), 70);
+  }
+  playSlice() {
+    this.noise(0.12, 0.4);
+    this.beep(420, 'sine', 0.08, 0.3);
+  }
+  playBuff() {
+    [440, 554, 659].forEach((f, i) => setTimeout(() => this.beep(f, 'sine', 0.25, 0.5), i * 90));
+  }
+  vibrate(pattern) {
+    if ('vibrate' in navigator && state?.vibrationEnabled !== false) {
+      try { navigator.vibrate(pattern); } catch (_) {}
+    }
+  }
+}
+const sound = new SoundEngine();
+
+// --------------------------------------------------------
+// Словник міграції старих назв риб (російська -> українська)
+// --------------------------------------------------------
+const fishNameMigration = {
+  'Окунь речной': 'Окунь річковий',
+  'Плотва обыкновенная': 'Плітка звичайна',
+  'Карась серебряный': 'Карась сріблястий',
+  'Лещ обыкновенный': 'Лящ звичайний',
+  'Карп обыкновенный': 'Короп звичайний',
+  'Форель ручьевая': 'Форель струмкова',
+  'Хариус европейский': 'Харіус європейський',
+  'Сиг европейский': 'Сиг європейський',
+  'Голец арктический': 'Голець арктичний',
+  'Форель радужная': 'Форель райдужна',
+  'Щука обыкновенная': 'Щука звичайна',
+  'Линь обыкновенный': 'Лин звичайний',
+  'Сом европейский': 'Сом європейський',
+  'Вьюн обыкновенный': "В'юн звичайний",
+  'Краснопёрка обыкновенная': 'Краснопірка звичайна',
+  'Судак обыкновенный': 'Судак звичайний',
+  'Голавль обыкновенный': 'Головень звичайний',
+  'Жерех обыкновенный': 'Білизна звичайна',
+  'Угорь европейский': 'Вугор європейський',
+  'Ставрида черноморская': 'Ставрида чорноморська',
+  'Кефаль': 'Кефаль',
+  'Бычок-кругляк': 'Бичок-кругляк',
+  'Калкан черноморский': 'Калкан чорноморський',
+  'Ряпушка европейская': 'Ряпушка європейська',
+  'Налим': 'Минь',
+  'Сельдь балтийская': 'Оселедець балтійський',
+  'Камбала речная': 'Камбала річкова',
+  'Барбус обыкновенный': 'Марена звичайна',
+  'Стерлядь': 'Стерлядь',
+  'Подкаменщик обыкновенный': 'Бабець звичайний',
+  'Луфарь': 'Луфар',
+  'Скумбрия атлантическая': 'Скумбрія атлантична',
+  'Лаврак европейский': 'Лаврак європейський',
+  'Мидия балтийская': 'Мідія балтійська',
+  'Сердцевидка съедобная': 'Серцевидка їстівна',
+  'Медуза аурелия': 'Медуза аурелія',
+  'Сериола японская': 'Серіола японська',
+  'Тай красный': 'Тай червоний',
+  'Исаки полосатый': 'Ісакі смугастий',
+  'Горбыль большой жёлтый': 'Горбань великий жовтий',
+  'Макрель японская королевская': 'Макрель японська королівська',
+  'Окунь китайский': 'Окунь китайський',
+  'Коралловый лосось': 'Кораловий лосось',
+  'Каранкс гигантский': 'Каранкс гігантський',
+  'Баррамунди': 'Барамунді',
+  'Чёрный басс Папуа': 'Чорний бас Папуа',
+  'Парусник индо-тихоокеанский': 'Вітрильник індо-тихоокеанський',
+  'Рыба-попугай шишколобая': 'Риба-папуга шишколоба',
+  'Губан Наполеон': 'Губан Наполеон',
+  'Тунец собачьезубый': 'Тунець собакозубий',
+  'Групер гигантский': 'Групер гігантський'
+};
+const migrateFishName = (name) => fishNameMigration[name] || name;
+
+// --------------------------------------------------------
+// Базові довідники та шкали
+// --------------------------------------------------------
 const rarities = [
-  {name:'Обычная', color:'#b9d5d7', value:35, multiplier:1}, {name:'Редкая', color:'#55aaff', value:110, multiplier:1.2},
-  {name:'Эпическая', color:'#bf79ff', value:380, multiplier:1.5}, {name:'Мифическая', color:'#ff9271', value:1250, multiplier:1.85}, {name:'Легендарная', color:'#ffe06a', value:4200, multiplier:2.3}
+  {name:'Звичайна', color:'#b9d5d7', value:35, multiplier:1},
+  {name:'Рідкісна', color:'#55aaff', value:110, multiplier:1.2},
+  {name:'Епічна', color:'#bf79ff', value:380, multiplier:1.5},
+  {name:'Міфічна', color:'#ff9271', value:1250, multiplier:1.85},
+  {name:'Легендарна', color:'#ffe06a', value:4200, multiplier:2.3}
 ];
+
+const catchQualities = [
+  {id:'normal', name:'Звичайна', multiplier:1},
+  {id:'good', name:'Гарна', multiplier:1.15},
+  {id:'trophy', name:'Трофейна', multiplier:1.4},
+  {id:'record', name:'Рекордна', multiplier:1.7}
+];
+
+const seasons = {
+  spring: {name:'Весна', icon:'🌱', bite:1.08},
+  summer: {name:'Літо', icon:'☀️', bite:1.15},
+  autumn: {name:'Осінь', icon:'🍂', bite:1.05},
+  winter: {name:'Зима', icon:'❄️', bite:0.75}
+};
+
+const weatherData = {
+  clear: {name:'Ясно', icon:'☀', bite:1, visibility:'висока'},
+  rain: {name:'Дощ', icon:'🌧', bite:1.25, visibility:'середня'},
+  fog: {name:'Туман', icon:'🌫', bite:1.1, visibility:'низька'},
+  wind: {name:'Вітер', icon:'💨', bite:0.8, visibility:'середня'},
+  snow: {name:'Сніг', icon:'❄️', bite:0.7, visibility:'помірна'}
+};
+
+const timeData = {
+  day: {name:'День', bite:1},
+  night: {name:'Ніч', bite:0.82}
+};
+
+const eventData = {
+  calm: {name:'Тихий сезон', bite:1, weight:1, rarity:0, desc:'Стабільний кльов без особливих умов.'},
+  migration: {name:'Міграція риби', bite:1.3, weight:1.1, rarity:1, desc:'Риба підходить ближче до берега.'},
+  storm: {name:'Штормовий фронт', bite:0.78, weight:1.45, rarity:1, weather:'wind', desc:'Клює рідше, але трапляються трофеї-гіганти.'},
+  nightRun: {name:'Нічний жор', bite:1.5, weight:1, rarity:1, nightOnly:true, time:'night', desc:'Нічні хижаки виходять на мілину.'},
+  festival: {name:'Рибальський фестиваль', bite:1.15, weight:1.15, rarity:1, desc:'Святковий день із підвищеним шансом трофея.'},
+  tournament: {name:'Змагання біля пристані', bite:1.08, weight:1.2, rarity:1, desc:'Улов зараховується до кубка дня.'}
+};
+
+const techniques = {
+  float: {name:'Поплавок', icon:'🎈', desc:'Класична чутлива ловля, швидке клювання.', bite:1.12, weight:1, rarity:0},
+  feeder: {name:'Фідер', icon:'🪝', desc:'Донна годівниця, очікування великої риби.', bite:0.84, weight:1.28, rarity:0},
+  spin: {name:'Спінінг', icon:'🎣', desc:'Активна проводка, високий шанс хижака.', bite:0.96, weight:1.12, rarity:1},
+  ice: {name:'Зимова вудка', icon:'❄', desc:'Ефективна в крижаній воді Північного озера.', bite:0.55, weight:0.95, rarity:0}
+};
+
+// --------------------------------------------------------
+// Локації водойм та експедиції
+// --------------------------------------------------------
 const locations = {
-  pier:{name:'Лесное озеро', sub:'тихая бухта', desc:'Стартовая бухта с доступной пресноводной рыбой и лёгкой рябью.', image:'assets/forest-lake.png', fish:['Окунь речной','Плотва обыкновенная','Карась серебряный','Лещ обыкновенный','Карп обыкновенный']},
-  river:{name:'Карпатская река', sub:'каменистые перекаты', desc:'Быстрая прозрачная вода, валуны и сильное течение.', image:'assets/carpathian-river.png', fish:['Окунь речной','Плотва обыкновенная','Форель ручьевая','Хариус европейский','Щука обыкновенная','Барбус обыкновенный']},
-  ocean:{name:'Горное озеро', sub:'холодная вода', desc:'Глубокая чистая вода, быстрые волны и редкие холодноводные виды.', image:'assets/mountain-lake.png', fish:['Форель ручьевая','Хариус европейский','Сиг европейский','Голец арктический','Форель радужная']},
-  alpine:{name:'Альпийский ручей', sub:'ледниковая вода', desc:'Бирюзовый поток у подножия гор — место для точных забросов.', image:'assets/alpine-stream.png', fish:['Плотва обыкновенная','Форель ручьевая','Хариус европейский','Сиг европейский','Голец арктический','Подкаменщик обыкновенный']},
-  reservoir:{name:'Осеннее водохранилище', sub:'золотой берег', desc:'Тихая большая вода с глубокими ямами у лесного берега.', image:'assets/autumn-reservoir.png', fish:['Карась серебряный','Лещ обыкновенный','Карп обыкновенный','Линь обыкновенный','Краснопёрка обыкновенная']},
-  swamp:{name:'Туманные плавни', sub:'камышовые протоки', desc:'Тёмная вода, камыши и осторожные болотные хищники.', image:'assets/misty-wetland.png', fish:['Щука обыкновенная','Линь обыкновенный','Сом европейский','Вьюн обыкновенный','Краснопёрка обыкновенная']},
-  delta:{name:'Камышовая дельта', sub:'закатные протоки', desc:'Тёплые протоки среди камыша, где держатся крупные хищники.', image:'assets/reed-delta.png', fish:['Плотва обыкновенная','Лещ обыкновенный','Линь обыкновенный','Сом европейский','Щука обыкновенная']},
-  winter:{name:'Северное озеро', sub:'ледяная бухта', desc:'Открытая полынья у заснеженного берега и очень холодная вода.', image:'assets/winter-lake.png', fish:['Окунь речной','Сиг европейский','Форель радужная','Голец арктический','Щука обыкновенная']},
-  dnieper:{name:'Днепр · Украина', sub:'тихая речная коса', desc:'Широкая украинская река с протоками, песчаными косами и сильной рыбой.', image:'assets/dnieper-river.png', fish:['Голавль обыкновенный','Жерех обыкновенный','Судак обыкновенный','Сом европейский','Угорь европейский','Стерлядь']},
-  shatsk:{name:'Шацкие озёра · Украина', sub:'сосновый берег', desc:'Прозрачные озёра среди сосен — место для аккуратной ловли у кромки камышей.', image:'assets/shatsk-lakes.png', fish:['Плотва обыкновенная','Краснопёрка обыкновенная','Лещ обыкновенный','Линь обыкновенный','Угорь европейский']},
-  blackSea:{name:'Чёрное море · Украина', sub:'одесское побережье', desc:'Морская вода и прибой: здесь клюют только черноморские виды.', image:'assets/black-sea-ukraine.png', fish:['Бычок-кругляк','Ставрида черноморская','Кефаль','Камбала речная','Калкан черноморский','Луфарь','Скумбрия атлантическая','Лаврак европейский']},
-  peipus:{name:'Чудское озеро · Эстония', sub:'северный берег', desc:'Большое прохладное озеро у берёзового берега с глубокими свалами.', image:'assets/lake-peipus.png', fish:['Ряпушка европейская','Лещ обыкновенный','Налим','Сиг европейский','Щука обыкновенная']},
-  baltic:{name:'Балтийское море · Эстония', sub:'каменистый берег', desc:'Холодное море у гранитных скал — отдельный набор балтийской рыбы.', image:'assets/baltic-coast-estonia.png', fish:['Сельдь балтийская','Камбала речная','Бычок-кругляк','Угорь европейский','Окунь речной','Мидия балтийская','Сердцевидка съедобная','Медуза аурелия']}
+  pier: {name:'Лісове озеро', sub:'тиха бухта', desc:'Затишна бухта з доступною прісноводною рибою та спокійною водою.', image:'assets/forest-lake.png', fish:['Окунь річковий','Плітка звичайна','Карась сріблястий','Лящ звичайний','Короп звичайний']},
+  river: {name:'Карпатська річка', sub:'кам’янисті перекати', desc:'Стрімка прозора вода, валуни та сильна гірська риба.', image:'assets/carpathian-river.png', fish:['Окунь річковий','Плітка звичайна','Форель струмкова','Харіус європейський','Щука звичайна','Марена звичайна']},
+  ocean: {name:'Гірське озеро', sub:'холодна вода', desc:'Глибока чиста вода, прохолодні вітри та рідкісні холодноводні види.', image:'assets/mountain-lake.png', fish:['Форель струмкова','Харіус європейський','Сиг європейський','Голець арктичний','Форель райдужна']},
+  alpine: {name:'Альпійський струмок', sub:'льодовикова вода', desc:'Бірюзовий потік біля підніжжя скель — місце для ювелірних закидів.', image:'assets/alpine-stream.png', fish:['Плітка звичайна','Форель струмкова','Харіус європейський','Сиг європейський','Голець арктичний','Бабець звичайний']},
+  reservoir: {name:'Осіннє водосховище', sub:'золотий берег', desc:'Велика спокійна вода з глибокими ямами біля лісу.', image:'assets/autumn-reservoir.png', fish:['Карась сріблястий','Лящ звичайний','Короп звичайний','Лин звичайний','Краснопірка звичайна']},
+  swamp: {name:'Туманні плавні', sub:'очеретяні протоки', desc:'Темна тиха вода, зарості та обережні болотні хижаки.', image:'assets/misty-wetland.png', fish:['Щука звичайна','Лин звичайний','Сом європейський',"В'юн звичайний",'Краснопірка звичайна']},
+  delta: {name:'Очеретяна дельта', sub:'західні протоки', desc:'Теплі протоки серед очерету, де тримаються великі донні хижаки.', image:'assets/reed-delta.png', fish:['Плітка звичайна','Лящ звичайний','Лин звичайний','Сом європейський','Щука звичайна']},
+  winter: {name:'Північне озеро', sub:'крижана бухта', desc:'Відкрита ополонка біля засніженого берега та крижана вода.', image:'assets/winter-lake.png', fish:['Окунь річковий','Сиг європейський','Форель райдужна','Голець арктичний','Щука звичайна']},
+  dnieper: {name:'Дніпро · Україна', sub:'тиха річкова коса', desc:'Широка велична українська річка з вирами, піщаними косами та міцною рибою.', image:'assets/dnieper-river.png', fish:['Головень звичайний','Білизна звичайна','Судак звичайний','Сом європейський','Вугор європейський','Стерлядь']},
+  shatsk: {name:'Шацькі озера · Україна', sub:'сосновий берег', desc:'Кришталево чисті волинські озера серед сосен — рай для делікатної ловлі.', image:'assets/shatsk-lakes.png', fish:['Плітка звичайна','Краснопірка звичайна','Лящ звичайний','Лин звичайний','Вугор європейський']},
+  blackSea: {name:'Чорне море · Україна', sub:'одеське узбережжя', desc:'Морські хвилі, прибій та багатий набір чорноморських делікатесів.', image:'assets/black-sea-ukraine.png', fish:['Бичок-кругляк','Ставрида чорноморська','Кефаль','Камбала річкова','Калкан чорноморський','Луфар','Скумбрія атлантична','Лаврак європейський']},
+  peipus: {name:'Чудське озеро · Естонія', sub:'північний берег', desc:'Велике прохолодне озеро біля березового гаю з глибокими бровками.', image:'assets/lake-peipus.png', fish:['Ряпушка європейська','Лящ звичайний','Минь','Сиг європейський','Щука звичайна']},
+  baltic: {name:'Балтійське море · Естонія', sub:'кам’янистий берег', desc:'Холодне північне море біля гранітних скель — унікальна балтійська іхтіофауна.', image:'assets/baltic-coast-estonia.png', fish:['Оселедець балтійський','Камбала річкова','Бичок-кругляк','Вугор європейський','Окунь річковий','Мідія балтійська','Серцевидка їстівна','Медуза аурелія']}
 };
-const gear = {
-  rods:[['Бамбуковая поплавочная удочка',0,2.5],['Ультралайтовый спиннинг',120,4],['Тяжёлый фидер',390,7],['Длинное карповое удилище',1200,12],['Троллинговый спиннинг',3800,20],['Карбоновое матчевое удилище',9000,32],['Дальнобойный фидер',22000,50],['Турнирное карповое удилище',52000,80]],
-  lines:[['Мононить 0.16',0,3],['Мононить 0.20',65,5],['Флюорокарбон 0.25',220,8],['Плетёный шнур 0.18',700,13],['Плетёный шнур 0.24',2100,22],['Кевларовая леска',5200,35],['Трофейный шнур',12500,55],['Турнирная плетёнка',30000,90]],
-  knives:[['Рыбацкий нож',0],['Перламутровый нож',140],['Приливный клинок',450],['Нож бездны',1400],['Солнечный тесак',4400],['Клинок шкипера',10500],['Титановый филейник',25000],['Мастерский нож',60000]],
-  hooks:[['Медный крючок',0,3],['Лунный крючок',110,5],['Звёздная связка',350,8],['Туманная сеть',1100,13],['Галактическая стая',3600,22],['Серебряный тройник',8600,35],['Штормовая оснастка',20500,55],['Коллекционерский набор',49000,90]],
-  reels:[['Простая катушка',0,.9,3],['Речная катушка',100,1,5],['Скоростная катушка',320,1.12,4],['Фидерная катушка',980,1.26,8],['Морская катушка',3000,1.4,14],['Трофейная катушка',7600,1.55,23],['Турнирная катушка',18500,1.7,35],['Катушка мастера',44000,1.85,55]],
-  floats:[['Красно-белый поплавок',0],['Речной поплавок',90],['Дальний поплавок',280],['Ночной поплавок',850],['Турнирный поплавок',2600],['Штормовой поплавок',6500],['Светящийся поплавок',15500],['Мастерский поплавок',37000]],
-};
-const pets = [{name:'Выдра Искра',icon:'🦦',bonus:'+20% к продаже',price:1000000,type:'money'}, {name:'Чайка Ветра',icon:'🕊️',bonus:'быстрее поклёвка',price:1250000,type:'speed'}, {name:'Морской лис',icon:'🦊',bonus:'+10% к редкой рыбе',price:1500000,type:'luck'}];
-const rodImages=['assets/rods/rod-01.png','assets/rods/rod-02.png','assets/rods/rod-03.png','assets/rods/rod-04.png','assets/rods/rod-05.png','assets/rods/rod-06.png','assets/rods/rod-07.png','assets/rods/rod-08.png'];
-const floatImages=['assets/floats/float-01.png','assets/floats/float-02.png','assets/floats/float-03.png','assets/floats/float-04.png','assets/floats/float-05.png','assets/floats/float-06.png','assets/floats/float-07.png','assets/floats/float-08.png'];
-const lineImages=['assets/lines/line-01-monofilament-016.png','assets/lines/line-02-monofilament-020.png','assets/lines/line-03-fluorocarbon-025.png','assets/lines/line-04-braided-018.png','assets/lines/line-05-braided-024.png','assets/lines/line-06-kevlar.png','assets/lines/line-07-trophy.png','assets/lines/line-08-tournament.png'];
-const reelImages=['assets/reels/reel-01-simple.png','assets/reels/reel-02-river.png','assets/reels/reel-03-speed.png','assets/reels/reel-04-feeder.png','assets/reels/reel-05-sea.png','assets/reels/reel-06-trophy.png','assets/reels/reel-07-tournament.png','assets/reels/reel-08-master.png'];
-const knifeArtwork=(index,name)=>{const knives=[
-{blade:'M119 45 L252 50 L277 64 L252 79 L119 84 Z',edge:'M124 79 L252 74 L267 64 L252 79 Z',handle:'M38 39 L119 45 L119 84 L38 90 Q24 65 38 39 Z',guard:'M108 34 L125 34 L125 95 L108 95 Z',metal:'#d9e7e5|#78939a|#edf7f2',grip:'#6f3f22|#bc7740|#3c2118'},
-{blade:'M124 46 L247 50 Q267 56 276 65 Q266 75 247 80 L124 84 Z',edge:'M129 78 L246 75 Q261 70 270 65 Q260 77 247 81 L129 84 Z',handle:'M38 37 Q73 28 120 43 L124 85 Q72 100 38 90 Q27 65 38 37 Z',guard:'M112 35 L130 36 L130 92 L112 94 Z',metal:'#f3f9fc|#8fadb8|#ffffff',grip:'#e8c6df|#baa0c9|#ffeef8'},
-{blade:'M122 45 L255 39 L278 55 L257 68 L224 82 L122 84 Z',edge:'M126 78 L225 76 L258 65 L270 55 L257 74 L225 85 L126 85 Z',handle:'M35 38 L122 45 L122 85 L35 92 Q22 65 35 38 Z',guard:'M109 31 L128 33 L128 96 L109 98 Z',metal:'#9cf4fb|#176d88|#e7ffff',grip:'#123b56|#277b94|#071d35'},
-{blade:'M122 47 L239 46 L280 65 L239 83 L122 82 Z',edge:'M127 78 L239 78 L272 65 L239 86 L127 86 Z',handle:'M34 38 L122 47 L122 82 L34 92 Q18 65 34 38 Z',guard:'M108 31 L127 32 L127 98 L108 99 Z',metal:'#1b3054|#050d21|#62dff3',grip:'#130c2c|#35265d|#070611'},
-{blade:'M120 36 L237 39 L276 49 L276 83 L120 91 Z',edge:'M125 83 L268 77 L276 70 L276 84 L125 94 Z',handle:'M38 33 L120 36 L120 91 L38 96 Q23 65 38 33 Z',guard:'M106 27 L126 27 L126 100 L106 100 Z',metal:'#ffe8a1|#d47916|#fff7ca',grip:'#8a3d13|#d66b1b|#3f1c0a'},
-{blade:'M121 46 L259 49 L280 64 L260 80 L121 84 Z',edge:'M126 78 L258 75 L272 64 L260 83 L126 86 Z',handle:'M35 39 L121 46 L121 84 L35 92 Q21 65 35 39 Z',guard:'M107 33 L127 33 L127 97 L107 97 Z',metal:'#cfe5e6|#537f88|#fcffff',grip:'#1f5672|#4d9bb2|#0c2942'},
-{blade:'M119 51 Q202 45 278 57 L278 70 Q201 88 119 80 Z',edge:'M123 77 Q202 78 275 68 L278 70 Q201 90 123 83 Z',handle:'M35 39 L119 49 L119 82 L35 92 Q21 65 35 39 Z',guard:'M106 34 L125 34 L125 96 L106 96 Z',metal:'#f3f8fb|#7d9aa9|#dffaff',grip:'#27323a|#677c82|#111a20'},
-{blade:'M118 39 L243 44 L279 65 L243 85 L118 90 Z',edge:'M123 84 L241 79 L272 65 L243 89 L123 95 Z',handle:'M32 33 L118 39 L118 90 L32 97 Q17 65 32 33 Z',guard:'M104 26 L124 26 L124 102 L104 102 Z',metal:'#f8fbfb|#8da3a7|#ffffff',grip:'#5d321f|#b96d3a|#2a160d'}][index],id=`knife-${index}`,metal=knives.metal.split('|'),grip=knives.grip.split('|');return `<div class="knife-showcase knife-showcase-${index+1}" aria-hidden="true"><svg class="knife-art" viewBox="0 0 310 130" role="img" aria-label="${name}"><defs><linearGradient id="${id}-steel" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${metal[0]}"/><stop offset=".48" stop-color="${metal[1]}"/><stop offset=".64" stop-color="${metal[2]}"/><stop offset="1" stop-color="${metal[1]}"/></linearGradient><linearGradient id="${id}-grip" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${grip[0]}"/><stop offset=".55" stop-color="${grip[1]}"/><stop offset="1" stop-color="${grip[2]}"/></linearGradient><filter id="${id}-shadow" x="-20%" y="-30%" width="150%" height="180%"><feDropShadow dx="0" dy="7" stdDeviation="4" flood-color="#00131f" flood-opacity=".88"/></filter></defs><g filter="url(#${id}-shadow)" transform="rotate(-7 155 65)"><path class="knife-handle" d="${knives.handle}" fill="url(#${id}-grip)"/><path d="${knives.guard}" fill="url(#${id}-steel)"/><path class="knife-blade" d="${knives.blade}" fill="url(#${id}-steel)"/><path class="knife-edge" d="${knives.edge}" fill="#f5ffff" opacity=".9"/><path class="knife-ridge" d="M130 54 L235 57"/><circle class="knife-rivet" cx="65" cy="62" r="6"/><circle class="knife-rivet" cx="92" cy="62" r="5"/></g></svg></div>`};
-const hookArtwork=(index,name)=>{const colors=['#f6d18a|#9a4d22|#fff0be','#dff4ff|#7f9baa|#ffffff','#f5d5ff|#8450b9|#fff5ff','#d7f6f5|#478c96|#ffffff','#ffe48c|#aa6f1f|#fff7bd','#e5f6ff|#6b9bb2|#ffffff','#dceeff|#3d788d|#ffffff','#fff0b5|#b98027|#ffffff'][index].split('|'),id=`hook-${index}`,main='M150 18 C111 14 81 41 80 79 C79 111 102 126 124 118 C141 112 146 94 146 78',barb='M146 78 L157 68 L151 87',eye='M150 18 C159 5 177 8 178 21 C179 34 160 36 150 18';let shapes=`<path class="hook-wire" d="${main}"/><path class="hook-wire hook-eye" d="${eye}"/><path class="hook-barb" d="${barb}"/>`;if(index===2)shapes+=`<path class="hook-wire hook-small" d="M199 33 C174 37 165 62 172 80 C180 99 197 101 207 88 C212 80 211 70 209 64"/><path class="hook-barb" d="M209 64 L217 58 L213 71"/>`;if(index===3)shapes+=`<path class="hook-net" d="M58 30 L112 101 M78 22 L133 94 M101 22 L151 87 M56 79 L155 31 M66 99 L166 52"/>`;if(index===5)shapes+=`<path class="hook-wire hook-small" d="M202 28 C176 39 174 76 190 91 C207 108 228 94 224 73"/><path class="hook-wire hook-small" d="M235 38 C217 55 222 88 242 96 C257 102 270 87 264 69"/>`;if(index===6)shapes+=`<path class="hook-sinker" d="M206 46 L226 57 L226 84 L206 96 L186 84 L186 57 Z"/><circle class="hook-sinker-dot" cx="206" cy="70" r="5"/>`;if(index===7)shapes+=`<path class="hook-wire hook-small" d="M211 29 C186 39 184 76 200 91 C217 106 238 91 233 69"/><path class="hook-wire hook-small" d="M243 40 C225 57 229 88 248 95 C264 101 276 87 270 68"/><circle class="hook-bead" cx="190" cy="29" r="10"/><circle class="hook-bead" cx="221" cy="35" r="9"/>`;return `<div class="hook-showcase hook-showcase-${index+1}" aria-hidden="true"><svg class="hook-art" viewBox="0 0 300 140" role="img" aria-label="${name}"><defs><linearGradient id="${id}-metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${colors[0]}"/><stop offset=".42" stop-color="${colors[1]}"/><stop offset=".63" stop-color="${colors[2]}"/><stop offset="1" stop-color="${colors[1]}"/></linearGradient><filter id="${id}-shadow" x="-30%" y="-30%" width="180%" height="180%"><feDropShadow dx="2" dy="7" stdDeviation="4" flood-color="#001420" flood-opacity=".88"/></filter></defs><g filter="url(#${id}-shadow)" fill="none" stroke="url(#${id}-metal)">${shapes}</g></svg></div>`};
-const baitArtwork=(id,name)=>{const art={bread:`<circle class="bait-bread" cx="150" cy="69" r="39"/><circle class="bait-crumb" cx="128" cy="55" r="4"/><circle class="bait-crumb" cx="164" cy="79" r="5"/><circle class="bait-crumb" cx="151" cy="92" r="3"/>`,worm:`<path class="bait-worm" d="M86 95 C82 49 125 32 163 53 C203 76 222 39 237 30"/><path class="bait-worm-line" d="M88 83 C120 75 143 90 170 77 C193 66 203 49 219 43"/>`,shrimp:`<path class="bait-shrimp" d="M220 35 C160 17 99 42 101 78 C103 108 144 113 177 91 C200 76 203 58 221 54 C246 48 247 28 220 35 Z"/><path class="bait-shrimp-seg" d="M126 42 Q118 70 137 96 M151 35 Q145 65 161 96 M177 33 Q174 61 188 81"/><path class="bait-antenna" d="M211 41 Q245 18 258 25 M214 46 Q252 37 267 49"/>`,trout:`<path class="bait-lure" d="M116 31 Q162 18 183 43 L194 97 Q159 114 121 94 Z"/><path class="bait-lure-line" d="M124 47 L184 43 M121 66 L190 63 M121 85 L193 82"/><circle class="bait-eye" cx="161" cy="37" r="5"/><path class="bait-lure-hook" d="M180 98 C188 120 211 113 208 97 M194 104 L204 95"/>`,sturgeon:`<path class="bait-fish" d="M92 70 Q125 31 186 49 L222 31 L216 58 Q239 70 216 84 L222 111 L186 92 Q125 110 92 70 Z"/><circle class="bait-eye" cx="181" cy="57" r="5"/><path class="bait-fish-scale" d="M129 61 q12 -13 24 0 q12 -13 24 0 M129 78 q12 -13 24 0 q12 -13 24 0"/>`,sea:`<path class="bait-squid" d="M137 26 Q175 27 184 58 L170 100 Q151 113 129 99 L119 57 Q122 32 137 26 Z"/><path class="bait-tentacle" d="M130 94 Q111 118 100 108 M142 101 Q134 125 122 120 M155 103 Q159 124 171 115 M165 96 Q182 116 192 105"/><path class="bait-shell" d="M198 46 Q235 50 239 86 Q207 102 181 82 Q183 55 198 46 Z"/><path class="bait-shell-line" d="M198 55 L201 89 M210 51 L211 92 M222 55 L219 89"/>`}[id]||'';return `<div class="bait-showcase bait-showcase-${id}" aria-hidden="true"><svg class="bait-art" viewBox="0 0 300 135" role="img" aria-label="${name}"><defs><linearGradient id="bait-flesh" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe1b3"/><stop offset=".55" stop-color="#cc7652"/><stop offset="1" stop-color="#6f2e29"/></linearGradient><linearGradient id="bait-gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff1a2"/><stop offset=".45" stop-color="#df9626"/><stop offset="1" stop-color="#75400d"/></linearGradient><filter id="bait-shadow" x="-30%" y="-30%" width="180%" height="180%"><feDropShadow dx="1" dy="7" stdDeviation="4" flood-color="#170d05" flood-opacity=".8"/></filter></defs><g filter="url(#bait-shadow)">${art}</g></svg></div>`};
-const reelDescriptions=['Легка стартова модель для тихої води й невеликого улову.','Надійна котушка для річкової течії та щоденних виїздів.','Легка конструкція швидко вибирає волосінь, але має делікатніше гальмо.','Велика шпуля та посилене гальмо для важких годівниць.','Герметична морська модель, стійка до солоної води.','Карбоновий корпус і потужне гальмо для великого трофея.','Збалансована точна котушка для турнірної серії.','Максимальна швидкість і сила гальма для найважчого улову.'];
-const baitTypes=[
-  {id:'bread',name:'Хлебный шарик',price:4,amount:12,rarity:0,focus:0,species:[]},
-  {id:'worm',name:'Червь',price:12,amount:10,rarity:0,focus:.35,species:['Карась серебряный','Лещ обыкновенный','Линь обыкновенный','Барбус обыкновенный']},
-  {id:'shrimp',name:'Креветка',price:30,amount:8,rarity:1,focus:.45,species:['Ставрида черноморская','Кефаль','Луфарь','Скумбрия атлантическая']},
-  {id:'trout',name:'Форелевая блесна',price:55,amount:6,rarity:1,focus:.5,species:['Форель ручьевая','Форель радужная','Хариус европейский']},
-  {id:'sturgeon',name:'Осетровая наживка',price:90,amount:4,rarity:2,focus:.6,species:['Стерлядь','Сом европейский','Угорь европейский']},
-  {id:'sea',name:'Морской микс',price:70,amount:6,rarity:1,focus:.55,species:['Мидия балтийская','Сердцевидка съедобная','Медуза аурелия','Лаврак европейский']}
-];
-const catchQualities=[
-  {id:'normal',name:'Обычный',multiplier:1}, {id:'good',name:'Хороший',multiplier:1.15},
-  {id:'trophy',name:'Трофейный',multiplier:1.4}, {id:'record',name:'Рекордный',multiplier:1.7}
-];
-const seasons={
-  spring:{name:'Весна',icon:'🌱',bite:1.08}, summer:{name:'Лето',icon:'☀️',bite:1.15},
-  autumn:{name:'Осень',icon:'🍂',bite:1.05}, winter:{name:'Зима',icon:'❄️',bite:.72}
-};
-const catchConditions={
-  'Форель ручьевая':{seasons:['spring','autumn'],weather:['clear','rain'],time:['day']}, 'Хариус европейский':{seasons:['spring','summer'],weather:['clear'],time:['day']},
-  'Форель радужная':{seasons:['spring','autumn','winter'],weather:['clear','rain'],time:['day']}, 'Сиг европейский':{seasons:['autumn','winter'],time:['day','night']},
-  'Голец арктический':{seasons:['winter','spring'],time:['day']}, 'Щука обыкновенная':{seasons:['spring','autumn'],weather:['rain','fog'],time:['day']},
-  'Сом европейский':{seasons:['summer','autumn'],weather:['rain','fog'],time:['night']}, 'Вьюн обыкновенный':{weather:['rain','fog'],time:['night']},
-  'Угорь европейский':{seasons:['summer','autumn'],time:['night']}, 'Налим':{seasons:['autumn','winter'],time:['night']},
-  'Стерлядь':{seasons:['spring','summer'],weather:['clear','rain'],time:['day']}, 'Барбус обыкновенный':{seasons:['spring','summer'],weather:['clear'],time:['day']},
-  'Луфарь':{seasons:['summer','autumn'],weather:['wind','clear'],time:['day']}, 'Скумбрия атлантическая':{seasons:['summer','autumn'],weather:['clear','wind'],time:['day']},
-  'Лаврак европейский':{seasons:['summer','autumn'],time:['night','day']}, 'Медуза аурелия':{seasons:['summer'],weather:['clear'],time:['day']},
-  'Мидия балтийская':{seasons:['spring','summer','autumn'],time:['day','night']}, 'Сердцевидка съедобная':{seasons:['spring','summer','autumn'],time:['day','night']}
-};
-const fishDescriptions={
-  'Окунь речной':'Полосатый хищник у кромки травы.', 'Плотва обыкновенная':'Стайная рыба тихих заводей.', 'Карп обыкновенный':'Сильный донный трофей.',
-  'Форель ручьевая':'Любит холодную чистую воду.', 'Сом европейский':'Ночной хозяин глубоких ям.', 'Стерлядь':'Редкий речной осётр с костяными щитками.',
-  'Луфарь':'Быстрый морской хищник.', 'Лаврак европейский':'Осторожный хищник прибрежных скал.', 'Медуза аурелия':'Прозрачная медуза тёплой воды.',
-  'Мидия балтийская':'Моллюск, который держится на камнях.', 'Сердцевидка съедобная':'Небольшой моллюск песчаного дна.', 'Калкан черноморский':'Ценный плоский хищник Чёрного моря.'
-};
-Object.assign(fishDescriptions,{
-  'Сериола японская':'Швидкий морський хижак Японських островів. Найчастіше тримається біля підводних скель і течій.',
-  'Тай красный':'Почесна риба японського узбережжя з яскравою лускою та обережною покльовкою.',
-  'Исаки полосатый':'Смугастий мешканець кам’янистих берегів Ідзу; рідкісний трофей для легкої снасті.',
-  'Горбыль большой жёлтый':'Золотавий мешканець Східнокитайського моря, особливо цінний на ринку.',
-  'Макрель японская королевская':'Стрімка морська макрель, що полює в синій воді біля узбережжя Китаю.',
-  'Окунь китайский':'Засадний хижак дельт і спокійних проток Південного Китаю.',
-  'Коралловый лосось':'Плямистий хижак Великого Бар’єрного рифу, що живе серед коралів.',
-  'Каранкс гигантский':'Сильний океанічний боєць Австралії — впоратися з ним може тільки надійна снасть.',
-  'Баррамунди':'Велика срібляста риба тропічних мангрових естуаріїв Австралії.',
-  'Чёрный басс Папуа':'Темний хижак диких річкових гирл Нової Гвінеї.',
-  'Парусник индо-тихоокеанский':'Легендарний швидкісний трофей Бісмаркового моря з високим яскравим вітрилом.',
-  'Рыба-попугай шишколобая':'Великий кораловий мешканець, якого можна зустріти лише біля віддалених рифів.',
-  'Губан Наполеон':'Рідкісний велетень коралових рифів Індонезії з упізнаваним горбом на лобі.',
-  'Тунец собачьезубый':'Потужний тунцевий хижак глибоких вод моря Банда.',
-  'Групер гигантский':'Один із найбільших мешканців коралових рифів; справжній фінальний трофей експедиції.'
-});
-const treasures=[
-  {id:'shell',name:'Редкая раковина',icon:'🐚',chance:.05,materials:{shells:2},value:15},
-  {id:'bottle',name:'Послание в бутылке',icon:'🍾',chance:.025,materials:{plants:1,worms:1},value:25},
-  {id:'coin',name:'Старая монета',icon:'🪙',chance:.015,materials:{},value:80},
-  {id:'map',name:'Карта рыбного места',icon:'🗺️',chance:.01,materials:{},value:0,reputation:8}
-];
-const craftRecipes=[
-  {bait:'worm',name:'Связка червей',needs:{plants:2,worms:3},amount:5}, {bait:'shrimp',name:'Морская приманка',needs:{fish:2,shells:2},amount:4},
-  {bait:'trout',name:'Форелевая блесна',needs:{fish:2,plants:3},amount:3}, {bait:'sturgeon',name:'Осетровая наживка',needs:{fish:3,worms:2,shells:1},amount:2},
-  {bait:'sea',name:'Балтийский микс',needs:{shells:3,fish:1,plants:1},amount:3}
-];
-const bosses=[
-  {id:'giant-catfish',name:'Велетенский сом',base:'Сом европейский',locations:['swamp','delta'],weight:[45,75],pricePerKg:350,season:['summer','autumn'],time:['night'],minReputation:40},
-  {id:'black-sea-turbot',name:'Велетенский калкан',base:'Калкан черноморский',locations:['blackSea'],weight:[12,26],pricePerKg:500,season:['summer','autumn'],time:['day'],minReputation:60},
-  {id:'river-sturgeon',name:'Речной осётр',base:'Стерлядь',locations:['dnieper'],weight:[10,19],pricePerKg:650,season:['spring','summer'],time:['day'],minReputation:45}
-];
-const achievements=[
-  {id:'legendary',name:'Первая легенда',desc:'Поймать легендарный улов.',reward:150}, {id:'blackSea',name:'Черноморский исследователь',desc:'Открыть все виды Чёрного моря.',reward:300},
-  {id:'dailyRecord',name:'Рекорд дня',desc:'Возглавить ежедневный турнир.',reward:200}
-];
-const fishImages={
-  'Окунь речной':'assets/fish/fish-01-perch.png','Плотва обыкновенная':'assets/fish/fish-02-roach.png','Карась серебряный':'assets/fish/fish-03-prussian-carp.png','Лещ обыкновенный':'assets/fish/fish-04-bream.png','Карп обыкновенный':'assets/fish/fish-05-common-carp.png','Форель ручьевая':'assets/fish/fish-06-brown-trout.png','Хариус европейский':'assets/fish/fish-07-grayling.png','Сиг европейский':'assets/fish/fish-08-whitefish.png','Голец арктический':'assets/fish/fish-09-arctic-char.png','Форель радужная':'assets/fish/fish-10-rainbow-trout.png','Щука обыкновенная':'assets/fish/fish-11-northern-pike.png','Линь обыкновенный':'assets/fish/fish-12-tench.png','Сом европейский':'assets/fish/fish-13-wels-catfish.png','Вьюн обыкновенный':'assets/fish/fish-14-weather-loach.png','Краснопёрка обыкновенная':'assets/fish/fish-15-rudd.png',
-  'Судак обыкновенный':'assets/fish/fish-16-zander.png','Голавль обыкновенный':'assets/fish/fish-17-chub.png','Жерех обыкновенный':'assets/fish/fish-18-asp.png','Угорь европейский':'assets/fish/fish-19-european-eel.png','Ставрида черноморская':'assets/fish/fish-20-black-sea-horse-mackerel.png','Кефаль':'assets/fish/fish-21-grey-mullet.png','Бычок-кругляк':'assets/fish/fish-22-round-goby.png','Калкан черноморский':'assets/fish/fish-23-black-sea-turbot.png','Ряпушка европейская':'assets/fish/fish-24-european-vendace.png','Налим':'assets/fish/fish-25-burbot.png','Сельдь балтийская':'assets/fish/fish-26-baltic-herring.png','Камбала речная':'assets/fish/fish-27-european-flounder.png',
-  'Барбус обыкновенный':'assets/fish/fish-28-common-barbel.png','Стерлядь':'assets/fish/fish-29-sterlet.png','Подкаменщик обыкновенный':'assets/fish/fish-30-european-bullhead.png','Луфарь':'assets/fish/fish-31-bluefish.png','Скумбрия атлантическая':'assets/fish/fish-32-atlantic-mackerel.png','Лаврак европейский':'assets/fish/fish-33-european-seabass.png',
-  'Мидия балтийская':'assets/fish/catch-34-baltic-blue-mussel.png','Сердцевидка съедобная':'assets/fish/catch-35-common-cockle.png','Медуза аурелия':'assets/fish/catch-36-moon-jellyfish.png'
-};
-Object.assign(fishImages,{
-  'Сериола японская':'assets/fish/fish-37-japanese-amberjack.png','Тай красный':'assets/fish/fish-38-red-seabream.png','Исаки полосатый':'assets/fish/fish-39-striped-beakfish.png',
-  'Горбыль большой жёлтый':'assets/fish/fish-40-large-yellow-croaker.png','Макрель японская королевская':'assets/fish/fish-41-japanese-spanish-mackerel.png','Окунь китайский':'assets/fish/fish-42-chinese-perch.png',
-  'Коралловый лосось':'assets/fish/fish-43-coral-trout.png','Каранкс гигантский':'assets/fish/fish-44-giant-trevally.png','Баррамунди':'assets/fish/fish-45-barramundi.png',
-  'Чёрный басс Папуа':'assets/fish/fish-46-papuan-black-bass.png','Парусник индо-тихоокеанский':'assets/fish/fish-47-indo-pacific-sailfish.png','Рыба-попугай шишколобая':'assets/fish/fish-48-bumphead-parrotfish.png',
-  'Губан Наполеон':'assets/fish/fish-49-napoleon-wrasse.png','Тунец собачьезубый':'assets/fish/fish-50-dogtooth-tuna.png','Групер гигантский':'assets/fish/fish-51-giant-grouper.png'
-});
-const fishWeights={
-  'Окунь речной':[.15,1.8],'Плотва обыкновенная':[.08,.8],'Карась серебряный':[.3,2.5],'Лещ обыкновенный':[.6,5],'Карп обыкновенный':[2.5,18],'Форель ручьевая':[.4,4],'Хариус европейский':[.2,1.8],'Сиг европейский':[.5,4],'Голец арктический':[.7,6],'Форель радужная':[.7,6],'Щука обыкновенная':[1.5,18],'Линь обыкновенный':[.4,4],'Сом европейский':[5,70],'Вьюн обыкновенный':[.03,.25],'Краснопёрка обыкновенная':[.1,1.2],
-  'Судак обыкновенный':[1,12],'Голавль обыкновенный':[.4,5],'Жерех обыкновенный':[.6,8],'Угорь европейский':[.3,5],'Ставрида черноморская':[.08,.8],'Кефаль':[.5,4],'Бычок-кругляк':[.05,.35],'Калкан черноморский':[2,15],'Ряпушка европейская':[.05,.35],'Налим':[.5,8],'Сельдь балтийская':[.05,.25],'Камбала речная':[.2,2],
-  'Барбус обыкновенный':[.5,5],'Стерлядь':[1,7],'Подкаменщик обыкновенный':[.02,.15],'Луфарь':[.4,6],'Скумбрия атлантическая':[.2,1.5],'Лаврак европейский':[1.5,8],
-  'Мидия балтийская':[.01,.12],'Сердцевидка съедобная':[.01,.08],'Медуза аурелия':[.1,.8]
-};
-Object.assign(fishWeights,{
-  'Сериола японская':[2,14],'Тай красный':[.8,10],'Исаки полосатый':[.3,3.5],
-  'Горбыль большой жёлтый':[.5,8],'Макрель японская королевская':[1,12],'Окунь китайский':[.5,5],
-  'Коралловый лосось':[1,12],'Каранкс гигантский':[4,45],'Баррамунди':[1,25],
-  'Чёрный басс Папуа':[2,18],'Парусник индо-тихоокеанский':[8,55],'Рыба-попугай шишколобая':[6,50],
-  'Губан Наполеон':[7,55],'Тунец собачьезубый':[6,65],'Групер гигантский':[15,75]
-});
-const fishPrices={
-  'Окунь речной':30,'Плотва обыкновенная':25,'Карась серебряный':40,'Лещ обыкновенный':45,'Карп обыкновенный':75,'Форель ручьевая':100,'Хариус европейский':130,'Сиг европейский':120,'Голец арктический':160,'Форель радужная':300,'Щука обыкновенная':90,'Линь обыкновенный':70,'Сом европейский':120,'Вьюн обыкновенный':20,'Краснопёрка обыкновенная':35,
-  'Судак обыкновенный':150,'Голавль обыкновенный':60,'Жерех обыкновенный':110,'Угорь европейский':160,'Ставрида черноморская':100,'Кефаль':80,'Бычок-кругляк':50,'Калкан черноморский':280,'Ряпушка европейская':100,'Налим':100,'Сельдь балтийская':70,'Камбала речная':90,
-  'Барбус обыкновенный':85,'Стерлядь':350,'Подкаменщик обыкновенный':60,'Луфарь':180,'Скумбрия атлантическая':140,'Лаврак европейский':260,'Мидия балтийская':60,'Сердцевидка съедобная':50,'Медуза аурелия':200
-};
-Object.assign(fishPrices,{
-  'Сериола японская':480,'Тай красный':560,'Исаки полосатый':430,
-  'Горбыль большой жёлтый':720,'Макрель японская королевская':580,'Окунь китайский':650,
-  'Коралловый лосось':850,'Каранкс гигантский':1200,'Баррамунди':750,
-  'Чёрный басс Папуа':950,'Парусник индо-тихоокеанский':1800,'Рыба-попугай шишколобая':1600,
-  'Губан Наполеон':2200,'Тунец собачьезубый':2000,'Групер гигантский':2400
-});
-const exoticRarities={'Сериола японская':4,'Тай красный':3,'Исаки полосатый':3,'Горбыль большой жёлтый':4,'Макрель японская королевская':4,'Окунь китайский':3,'Коралловый лосось':3,'Каранкс гигантский':4,'Баррамунди':4,'Чёрный басс Папуа':4,'Парусник индо-тихоокеанский':5,'Рыба-попугай шишколобая':5,'Губан Наполеон':5,'Тунец собачьезубый':5,'Групер гигантский':5};
-const travelRegions={
-  japan:{name:'Япония',icon:'🗾',cost:850,level:5,reputation:30,image:'assets/black-sea-ukraine.png',spots:[
-    ['japanTokyo','Токийский залив','порт Иокогама','Течения, причалы и глубокие проливы у главного порта.',['Сериола японская','Тай красный']],
-    ['japanIzu','Острова Идзу','вулканические рифы','Каменные свалы у вулканических островов.',['Тай красный','Исаки полосатый']],
-    ['japanHokkaido','Побережье Хоккайдо','холодный пролив','Богатые холодные воды на севере Японии.',['Сериола японская','Исаки полосатый']],
-    ['japanOkinawa','Рифы Окинавы','синяя лагуна','Тёплые коралловые каналы и сильные приливы.',['Сериола японская','Тай красный']],
-    ['japanSeto','Внутреннее море Сэто','тихие проливы','Защищённые проливы между японскими островами.',['Тай красный','Исаки полосатый']]
+
+const travelRegions = {
+  japan: {name:'Японія', icon:'🗾', cost:850, level:5, reputation:30, image:'assets/black-sea-ukraine.png', spots:[
+    ['japanTokyo','Токійська затока','порт Йокогама','Течії, причали та глибокі протоки біля головного порту.',['Серіола японська','Тай червоний']],
+    ['japanIzu','Острови Ідзу','вулканічні рифи','Кам’яні перепади глибин біля вулканічних островів.',['Тай червоний','Ісакі смугастий']],
+    ['japanHokkaido','Узбережжя Хоккайдо','холодна протока','Багаті холодні води на півночі Японії.',['Серіола японська','Ісакі смугастий']],
+    ['japanOkinawa','Рифи Окінави','синя лагуна','Теплі коралові канали та бурхливі припливи.',['Серіола японська','Тай червоний']],
+    ['japanSeto','Внутрішнє море Сето','тихі протоки','Захищені протоки між японськими островами.',['Тай червоний','Ісакі смугастий']]
   ]},
-  china:{name:'Китай',icon:'🐉',cost:720,level:6,reputation:45,image:'assets/dnieper-river.png',spots:[
-    ['chinaEast','Восточно-Китайское море','открытый шельф','Глубокий шельф у восточного побережья.',['Горбыль большой жёлтый','Макрель японская королевская']],
-    ['chinaZhoushan','Архипелаг Чжоушань','островные течения','Острова и быстрые морские течения.',['Горбыль большой жёлтый','Макрель японская королевская','Окунь китайский']],
-    ['chinaFujian','Фуцзяньский пролив','каменный берег','Скальные бухты и прозрачные проливы Фуцзяня.',['Макрель японская королевская','Горбыль большой жёлтый']],
-    ['chinaHainan','Риф Хайнань','тропический берег','Тёплый южный риф с сезонными хищниками.',['Макрель японская королевская','Окунь китайский']],
-    ['chinaPearl','Дельта Жемчужной реки','мангровые каналы','Спокойные каналы и мангры южного Китая.',['Окунь китайский','Горбыль большой жёлтый']]
+  china: {name:'Китай', icon:'🐉', cost:720, level:6, reputation:45, image:'assets/dnieper-river.png', spots:[
+    ['chinaEast','Східнокитайське море','відкритий шельф','Глибокий шельф біля східного узбережжя.',['Горбань великий жовтий','Макрель японська королівська']],
+    ['chinaZhoushan','Архіпелаг Чжоушань','острівні течії','Острови та швидкі морські течії.',['Горбань великий жовтий','Макрель японська королівська','Окунь китайський']],
+    ['chinaFujian','Фуцзянська протока','кам’яний берег','Скелясті бухти та прозорі морські води Фуцзяня.',['Макрель японська королівська','Горбань великий жовтий']],
+    ['chinaHainan','Риф Хайнань','тропічний берег','Теплий південний риф із сезонними хижаками.',['Макрель японська королівська','Окунь китайський']],
+    ['chinaPearl','Дельта Перлинної річки','мангрові канали','Спокійні канали та мангри південного Китаю.',['Окунь китайський','Горбань великий жовтий']]
   ]},
-  australia:{name:'Австралия',icon:'🦘',cost:1300,level:8,reputation:68,image:'assets/mountain-lake.png',spots:[
-    ['ausBarrier','Большой Барьерный риф','коралловый сад','Яркие кораллы и глубокие синие проходы.',['Коралловый лосось','Каранкс гигантский']],
-    ['ausNingaloo','Риф Нингалу','западный берег','Дикий риф западного побережья Австралии.',['Каранкс гигантский','Коралловый лосось']],
-    ['ausCoralSea','Коралловое море','океанский свал','Открытая вода у края континентального шельфа.',['Каранкс гигантский','Коралловый лосось']],
-    ['ausDarwin','Мангры Дарвина','тропическая дельта','Тёплая солоноватая вода среди мангров.',['Баррамунди','Коралловый лосось']],
-    ['ausKimberley','Берег Кимберли','приливные протоки','Далёкие протоки с очень сильным приливом.',['Баррамунди','Каранкс гигантский']]
+  australia: {name:'Австралія', icon:'🦘', cost:1300, level:8, reputation:68, image:'assets/mountain-lake.png', spots:[
+    ['ausBarrier','Великий Бар’єрний риф','кораловий сад','Яскраві корали та глибокі океанічні розломи.',['Кораловий лосось','Каранкс гігантський']],
+    ['ausNingaloo','Риф Нінгалу','західний берег','Дикий заповідний риф західного узбережжя.',['Каранкс гігантський','Кораловий лосось']],
+    ['ausCoralSea','Коралове море','океанічний схил','Відкрита вода на краю континентального шельфу.',['Каранкс гігантський','Кораловий лосось']],
+    ['ausDarwin','Мангри Дарвіна','тропічна дельта','Тепла солонувата вода серед коріння мангрів.',['Барамунді','Кораловий лосось']],
+    ['ausKimberley','Берег Кімберлі','припливні протоки','Віддалені затоки з потужними океанічними припливами.',['Барамунді','Каранкс гігантський']]
   ]},
-  papua:{name:'Новая Гвинея',icon:'🌋',cost:1100,level:9,reputation:90,image:'assets/misty-wetland.png',spots:[
-    ['papuaMoresby','Риф Порт-Морсби','южная лагуна','Коралловые стенки у столицы Папуа — Новой Гвинеи.',['Рыба-попугай шишколобая','Парусник индо-тихоокеанский']],
-    ['papuaSepik','Дельта Сепик','дикая река','Тёмная речная вода и корни тропического леса.',['Чёрный басс Папуа']],
-    ['papuaMilne','Залив Милн','коралловая бухта','Удалённая бухта с чистым рифом.',['Рыба-попугай шишколобая','Чёрный басс Папуа']],
-    ['papuaBismarck','Бисмарково море','синий океан','Глубокая океаническая вода для большого трофея.',['Парусник индо-тихоокеанский','Рыба-попугай шишколобая']],
-    ['papuaRamu','Устье Раму','мангровая протока','Полноводная тропическая река, впадающая в море.',['Чёрный басс Папуа','Парусник индо-тихоокеанский']]
+  papua: {name:'Нова Гвінея', icon:'🌋', cost:1100, level:9, reputation:90, image:'assets/misty-wetland.png', spots:[
+    ['papuaMoresby','Риф Порт-Морсбі','південна лагуна','Коралові стіни біля берегів Папуа.',['Риба-папуга шишколоба','Вітрильник індо-тихоокеанський']],
+    ['papuaSepik','Дельта Сепік','дикі хащі','Темна річкова вода та коріння незайманого тропічного лісу.',['Чорний бас Папуа']],
+    ['papuaMilne','Затока Мілн','коралова бухта','Віддалена бухта з незайманим чистим рифом.',['Риба-папуга шишколоба','Чорний бас Папуа']],
+    ['papuaBismarck','Бісмаркове море','синій океан','Глибока океанічна безодня для найважчого трофея.',['Вітрильник індо-тихоокеанський','Риба-папуга шишколоба']],
+    ['papuaRamu','Гирло Раму','мангрова протока','Повноводна тропічна річка, що впадає у відкрите море.',['Чорний бас Папуа','Вітрильник індо-тихоокеанський']]
   ]},
-  archipelago:{name:'Индонезийский архипелаг',icon:'🏝️',cost:950,level:10,reputation:115,image:'assets/baltic-coast-estonia.png',spots:[
-    ['archBali','Пролив Бали','коралловый проход','Тёплый пролив между Бали и Явой.',['Губан Наполеон','Тунец собачьезубый']],
-    ['archKomodo','Шельф Комодо','драконьи острова','Сильные течения у скалистых островов Комодо.',['Губан Наполеон','Групер гигантский']],
-    ['archSulawesi','Море Сулавеси','глубокий риф','Край глубокой впадины в сердце Кораллового треугольника.',['Тунец собачьезубый','Групер гигантский']],
-    ['archPalawan','Риф Палаван','коралловая стена','Светлая рифовая стена у северных островов.',['Губан Наполеон','Тунец собачьезубый']],
-    ['archBanda','Море Банда','вулканический склон','Вулканические склоны и холодная глубина.',['Тунец собачьезубый','Групер гигантский']]
+  archipelago: {name:'Індонезійський архіпелаг', icon:'🏝️', cost:950, level:10, reputation:115, image:'assets/baltic-coast-estonia.png', spots:[
+    ['archBali','Протока Балі','кораловий прохід','Тепла протока між островами Балі та Ява.',['Губан Наполеон','Тунець собакозубий']],
+    ['archKomodo','Шельф Комодо','драконові острови','Потужні припливні течії біля скелястих островів.',['Губан Наполеон','Групер гігантський']],
+    ['archSulawesi','Море Сулавесі','глибокий риф','Край глибокої западини в центрі Коралового трикутника.',['Тунець собакозубий','Групер гігантський']],
+    ['archPalawan','Риф Палаван','коралова стіна','Світла рифова стіна біля північних островів.',['Губан Наполеон','Тунець собакозубий']],
+    ['archBanda','Море Банда','вулканічний схил','Підводні схили вулканів та холодна бездонна глибина.',['Тунець собакозубий','Групер гігантський']]
   ]}
 };
-Object.entries(travelRegions).forEach(([region,data])=>data.spots.forEach(([key,name,sub,desc,fish],index)=>{locations[key]={name,sub,desc,image:data.image,fish,region,stayCost:data.cost+index*120}}));
-// The location keeps its legacy `fish` list for existing UI, while fishPool is
-// the authoritative catch table with all catch-specific data in one place.
-Object.values(locations).forEach(location=>{
-  location.fishPool=location.fish.map((name,index)=>({
-    name, rarity:exoticRarities[name]||Math.min(5,1+Math.floor(index*5/location.fish.length)), weight:fishWeights[name], pricePerKg:fishPrices[name]
-  }));
+
+Object.entries(travelRegions).forEach(([region, data]) => {
+  data.spots.forEach(([key, name, sub, desc, fish], index) => {
+    locations[key] = {name, sub, desc, image: data.image, fish, region, stayCost: data.cost + index * 120};
+  });
 });
-// Rods used to be positional arrays. Make their capacity explicit so it can be
-// safely used by the fight, inventory and shop UI.
-gear.rods=gear.rods.map(([name,price,maxWeight])=>({name,price,maxWeight}));
-const weatherData={clear:{name:'Ясно',icon:'☀',bite:1,visibility:'высокая'},rain:{name:'Дождь',icon:'🌧',bite:1.25,visibility:'средняя'},fog:{name:'Туман',icon:'🌫',bite:1.1,visibility:'низкая'},wind:{name:'Ветер',icon:'💨',bite:.78,visibility:'средняя'}};
-const timeData={day:{name:'День',bite:1},night:{name:'Ночь',bite:.78}};
-const eventData={calm:{name:'Тихий сезон',bite:1,weight:1,rarity:0,desc:'Стабильный клёв без особых условий.'},migration:{name:'Миграция рыбы',bite:1.3,weight:1.1,rarity:1,desc:'Рыба подходит ближе к берегу.'},storm:{name:'Штормовой фронт',bite:.78,weight:1.45,rarity:1,weather:'wind',desc:'Поклёвок меньше, но трофеи тяжелее.'},nightRun:{name:'Ночной клёв',bite:1.5,weight:1,rarity:1,nightOnly:true,time:'night',desc:'Ночная рыба активнее обычного.'},festival:{name:'Рыбацкий фестиваль',bite:1.15,weight:1.15,rarity:1,desc:'Праздничный день с повышенным шансом трофея.'},tournament:{name:'Соревнование у пристани',bite:1.08,weight:1.2,rarity:1,desc:'Турнирный улов идёт в зачёт дня.'}};
-const techniques={float:{name:'Поплавок',icon:'🎈',desc:'Быстрая поклёвка и спокойный контроль.',bite:1.12,weight:1,rarity:0},feeder:{name:'Фидер',icon:'🪝',desc:'Меньше поклёвок, зато крупнее рыба.',bite:.84,weight:1.28,rarity:0},spin:{name:'Спиннинг',icon:'🎣',desc:'Шанс на хищника и редкий трофей.',bite:.94,weight:1.08,rarity:1},ice:{name:'Зимняя удочка',icon:'❄',desc:'Сильна на Северном озере.',bite:.45,weight:.9,rarity:0}};
-const baseUpgrades={pier:{name:'Причал',icon:'⚓',cost:120,desc:'+8% к активности рыбы за уровень.'},smokehouse:{name:'Коптильня',icon:'🔥',cost:180,desc:'+10% к цене очищенной рыбы за уровень.'},workshop:{name:'Мастерская',icon:'🔧',cost:240,desc:'+6% к скорости и тормозу катушки за уровень.'},aquarium:{name:'Аквариум',icon:'🐠',cost:300,desc:'+1 репутация за редкую рыбу за уровень.'}};
-const initial = {coins:30, credit:{debt:0,borrowedTotal:0,repaidTotal:0}, rods:1, lines:1, knives:1, hooks:1, reels:1, ownedReels:[1], floats:1, sonar:false, bait:'bread', baitStock:{bread:18,worm:0,shrimp:0,trout:0,sturgeon:0,sea:0}, technique:'float', npcQuest:null, location:'pier', inventory:[], discovered:[], journal:['Вы прибыли на Лесное озеро.'], pets:[], total:30, best:'—', xp:0, reputation:0, localReputation:{}, completedQuests:0, questReel:false, records:{}, market:null, materials:{plants:0,worms:0,shells:0,fish:0}, treasures:[], achievements:{}, skills:{casting:0,hook:0,trophy:0}, base:{pier:0,smokehouse:0,workshop:0,aquarium:0}, tournament:null, bossKills:{}, auctions:[], auctionLog:[], trip:null, travelDays:3, contract:{target:8,progress:0,reward:300}};
-const boats=[
-  {id:'rowboat',name:'Вёсельная лодка',icon:'🛶',price:180,depth:12,rarity:1,weight:1.12,scale:0.82,height:76,desc:'Тихий ход к первым свалам. Открывает глубокую воду.'},
-  {id:'inflatable',name:'Надувная моторка',icon:'🚤',price:950,depth:24,rarity:2,weight:1.28,scale:1,height:92,desc:'Быстро выходит на дальние ямы и усиливает шанс редких видов.'},
-  {id:'cutter',name:'Катер',icon:'🛥️',price:3200,depth:42,rarity:3,weight:1.48,scale:1.2,height:110,desc:'Полный доступ к трофейным ямам и самым тяжёлым обитателям.'}
-];
-const boatProfiles={
-  rowboat:{id:'rowboat',shape:'rowboat',scale:0.82,height:76,body:'compact',outline:'narrow'},
-  inflatable:{id:'inflatable',shape:'inflatable',scale:1,height:92,body:'rounded',outline:'mid'},
-  cutter:{id:'cutter',shape:'cutter',scale:1.2,height:110,body:'wide',outline:'long'}
+
+// --------------------------------------------------------
+// Снасті та спорядження (повна українізація)
+// --------------------------------------------------------
+const gear = {
+  rods: [
+    ['Бамбукова поплавкова вудка', 0, 2.5],
+    ['Ультралайтовий спінінг', 120, 4.0],
+    ['Важкий фідер', 390, 7.0],
+    ['Довге коропове вудилище', 1200, 12.0],
+    ['Тролінговий спінінг', 3800, 20.0],
+    ['Карбонове матчеве вудилище', 9000, 32.0],
+    ['Далекобійний фідер', 22000, 50.0],
+    ['Турнірне коропове вудилище', 52000, 80.0]
+  ],
+  lines: [
+    ['Мононитка 0.16', 0, 3.0],
+    ['Мононитка 0.20', 65, 5.0],
+    ['Флюорокарбон 0.25', 220, 8.0],
+    ['Плетений шнур 0.18', 700, 13.0],
+    ['Плетений шнур 0.24', 2100, 22.0],
+    ['Кевларова волосінь', 5200, 35.0],
+    ['Трофейний шнур', 12500, 55.0],
+    ['Турнірна плетінка', 30000, 90.0]
+  ],
+  knives: [
+    ['Рибальський ніж', 0],
+    ['Перламутровий ніж', 140],
+    ['Припливний клинок', 450],
+    ['Ніж безодні', 1400],
+    ['Сонячний тесак', 4400],
+    ['Клинок шкіпера', 10500],
+    ['Титановий філейник', 25000],
+    ['Майстерний ніж', 60000]
+  ],
+  hooks: [
+    ['Мідний гачок', 0, 3.0],
+    ['Місячний гачок', 110, 5.0],
+    ["Зоряна зв'язка", 350, 8.0],
+    ['Туманна сітка', 1100, 13.0],
+    ['Галактична зграя', 3600, 22.0],
+    ['Срібний трійник', 8600, 35.0],
+    ['Штормове оснащення', 20500, 55.0],
+    ['Колекціонерський набір', 49000, 90.0]
+  ],
+  reels: [
+    ['Проста котушка', 0, 0.9, 3.0],
+    ['Річкова котушка', 100, 1.0, 5.0],
+    ['Швидкісна котушка', 320, 1.12, 4.0],
+    ['Фідерна котушка', 980, 1.26, 8.0],
+    ['Морська котушка', 3000, 1.4, 14.0],
+    ['Трофейна котушка', 7600, 1.55, 23.0],
+    ['Турнірна котушка', 18500, 1.7, 35.0],
+    ['Котушка майстра', 44000, 1.85, 55.0]
+  ],
+  floats: [
+    ['Червоно-білий поплавок', 0],
+    ['Річковий поплавок', 90],
+    ['Далекий поплавок', 280],
+    ['Нічний поплавок', 850],
+    ['Турнірний поплавок', 2600],
+    ['Штормовий поплавок', 6500],
+    ['Сяючий поплавок', 15500],
+    ['Майстерний поплавок', 37000]
+  ]
 };
-function drawBoatArt(item){
-  const profile=boatProfiles[item.id]||boatProfiles.rowboat;
-  return `<div class="boat-art boat-${profile.shape}" data-profile="${profile.shape}" aria-label="${item.name}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">${item.icon}</div>`;
+
+// Зображення спорядження
+const rodImages = ['assets/rods/rod-01.png','assets/rods/rod-02.png','assets/rods/rod-03.png','assets/rods/rod-04.png','assets/rods/rod-05.png','assets/rods/rod-06.png','assets/rods/rod-07.png','assets/rods/rod-08.png'];
+const floatImages = ['assets/floats/float-01.png','assets/floats/float-02.png','assets/floats/float-03.png','assets/floats/float-04.png','assets/floats/float-05.png','assets/floats/float-06.png','assets/floats/float-07.png','assets/floats/float-08.png'];
+const lineImages = ['assets/lines/line-01-monofilament-016.png','assets/lines/line-02-monofilament-020.png','assets/lines/line-03-fluorocarbon-025.png','assets/lines/line-04-braided-018.png','assets/lines/line-05-braided-024.png','assets/lines/line-06-kevlar.png','assets/lines/line-07-trophy.png','assets/lines/line-08-tournament.png'];
+const reelImages = ['assets/reels/reel-01-simple.png','assets/reels/reel-02-river.png','assets/reels/reel-03-speed.png','assets/reels/reel-04-feeder.png','assets/reels/reel-05-sea.png','assets/reels/reel-06-trophy.png','assets/reels/reel-07-tournament.png','assets/reels/reel-08-master.png'];
+
+const reelDescriptions = [
+  'Легка стартова модель для тихої води та невеликого улову.',
+  'Надійна котушка для річкової течії та щоденних рибалок.',
+  'Швидкісна шпуля миттєво підтягує волосінь, делікатне гальмо.',
+  'Посилене фрикційне гальмо для важких фідерних годівниць.',
+  'Герметична морська модель, стійка до солоної води та піску.',
+  'Карбоновий міцний корпус та потужне гальмо для трофеїв.',
+  'Прецизійно збалансована точна котушка для змагань.',
+  'Максимальна швидкість підмотки та надпотужне гальмо.'
+];
+
+// Перебалансовані улюбленці (доступні з ранніх рівнів!)
+const pets = [
+  {name:'Кіт Мурчик', icon:'🐱', bonus:'+10% монет за дрібну рибу', price:350, type:'money_small', minLevel:1},
+  {name:'Пелікан Кеша', icon:'🦤', bonus:'+35% шанс знайти мушлі та трави', price:1800, type:'gather', minLevel:3},
+  {name:'Видра Іскра', icon:'🦦', bonus:'+20% до всієї виручки ринку', price:7500, type:'money', minLevel:5},
+  {name:'Чайка Вітру', icon:'🕊️', bonus:'Клювання швидше на 35%', price:25000, type:'speed', minLevel:7},
+  {name:'Морський Лис', icon:'🦊', bonus:'+25% шанс рідкісного улову', price:80000, type:'luck', minLevel:9},
+  {name:'Касатка Норд', icon:'🐋', bonus:'Приманює босів та рекордних гігантів', price:250000, type:'boss', minLevel:11}
+];
+
+// Плавзасоби (човни)
+const boats = [
+  {id:'rowboat', name:'Дерев’яний човен', price:1200, depth:18, rarity:1, weight:1.15, icon:'🛶', desc:'Стабільний дерев’яний човен для виходу на прибережні звали.'},
+  {id:'motorboat', name:'Моторний човен', price:8500, depth:35, rarity:2, weight:1.35, icon:'🚤', desc:'Швидкий вихід до глибоких ям, де полюють хижаки.'},
+  {id:'cutter', name:'Морський катер', price:36000, depth:65, rarity:3, weight:1.6, icon:'🛥️', desc:'Потужний катер для відкритого моря та великої риби.'},
+  {id:'yacht', name:'Експедиційна яхта', price:110000, depth:120, rarity:4, weight:2.1, icon:'🚢', desc:'Повноцінна океанічна база для вилову найбільших морських гігантів.'}
+];
+
+const boatProfiles = {
+  rowboat: {scale:1, height:130, hull:'#8a4b27', stroke:'#3d1d0c'},
+  motorboat: {scale:1.1, height:140, hull:'#2b6f8a', stroke:'#0f3040'},
+  cutter: {scale:1.2, height:155, hull:'#e0f0f4', stroke:'#23495d'},
+  yacht: {scale:1.35, height:170, hull:'#1e3347', stroke:'#d4af37'}
+};
+
+function drawBoatArt(item) {
+  const p = boatProfiles[item.id] || boatProfiles.rowboat;
+  return `<svg class="boat-art-svg" viewBox="0 0 220 90" aria-hidden="true" width="100%" height="${p.height}">
+    <path d="M20 55 Q70 78 190 62 L205 38 L45 38 Z" fill="${p.hull}" stroke="${p.stroke}" stroke-width="3"/>
+    <path d="M55 38 L95 18 L145 18 L155 38 Z" fill="#ffffffaa" stroke="${p.stroke}" stroke-width="2"/>
+    <circle cx="105" cy="28" r="4" fill="#082b3d"/>
+    <circle cx="125" cy="28" r="4" fill="#082b3d"/>
+    <line x1="20" y1="46" x2="200" y2="46" stroke="#ffffff44" stroke-width="2"/>
+  </svg>`;
 }
-let state,savedState; try { savedState=JSON.parse(localStorage.getItem(SAVE_KEY)); state={...initial,...savedState}; } catch { savedState={}; state={...initial}; }
-state.ownedBoats=Array.isArray(state.ownedBoats)?state.ownedBoats.filter(id=>boats.some(boat=>boat.id===id)):[];
-state.boat=state.ownedBoats.includes(state.boat)?state.boat:null;
-state.atDepth=Boolean(state.atDepth&&state.boat);
-Object.keys(gear).forEach(type=>state[type]=Math.max(1,Math.min(gear[type].length,Math.trunc(Number(state[type]))||1)));
-state.baitStock={...initial.baitStock,...(state.baitStock||{})}; state.records={...(state.records||{})}; state.sonar=Boolean(state.sonar); const savedReels=Array.isArray(savedState?.ownedReels)?state.ownedReels:Array.from({length:state.reels},(_,index)=>index+1); state.ownedReels=[...new Set(savedReels.map(Number).filter(level=>Number.isInteger(level)&&level>=1&&level<=gear.reels.length))]; if(!state.ownedReels.length)state.ownedReels=[1]; if(!state.ownedReels.includes(state.reels))state.ownedReels.push(state.reels); state.reputation=Math.max(0,state.reputation||0); state.localReputation={...(state.localReputation||{})}; state.materials={...initial.materials,...(state.materials||{})}; state.treasures=[...(state.treasures||[])]; state.achievements={...(state.achievements||{})}; state.skills={...initial.skills,...(state.skills||{})}; state.base={...initial.base,...(state.base||{})}; Object.keys(state.base).forEach(key=>state.base[key]=Math.max(0,Math.min(3,Number(state.base[key])||0))); state.bossKills={...(state.bossKills||{})}; state.completedQuests=Math.max(0,state.completedQuests||0); state.travelDays=Math.max(1,Math.min(10,Number(state.travelDays)||3)); if(!state.trip||!travelRegions[state.trip.region]||!Number.isFinite(state.trip.until))state.trip=null; if(!baitTypes.some(bait=>bait.id===state.bait))state.bait='bread';
-// Convert legacy bait levels only once; newer saves already store a selected bait.
-if(!baitTypes.some(bait=>bait.id===savedState?.bait)&&Number.isInteger(state.baits)&&state.baits>0){
-  const bait=baitTypes[Math.min(state.baits,baitTypes.length)-1];
-  state.bait=bait.id;state.baitStock[bait.id]=(state.baitStock[bait.id]||0)+12;
+
+// Наживки
+const baitTypes = [
+  {id:'bread', name:'Хлібна кулька', price:4, amount:12, rarity:0, focus:0, species:[]},
+  {id:'worm', name:'Черв’як', price:12, amount:10, rarity:0, focus:0.35, species:['Карась сріблястий','Лящ звичайний','Лин звичайний','Марена звичайна']},
+  {id:'shrimp', name:'Креветка', price:30, amount:8, rarity:1, focus:0.45, species:['Ставрида чорноморська','Кефаль','Луфар','Скумбрія атлантична']},
+  {id:'trout', name:'Форелева блешня', price:55, amount:6, rarity:1, focus:0.5, species:['Форель струмкова','Форель райдужна','Харіус європейський']},
+  {id:'sturgeon', name:'Осетрова наживка', price:90, amount:4, rarity:2, focus:0.6, species:['Стерлядь','Сом європейський','Вугор європейський']},
+  {id:'sea', name:'Морський мікс', price:70, amount:6, rarity:1, focus:0.55, species:['Мідія балтійська','Серцевидка їстівна','Медуза аурелія','Лаврак європейський']}
+];
+
+// Умови ловлі для окремих видів риб
+const catchConditions = {
+  'Форель струмкова':{seasons:['spring','autumn'], weather:['clear','rain'], time:['day']},
+  'Харіус європейський':{seasons:['spring','summer'], weather:['clear'], time:['day']},
+  'Форель райдужна':{seasons:['spring','autumn','winter'], weather:['clear','rain','snow'], time:['day']},
+  'Сиг європейський':{seasons:['autumn','winter'], time:['day','night']},
+  'Голець арктичний':{seasons:['winter','spring'], time:['day']},
+  'Щука звичайна':{seasons:['spring','autumn'], weather:['rain','fog'], time:['day']},
+  'Сом європейський':{seasons:['summer','autumn'], weather:['rain','fog'], time:['night']},
+  "В'юн звичайний":{weather:['rain','fog'], time:['night']},
+  'Вугор європейський':{seasons:['summer','autumn'], time:['night']},
+  'Минь':{seasons:['autumn','winter'], weather:['rain','snow','fog'], time:['night']},
+  'Стерлядь':{seasons:['spring','summer'], weather:['clear','rain'], time:['day']},
+  'Марена звичайна':{seasons:['spring','summer'], weather:['clear'], time:['day']},
+  'Луфар':{seasons:['summer','autumn'], weather:['wind','clear'], time:['day']},
+  'Скумбрія атлантична':{seasons:['summer','autumn'], weather:['clear','wind'], time:['day']},
+  'Лаврак європейський':{seasons:['summer','autumn'], time:['night','day']},
+  'Медуза аурелія':{seasons:['summer'], weather:['clear'], time:['day']},
+  'Мідія балтійська':{seasons:['spring','summer','autumn'], time:['day','night']},
+  'Серцевидка їстівна':{seasons:['spring','summer','autumn'], time:['day','night']}
+};
+
+// Зображення для всіх 51 риб
+const fishImages = {
+  'Окунь річковий':'assets/fish/fish-01-perch.png',
+  'Плітка звичайна':'assets/fish/fish-02-roach.png',
+  'Карась сріблястий':'assets/fish/fish-03-prussian-carp.png',
+  'Лящ звичайний':'assets/fish/fish-04-bream.png',
+  'Короп звичайний':'assets/fish/fish-05-common-carp.png',
+  'Форель струмкова':'assets/fish/fish-06-brown-trout.png',
+  'Харіус європейський':'assets/fish/fish-07-grayling.png',
+  'Сиг європейський':'assets/fish/fish-08-whitefish.png',
+  'Голець арктичний':'assets/fish/fish-09-arctic-char.png',
+  'Форель райдужна':'assets/fish/fish-10-rainbow-trout.png',
+  'Щука звичайна':'assets/fish/fish-11-northern-pike.png',
+  'Лин звичайний':'assets/fish/fish-12-tench.png',
+  'Сом європейський':'assets/fish/fish-13-wels-catfish.png',
+  "В'юн звичайний":'assets/fish/fish-14-weather-loach.png',
+  'Краснопірка звичайна':'assets/fish/fish-15-rudd.png',
+  'Судак звичайний':'assets/fish/fish-16-zander.png',
+  'Головень звичайний':'assets/fish/fish-17-chub.png',
+  'Білизна звичайна':'assets/fish/fish-18-asp.png',
+  'Вугор європейський':'assets/fish/fish-19-european-eel.png',
+  'Ставрида чорноморська':'assets/fish/fish-20-black-sea-horse-mackerel.png',
+  'Кефаль':'assets/fish/fish-21-grey-mullet.png',
+  'Бичок-кругляк':'assets/fish/fish-22-round-goby.png',
+  'Калкан чорноморський':'assets/fish/fish-23-black-sea-turbot.png',
+  'Ряпушка європейська':'assets/fish/fish-24-european-vendace.png',
+  'Минь':'assets/fish/fish-25-burbot.png',
+  'Оселедець балтійський':'assets/fish/fish-26-baltic-herring.png',
+  'Камбала річкова':'assets/fish/fish-27-european-flounder.png',
+  'Марена звичайна':'assets/fish/fish-28-common-barbel.png',
+  'Стерлядь':'assets/fish/fish-29-sterlet.png',
+  'Бабець звичайний':'assets/fish/fish-30-european-bullhead.png',
+  'Луфар':'assets/fish/fish-31-bluefish.png',
+  'Скумбрія атлантична':'assets/fish/fish-32-atlantic-mackerel.png',
+  'Лаврак європейський':'assets/fish/fish-33-european-seabass.png',
+  'Мідія балтійська':'assets/fish/catch-34-baltic-blue-mussel.png',
+  'Серцевидка їстівна':'assets/fish/catch-35-common-cockle.png',
+  'Медуза аурелія':'assets/fish/catch-36-moon-jellyfish.png',
+  'Серіола японська':'assets/fish/fish-37-japanese-amberjack.png',
+  'Тай червоний':'assets/fish/fish-38-red-seabream.png',
+  'Ісакі смугастий':'assets/fish/fish-39-striped-beakfish.png',
+  'Горбань великий жовтий':'assets/fish/fish-40-large-yellow-croaker.png',
+  'Макрель японська королівська':'assets/fish/fish-41-japanese-spanish-mackerel.png',
+  'Окунь китайський':'assets/fish/fish-42-chinese-perch.png',
+  'Кораловий лосось':'assets/fish/fish-43-coral-trout.png',
+  'Каранкс гігантський':'assets/fish/fish-44-giant-trevally.png',
+  'Барамунді':'assets/fish/fish-45-barramundi.png',
+  'Чорний бас Папуа':'assets/fish/fish-46-papuan-black-bass.png',
+  'Вітрильник індо-тихоокеанський':'assets/fish/fish-47-indo-pacific-sailfish.png',
+  'Риба-папуга шишколоба':'assets/fish/fish-48-bumphead-parrotfish.png',
+  'Губан Наполеон':'assets/fish/fish-49-napoleon-wrasse.png',
+  'Тунець собакозубий':'assets/fish/fish-50-dogtooth-tuna.png',
+  'Групер гігантський':'assets/fish/fish-51-giant-grouper.png'
+};
+
+// Вага для всіх 51 риб (діапазон [мін, макс] кг)
+const fishWeights = {
+  'Окунь річковий':[0.15, 1.8], 'Плітка звичайна':[0.08, 0.8], 'Карась сріблястий':[0.3, 2.5], 'Лящ звичайний':[0.6, 5.0], 'Короп звичайний':[2.5, 18.0],
+  'Форель струмкова':[0.4, 4.0], 'Харіус європейський':[0.2, 1.8], 'Сиг європейський':[0.5, 4.0], 'Голець арктичний':[0.7, 6.0], 'Форель райдужна':[0.7, 6.0],
+  'Щука звичайна':[1.5, 18.0], 'Лин звичайний':[0.4, 4.0], 'Сом європейський':[5.0, 70.0], "В'юн звичайний":[0.03, 0.25], 'Краснопірка звичайна':[0.1, 1.2],
+  'Судак звичайний':[1.0, 12.0], 'Головень звичайний':[0.4, 5.0], 'Білизна звичайна':[0.6, 8.0], 'Вугор європейський':[0.3, 5.0], 'Ставрида чорноморська':[0.08, 0.8],
+  'Кефаль':[0.5, 4.0], 'Бичок-кругляк':[0.05, 0.35], 'Калкан чорноморський':[2.0, 15.0], 'Ряпушка європейська':[0.05, 0.35], 'Минь':[0.5, 8.0],
+  'Оселедець балтійський':[0.05, 0.25], 'Камбала річкова':[0.2, 2.0], 'Марена звичайна':[0.5, 5.0], 'Стерлядь':[1.0, 7.0], 'Бабець звичайний':[0.02, 0.15],
+  'Луфар':[0.4, 6.0], 'Скумбрія атлантична':[0.2, 1.5], 'Лаврак європейський':[1.5, 8.0], 'Мідія балтійська':[0.01, 0.12], 'Серцевидка їстівна':[0.01, 0.08], 'Медуза аурелія':[0.1, 0.8],
+  'Серіола японська':[2.0, 14.0], 'Тай червоний':[0.8, 10.0], 'Ісакі смугастий':[0.3, 3.5], 'Горбань великий жовтий':[0.5, 8.0], 'Макрель японська королівська':[1.0, 12.0],
+  'Окунь китайський':[0.5, 5.0], 'Кораловий лосось':[1.0, 12.0], 'Каранкс гігантський':[4.0, 45.0], 'Барамунді':[1.0, 25.0], 'Чорний бас Папуа':[2.0, 18.0],
+  'Вітрильник індо-тихоокеанський':[8.0, 55.0], 'Риба-папуга шишколоба':[6.0, 50.0], 'Губан Наполеон':[7.0, 55.0], 'Тунець собакозубий':[6.0, 65.0], 'Групер гігантський':[15.0, 75.0]
+};
+
+// Базова ціна за 1 кг для всіх 51 риб
+const fishPrices = {
+  'Окунь річковий':30, 'Плітка звичайна':25, 'Карась сріблястий':40, 'Лящ звичайний':45, 'Короп звичайний':75,
+  'Форель струмкова':100, 'Харіус європейський':130, 'Сиг європейський':120, 'Голець арктичний':160, 'Форель райдужна':300,
+  'Щука звичайна':90, 'Лин звичайний':70, 'Сом європейський':120, "В'юн звичайний":20, 'Краснопірка звичайна':35,
+  'Судак звичайний':150, 'Головень звичайний':60, 'Білизна звичайна':110, 'Вугор європейський':160, 'Ставрида чорноморська':100,
+  'Кефаль':80, 'Бичок-кругляк':50, 'Калкан чорноморський':280, 'Ряпушка європейська':100, 'Минь':100,
+  'Оселедець балтійський':70, 'Камбала річкова':90, 'Марена звичайна':85, 'Стерлядь':350, 'Бабець звичайний':60,
+  'Луфар':180, 'Скумбрія атлантична':140, 'Лаврак європейський':260, 'Мідія балтійська':60, 'Серцевидка їстівна':50, 'Медуза аурелія':200,
+  'Серіола японська':480, 'Тай червоний':560, 'Ісакі смугастий':430, 'Горбань великий жовтий':720, 'Макрель японська королівська':580,
+  'Окунь китайський':650, 'Кораловий лосось':850, 'Каранкс гігантський':1200, 'Барамунді':750, 'Чорний бас Папуа':950,
+  'Вітрильник індо-тихоокеанський':1800, 'Риба-папуга шишколоба':1600, 'Губан Наполеон':2200, 'Тунець собакозубий':2000, 'Групер гігантський':2400
+};
+
+// Рідкість для екзотичних видів
+const exoticRarities = {
+  'Серіола японська':4, 'Тай червоний':3, 'Ісакі смугастий':3, 'Горбань великий жовтий':4,
+  'Макрель японська королівська':4, 'Окунь китайський':3, 'Кораловий лосось':3, 'Каранкс гігантський':4,
+  'Барамунді':4, 'Чорний бас Папуа':4, 'Вітрильник індо-тихоокеанський':5, 'Риба-папуга шишколоба':5,
+  'Губан Наполеон':5, 'Тунець собакозубий':5, 'Групер гігантський':5
+};
+
+// ВИЧЕРПНІ УКРАЇНСЬКІ ОПИСИ ДЛЯ ВСІХ 51 РИБ!
+const fishDescriptions = {
+  'Окунь річковий': 'Смугастий хижак, що полює у прибережних заростях трав та очерету.',
+  'Плітка звичайна': 'Невелика спритна зграйна риба тихих заплав із яскраво-червоними плавцями.',
+  'Карась сріблястий': 'Напрочуд невибагливий мешканець озер та ставків, улюбленець рибалок.',
+  'Лящ звичайний': 'Широкотілий донний велетень, що шукає поживу в мулистих глибинах.',
+  'Короп звичайний': 'Потужний донний трофей, який вимагає міцної снасті та терпіння.',
+  'Форель струмкова': 'Шляхетна плямиста риба стрімких холодних та кришталевих гірських річок.',
+  'Харіус європейський': 'Має розкішний вітрилоподібний спинний плавець, полюбляє чисту течію.',
+  'Сиг європейський': 'Цінна холодноводна риба північних глибоких водойм із ніжним м’ясом.',
+  'Голець арктичний': 'Північний мешканець льодовикових озер, витримує найсуворіші холоди.',
+  'Форель райдужна': 'Швидка та сильна риба з райдужною смужкою вздовж усього тіла.',
+  'Щука звичайна': 'Грізна володарка прісних вод із гострими, як бритва, зубами.',
+  'Лин звичайний': 'Обережна красива риба з оксамитовою золотаво-зеленою лускою.',
+  'Сом європейський': 'Гігантський нічний господар глибоких річкових вирів та затонулих корчів.',
+  "В'юн звичайний": 'Гнучкий донний мешканець зарослих мулистих заток, провісник зміни погоди.',
+  'Краснопірка звичайна': 'Золотава красуня з полум’яними плавцями, яка тримається біля латаття.',
+  'Судак звичайний': 'Ікластий сутінковий хижак із виразними очима, що бачать у темряві.',
+  'Головень звичайний': 'Сильний лобатий мешканець швидких перекатів, полюбляє комах та малька.',
+  'Білизна звичайна': 'Стрімкий поверхневий хижак, що глушить зграї малька ударом хвоста.',
+  'Вугор європейський': 'Змієподібний нічний мандрівник, здатний долати тисячі кілометрів океану.',
+  'Ставрида чорноморська': 'Швидка зграйна морська рибка, яка активно полює в товщі морської води.',
+  'Кефаль': 'Срібляста морська риба прибережної смуги, відома своєю обережністю.',
+  'Бичок-кругляк': 'Донний господар кам’янистих гряд Чорного моря з міцними присосками.',
+  'Калкан чорноморський': 'Цінна велика донна камбала, всіяна твердими кістковими горбками.',
+  'Ряпушка європейська': 'Витончена північна делікатесна риба з прохолодних глибоких вод.',
+  'Минь': 'Єдиний прісноводний родич тріски, що виходить на полювання в крижану ніч.',
+  'Оселедець балтійський': 'Важлива промислова риба Балтики, яка тримається великими зграями.',
+  'Камбала річкова': 'Пласка донна риба-маскувальник, що зливається з піщаним дном.',
+  'Марена звичайна': 'Справжній боєць кам’янистих річок із чотирма вусиками на нижній щелепі.',
+  'Стерлядь': 'Реліктовий річковий осетер із кістяними щитками, царський улов України.',
+  'Бабець звичайний': 'Маленький мешканець чистих струмків із широкою головою, що ховається під камінням.',
+  'Луфар': 'Лютий морський зграйний хижак, здатний перекусити найміцнішу волосінь.',
+  'Скумбрія атлантична': 'Стрімка океанічна риба з тигровим смарагдовим візерунком на спині.',
+  'Лаврак європейський': 'Морський вовк прибережних скель — бажана здобич кожного спінінгіста.',
+  'Мідія балтійська': 'Чорний двостулковий молюск, що колоніями вкриває підводне каміння.',
+  'Серцевидка їстівна': 'Дрібний молюск із характерною ребристою мушлею піщаного мілководдя.',
+  'Медуза аурелія': 'Напівпрозора купольна медуза, що плавно ширяє в теплій морській воді.',
+  'Серіола японська': 'Потужний пелагічний хижак Японських островів, боєць відкритих хвиль.',
+  'Тай червоний': 'Священна риба японського узбережжя з яскравою лускою — символ успіху.',
+  'Ісакі смугастий': 'Смугастий мешканець вулканічних рифів Ідзу; делікатний екзотичний трофей.',
+  'Горбань великий жовтий': 'Золотавий скарб Східнокитайського моря, надзвичайно цінний на ринку.',
+  'Макрель японська королівська': 'Блискавична морська макрель, що полює у прозорих водах шельфу.',
+  'Окунь китайський': 'Засадний плямистий хижак дельт і кам’яних проток Південного Китаю.',
+  'Кораловий лосось': 'Яскраво-плямистий хижак Великого Бар’єрного рифу серед коралових садів.',
+  'Каранкс гігантський': 'Океанічний гладіатор тропічних морів із неймовірною силою тяги.',
+  'Барамунді': 'Легендарна риба австралійських мангрових заток із потужними щелепами.',
+  'Чорний бас Папуа': 'Один із найсильніших прісноводних бійців планети з річок Нової Гвінеї.',
+  'Вітрильник індо-тихоокеанський': 'Найшвидша риба у світі з гігантським спинним синім вітрилом.',
+  'Риба-папуга шишколоба': 'Кораловий велетень із масивним чолом і міцним дзьобом для коралів.',
+  'Губан Наполеон': 'Величний бірюзовий господар індонезійських рифів із горбом мудрості.',
+  'Тунець собакозубий': 'Глибоководний океанічний монстр моря Банда з гострими конічними зубами.',
+  'Групер гігантський': 'Найбільший мешканець коралових глибин; фінальний трофей будь-якої експедиції.'
+};
+
+// --------------------------------------------------------
+// Скарби та знахідки
+// --------------------------------------------------------
+const treasures = [
+  {id:'shell', name:'Рідкісна мушля', icon:'🐚', chance:0.06, materials:{shells:2}, value:20},
+  {id:'bottle', name:'Послання в пляшці', icon:'🍾', chance:0.03, materials:{plants:1, worms:1}, value:35},
+  {id:'coin', name:'Старовинна козацька монета', icon:'🪙', chance:0.02, materials:{}, value:100},
+  {id:'map', name:'Карта рибного місця', icon:'🗺️', chance:0.015, materials:{}, value:0, reputation:12}
+];
+
+// Крафт наживок
+const craftRecipes = [
+  {bait:'worm', name:"Зв'язка черв’яків", needs:{plants:2, worms:3}, amount:6},
+  {bait:'shrimp', name:'Морська приманка', needs:{fish:2, shells:2}, amount:5},
+  {bait:'trout', name:'Форелева блешня', needs:{fish:2, plants:2}, amount:4},
+  {bait:'sturgeon', name:'Осетрова наживка', needs:{fish:3, worms:2, shells:1}, amount:3},
+  {bait:'sea', name:'Морський мікс', needs:{shells:2, fish:1, plants:1}, amount:4}
+];
+
+// Боси водойм
+const bosses = [
+  {id:'giant-catfish', name:'Велетенський сом', base:'Сом європейський', locations:['swamp','delta'], weight:[45,75], pricePerKg:380, season:['summer','autumn'], time:['night'], minReputation:40},
+  {id:'black-sea-turbot', name:'Велетенський калкан', base:'Калкан чорноморський', locations:['blackSea'], weight:[14,28], pricePerKg:550, season:['summer','autumn'], time:['day'], minReputation:60},
+  {id:'river-sturgeon', name:'Царський осетер', base:'Стерлядь', locations:['dnieper'], weight:[12,24], pricePerKg:700, season:['spring','summer'], time:['day'], minReputation:45},
+  {id:'royal-sailfish', name:'Королівський вітрильник', base:'Вітрильник індо-тихоокеанський', locations:['papuaBismarck','ocean'], weight:[50,90], pricePerKg:2200, season:['summer','autumn'], time:['day'], minReputation:95}
+];
+
+// 20+ Досягнень
+const achievements = [
+  {id:'firstCast', name:'Перший закид', desc:'Зробити свій перший закид снасті у воду.', reward:50, icon:'🎣'},
+  {id:'perfectCast', name:'Влучне око', desc:'Виконати точний закид у золоту зону 66–78%.', reward:80, icon:'🎯'},
+  {id:'firstFish', name:'Перший трофей', desc:'Виловити першу рибу та доставити на берег.', reward:100, icon:'🐟'},
+  {id:'masterCutter', name:'Майстер філе', desc:'Очистити 10 рибин на столі розбирання.', reward:150, icon:'🔪'},
+  {id:'natureFriend', name:'Друг природи', desc:'Відпустити 5 рибин назад у водойму.', reward:120, icon:'🌊'},
+  {id:'guardianFauna', name:'Захисник фауни', desc:'Відпустити 30 рибин на волю.', reward:350, icon:'🌿'},
+  {id:'legendary', name:'Легендарний улов', desc:'Спіймати легендарну рибу 5-го рівня рідкості.', reward:400, icon:'🐉'},
+  {id:'blackSea', name:'Чорноморський гід', desc:'Відкрити всі види Чорного моря.', reward:350, icon:'🐬'},
+  {id:'dnieperMaster', name:'Володар Дніпра', desc:'Відкрити всі види річки Дніпро.', reward:350, icon:'🇺🇦'},
+  {id:'dailyRecord', name:'Чемпіон дня', desc:'Очолити щоденний турнір причалу.', reward:250, icon:'🥇'},
+  {id:'bossHunter', name:'Гроза гігантів', desc:'Перемогти хоча б одного унікального боса.', reward:500, icon:'👑'},
+  {id:'traveler', name:'Мандрівник', desc:'Вирушити у свою першу закордонну експедицію.', reward:300, icon:'✈️'},
+  {id:'oceanMaster', name:'Океанічний ас', desc:'Відкрити 30 різних видів риб у альбомі.', reward:600, icon:'🗺️'},
+  {id:'ichthyologist', name:'Великий іхтіолог', desc:'Зібрати повну колекцію з усіх 51 виду риб!', reward:2000, icon:'📚'},
+  {id:'chef', name:'Шеф-кухар причалу', desc:'Приготувати першу поживну страву на кухні.', reward:180, icon:'🍳'},
+  {id:'boatCaptain', name:'Власний капітан', desc:'Придбати плавзасіб та вийти на глибину.', reward:300, icon:'⚓'},
+  {id:'creditClear', name:'Чесний позичальник', desc:'Повністю закрити заборгованість у Банку.', reward:150, icon:'💳'},
+  {id:'baseTycoon', name:'Магнат курорту', desc:'Покращити всі 4 об’єкти бази до максимуму (3 рівень).', reward:800, icon:'🏗️'},
+  {id:'masterStreak', name:'Серія майстра', desc:'Зловити 10 риб поспіль без жодного зриву.', reward:300, icon:'⚡'},
+  {id:'wealthyFisher', name:'Золота шпуля', desc:'Накопичити в гаманці понад 10 000 монет.', reward:500, icon:'💰'}
+];
+
+// Рецепти кухні з бафами
+const kitchenRecipes = [
+  {id:'soup', name:'Рибальська юшка', desc:'+25% до отримуваного досвіду (XP) на 10 хвилин.', buff:'xp_boost', duration:600000, needs:{fish:1, plants:1}, icon:'🍲'},
+  {id:'friedFish', name:'Смажений карась у травах', desc:'+15% до вартості продажу риби на ринку на 10 хвилин.', buff:'price_boost', duration:600000, needs:{fish:1}, icon:'🍳'},
+  {id:'smokedFish', name:'Копчений лящ', desc:'Міцність снасті збільшено на 25% на 10 хвилин.', buff:'tackle_boost', duration:600000, needs:{fish:1, plants:2}, icon:'🔥'},
+  {id:'oceanDish', name:'Морський делікатес', desc:'+35% шанс виловити рідкісну або трофейну рибу на 10 хвилин.', buff:'trophy_boost', duration:600000, needs:{fish:1, shells:2}, icon:'🦪'}
+];
+
+// Покращення бази
+const baseUpgrades = {
+  pier: {name:'Причал', icon:'⚓', cost:120, desc:'+8% до активності риби за кожен рівень.'},
+  smokehouse: {name:'Коптильня', icon:'🔥', cost:180, desc:'+10% до ціни очищеної риби за кожен рівень.'},
+  workshop: {name:'Майстерня', icon:'🔧', cost:240, desc:'+6% до швидкості та гальма котушки за рівень.'},
+  aquarium: {name:'Акваріум', icon:'🐠', cost:300, desc:'+1 очко репутації за кожну рідкісну рибу за рівень.'}
+};
+
+// --------------------------------------------------------
+// Ініціалізація та розрахунок таблиць улову
+// --------------------------------------------------------
+Object.values(locations).forEach(location => {
+  location.fishPool = location.fish.map((name, index) => {
+    const ukrName = migrateFishName(name);
+    return {
+      name: ukrName,
+      rarity: exoticRarities[ukrName] || Math.min(5, 1 + Math.floor(index * 5 / location.fish.length)),
+      weight: fishWeights[ukrName] || [0.5, 3],
+      pricePerKg: fishPrices[ukrName] || 50
+    };
+  });
+});
+
+gear.rods = gear.rods.map(([name, price, maxWeight]) => ({name, price, maxWeight}));
+
+// Початковий стан гри
+const initial = {
+  coins: 30,
+  rods: 1,
+  lines: 1,
+  knives: 1,
+  hooks: 1,
+  reels: 1,
+  ownedReels: [1],
+  floats: 1,
+  sonar: false,
+  bait: 'bread',
+  baitStock: {bread:18, worm:0, shrimp:0, trout:0, sturgeon:0, sea:0},
+  technique: 'float',
+  npcQuest: null,
+  location: 'pier',
+  inventory: [],
+  discovered: [],
+  journal: ['Ви прибули на Лісове озеро. Час закинути вудку!'],
+  pets: [],
+  total: 30,
+  best: '—',
+  xp: 0,
+  reputation: 0,
+  localReputation: {},
+  completedQuests: 0,
+  questReel: false,
+  records: {},
+  market: null,
+  materials: {plants:0, worms:0, shells:0, fish:0},
+  treasures: [],
+  achievements: {},
+  skills: {casting:0, hook:0, trophy:0},
+  base: {pier:0, smokehouse:0, workshop:0, aquarium:0},
+  tournament: null,
+  bossKills: {},
+  auctions: [],
+  auctionLog: [],
+  trip: null,
+  travelDays: 3,
+  contract: {target:8, progress:0, reward:300},
+  ownedBoats: [],
+  boat: null,
+  atDepth: false,
+  bankDebt: 0,
+  buffs: {},
+  soundEnabled: true,
+  soundVolume: 0.7,
+  vibrationEnabled: true
+};
+
+let state, savedState;
+try {
+  savedState = JSON.parse(localStorage.getItem(SAVE_KEY));
+  state = {...initial, ...savedState};
+} catch {
+  savedState = {};
+  state = {...initial};
 }
-delete state.baits;
-state.inventory=(Array.isArray(state.inventory)?state.inventory:[]).map(fish=>{const range=fishWeights[fish.name]||[1,1],rarity=Math.max(1,Math.min(rarities.length,Number(fish.rarity)||1)),weight=Number(fish.weight);return {...fish,rarity,weight:Number.isFinite(weight)?weight:Math.round((range[0]+range[1])*50)/100,pricePerKg:Number(fish.pricePerKg)||fishPrices[fish.name]||rarities[rarity-1].value}}); console.assert(state.inventory.every(fish=>Number.isFinite(fish.weight)&&Number.isFinite(fish.pricePerKg)),'Некорректные данные улова');
-// Older saves have no reward, release or precision statistics.
-state.dailyReward=state.dailyReward&&Number.isInteger(state.dailyReward.day)&&Number.isInteger(state.dailyReward.streak)&&state.dailyReward.streak>0?state.dailyReward:null;
-state.released=Math.max(0,Number(state.released)||0);
-state.perfectCasts=Math.max(0,Number(state.perfectCasts)||0);
-state.credit=typeof state.credit==='object'&&state.credit!==null?{debt:Math.max(0,Number(state.credit.debt)||0),borrowedTotal:Math.max(0,Number(state.credit.borrowedTotal)||0),repaidTotal:Math.max(0,Number(state.credit.repaidTotal)||0)}:{debt:Math.max(0,Number(state.loan)||0),borrowedTotal:0,repaidTotal:0};
-let charge=0, charging=false, castTimer, casting=false, pulling=false, pullTimer, biteTimer, perfectCast=false, reel=0, session=0, shop='rods', mapRegion='home', world={weather:'clear',time:'day',event:'calm',season:'spring'};
-let fightState=null;
-function save(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));$('saveWarning').hidden=true;return true}
-  catch{$('saveWarning').hidden=false;return false}
+
+// Міграція старого спорядження
+Object.keys(gear).forEach(type => {
+  state[type] = Math.max(1, Math.min(gear[type].length, Math.trunc(Number(state[type])) || 1));
+});
+
+state.baitStock = {...initial.baitStock, ...(state.baitStock || {})};
+state.records = {...(state.records || {})};
+state.sonar = Boolean(state.sonar);
+state.ownedReels = Array.isArray(state.ownedReels) ? [...new Set(state.ownedReels)] : [state.reels];
+if (!state.ownedReels.includes(state.reels)) state.ownedReels.push(state.reels);
+state.ownedBoats = Array.isArray(state.ownedBoats) ? state.ownedBoats.filter(id => boats.some(b => b.id === id)) : [];
+state.boat = state.ownedBoats.includes(state.boat) ? state.boat : null;
+state.reputation = Math.max(0, state.reputation || 0);
+state.localReputation = {...(state.localReputation || {})};
+state.materials = {...initial.materials, ...(state.materials || {})};
+state.treasures = [...(state.treasures || [])];
+state.achievements = {...(state.achievements || {})};
+state.skills = {...initial.skills, ...(state.skills || {})};
+state.base = {...initial.base, ...(state.base || {})};
+state.bossKills = {...(state.bossKills || {})};
+state.buffs = {...(state.buffs || {})};
+
+// Міграція імен риб в інвентарі, альбомі та рекордах
+if (Array.isArray(state.inventory)) {
+  state.inventory = state.inventory.map(f => {
+    const ukrName = migrateFishName(f.name);
+    return {
+      ...f,
+      name: ukrName,
+      image: fishImages[ukrName] || f.image,
+      pricePerKg: fishPrices[ukrName] || f.pricePerKg
+    };
+  });
 }
-const roman=(n)=>['I','II','III','IV','V','VI','VII','VIII'][n-1];
-const petBonus=(type)=>state.pets.some(p=>p.type===type);
-const playerLevel=()=>Math.min(12,1+Math.floor(Math.sqrt(state.xp/120)));
-const levelProgress=()=>{const level=playerLevel(),start=120*(level-1)**2,end=120*level**2;return level===12?100:Math.round((state.xp-start)/(end-start)*100)};
-const locationLevels={pier:1,river:2,ocean:3,dnieper:3,alpine:4,shatsk:4,reservoir:5,swamp:6,blackSea:7,delta:8,peipus:9,winter:10,baltic:11};
-const locationReputation={pier:0,river:0,ocean:8,dnieper:8,alpine:16,shatsk:16,reservoir:26,swamp:38,blackSea:52,delta:68,peipus:86,winter:108,baltic:134};
-Object.entries(travelRegions).forEach(([,region])=>region.spots.forEach(([key])=>{locationLevels[key]=region.level;locationReputation[key]=region.reputation}));
-const tierName=(level)=>rarities[Math.min(4,Math.ceil(level*5/8)-1)].name.toLowerCase();
-const activeBait=()=>baitTypes.find(bait=>bait.id===state.bait)||baitTypes[0];
-const baitCount=()=>state.baitStock[activeBait().id]||0;
-const qualityOf=(fish)=>catchQualities.find(quality=>quality.id===fish.quality)||catchQualities[0];
-const localRep=key=>state.localReputation[key]||0;
-const gearColors=['#cd995b','#bacddb','#a8e167','#869fff','#ffe078','#59dfce','#effaff','#e28af2'];
-const lineColors=['#e5fbffba','#b8e7ffaa','#c7efff77','#8fc688','#50cab7','#edd170','#b7cfff','#e495f0'];
-const baitIcons={bread:'🍞',worm:'🪱',shrimp:'🦐',trout:'🐟',sturgeon:'🪱',sea:'🦐'};
-function gearIcon(type,level){
-  const color=gearColors[level-1];
-  const shape=type==='hooks'?`<circle cx="24" cy="7" r="4"/><path d="M24 11v22c0 14 20 14 20 0V23l-7 8"/>${level>2?'<path d="M24 24v10c0 11-15 11-15 0v-9l6 7"/>':''}`:`<path d="M9 45l15-15 8 8-15 15z" fill="#9e6741"/><path d="M24 30L${40+level} ${8-level/2}Q57 23 32 38Z" fill="${color}"/>`;
+if (Array.isArray(state.discovered)) {
+  state.discovered = [...new Set(state.discovered.map(migrateFishName))];
+}
+if (state.records) {
+  const newRec = {};
+  Object.entries(state.records).forEach(([k, v]) => { newRec[migrateFishName(k)] = v; });
+  state.records = newRec;
+}
+
+// --------------------------------------------------------
+// Стан риболовлі, змінних сесії та натягу
+// --------------------------------------------------------
+let charge = 0, charging = false, castTimer, casting = false, pulling = false, pullTimer, biteTimer;
+let perfectCast = false, reel = 0, session = 0, shop = 'rods', mapRegion = 'home';
+let world = {weather:'clear', time:'day', event:'calm', season:'spring'};
+
+// Фази та динаміка виважування
+let fightState = {
+  active: false,
+  phase: 'calm', // calm, struggle, dash
+  direction: 0,  // -1 ліворуч, 1 праворуч
+  timer: 0,
+  dashPower: 0,
+  stamina: 100
+};
+
+function save() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    const warn = $('saveWarning');
+    if (warn) warn.hidden = true;
+    return true;
+  } catch {
+    const warn = $('saveWarning');
+    if (warn) warn.hidden = false;
+    return false;
+  }
+}
+
+// Хелпери розрахунків
+const roman = (n) => ['I','II','III','IV','V','VI','VII','VIII'][n-1] || 'I';
+const petBonus = (type) => state.pets.some(p => p.type === type);
+const playerLevel = () => Math.min(12, 1 + Math.floor(Math.sqrt(state.xp / 120)));
+const levelProgress = () => {
+  const level = playerLevel();
+  const start = 120 * (level - 1) ** 2, end = 120 * level ** 2;
+  return level === 12 ? 100 : Math.round((state.xp - start) / (end - start) * 100);
+};
+
+const locationLevels = {pier:1, river:2, ocean:3, dnieper:3, alpine:4, shatsk:4, reservoir:5, swamp:6, blackSea:7, delta:8, peipus:9, winter:10, baltic:11};
+const locationReputation = {pier:0, river:0, ocean:8, dnieper:8, alpine:16, shatsk:16, reservoir:26, swamp:38, blackSea:52, delta:68, peipus:86, winter:108, baltic:134};
+Object.entries(travelRegions).forEach(([,region]) => region.spots.forEach(([key]) => {
+  locationLevels[key] = region.level;
+  locationReputation[key] = region.reputation;
+}));
+
+const activeBait = () => baitTypes.find(b => b.id === state.bait) || baitTypes[0];
+const baitCount = () => state.baitStock[activeBait().id] || 0;
+const qualityOf = (f) => catchQualities.find(q => q.id === f.quality) || catchQualities[0];
+const localRep = (key) => state.localReputation[key] || 0;
+
+const gearColors = ['#cd995b','#bacddb','#a8e167','#869fff','#ffe078','#59dfce','#effaff','#e28af2'];
+const lineColors = ['#e5fbffba','#b8e7ffaa','#c7efff77','#8fc688','#50cab7','#edd170','#b7cfff','#e495f0'];
+const baitIcons = {bread:'🍞', worm:'🪱', shrimp:'🦐', trout:'🐟', sturgeon:'🪱', sea:'🦐'};
+
+function gearIcon(type, level) {
+  const color = gearColors[level-1] || '#cd995b';
+  const shape = type === 'hooks'
+    ? `<circle cx="24" cy="7" r="4"/><path d="M24 11v22c0 14 20 14 20 0V23l-7 8"/>${level > 2 ? '<path d="M24 24v10c0 11-15 11-15 0v-9l6 7"/>' : ''}`
+    : `<path d="M9 45l15-15 8 8-15 15z" fill="#9e6741"/><path d="M24 30L${40+level} ${8-level/2}Q57 23 32 38Z" fill="${color}"/>`;
   return `<svg class="gear-icon" viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round">${shape}</svg>`;
 }
-function renderEquipment(){
-  const limits=tackleLimits(),bait=activeBait();
-  const items=[
-    ['rods','Вудка',gear.rods[state.rods-1].name,`${limits.rod} кг`,rodImages],
-    ['lines','Волосінь',gear.lines[state.lines-1][0],`${limits.line} кг`,lineImages],
+
+function tackleLimits() {
+  const workshop = 1 + (state.base.workshop || 0) * 0.06;
+  const buffTackle = hasBuff('tackle_boost') ? 1.25 : 1;
+  const rodMax = gear.rods[state.rods-1].maxWeight * buffTackle;
+  const lineMax = gear.lines[state.lines-1][2] * buffTackle;
+  const hookMax = gear.hooks[state.hooks-1][2] * buffTackle;
+  const reelSpeed = gear.reels[state.reels-1][2] * (state.questReel ? 1.12 : 1) * workshop;
+  const brake = gear.reels[state.reels-1][3] * workshop;
+  return {
+    rod: rodMax,
+    line: lineMax,
+    hook: hookMax,
+    reel: reelSpeed,
+    brake: brake,
+    limit: Math.min(rodMax, lineMax, hookMax)
+  };
+}
+
+const fishWeight = (f) => Number.isFinite(f.weight) ? `${f.weight.toFixed(f.weight < 1 ? 2 : 1)} кг` : '—';
+const activeTechnique = () => techniques[state.technique] || techniques.float;
+const cutsNeeded = () => Math.max(1, 4 - Math.floor((state.knives + 1) / 3));
+
+// Динамічний розрахунок навантаження з урахуванням фази боротьби
+function fightLoad(fish, reelProgress = 0) {
+  if (!fish) return 0.1;
+  const hookSkill = 1 - (state.skills.hook || 0) * 0.05;
+  const baseTension = fish.weight * (1.02 + fish.rarity * 0.1) * hookSkill;
+  const brakeRelief = tackleLimits().brake * 0.04;
+  
+  // Додаткове навантаження залежно від фази
+  let dynamicFactor = 1.0;
+  if (fightState.phase === 'struggle') {
+    dynamicFactor = 1.35 + Math.sin(Date.now() / 150) * 0.25;
+  } else if (fightState.phase === 'dash') {
+    dynamicFactor = 1.75 + fightState.dashPower * 0.3;
+  } else if (fightState.phase === 'exhausted') {
+    dynamicFactor = 0.65;
+  }
+
+  const load = Math.max(0.1, (baseTension * dynamicFactor - brakeRelief + reelProgress * 0.005));
+  return load;
+}
+
+// --------------------------------------------------------
+// Бафи кухні
+// --------------------------------------------------------
+function hasBuff(type) {
+  const buff = state.buffs[type];
+  if (!buff) return false;
+  if (buff.until > Date.now()) return true;
+  delete state.buffs[type];
+  return false;
+}
+
+function applyBuff(type, name, durationMs) {
+  state.buffs[type] = {name, until: Date.now() + durationMs};
+  sound.playBuff();
+  note(`Скуштовано: ${name}! Баф активний на ${Math.round(durationMs / 60000)} хв.`);
+  renderKitchen();
+  save();
+}
+
+// --------------------------------------------------------
+// Щоденний ринок та квести
+// --------------------------------------------------------
+function dailyMarket() {
+  const day = new Date().toISOString().slice(0, 10);
+  if (state.market?.day === day && Object.hasOwn(fishPrices, state.market.fish) && Number.isFinite(state.market.bonus)) {
+    return state.market;
+  }
+  const seed = [...day].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const names = Object.keys(fishPrices);
+  state.market = {
+    day,
+    fish: names[seed % names.length],
+    bonus: 0.3 + (seed % 51) / 100
+  };
+  return state.market;
+}
+
+const marketMultiplier = (f) => dailyMarket().fish === f.name ? (1 + dailyMarket().bonus) : 1;
+
+function assignQuality(fish) {
+  const previous = state.records[fish.name] || 0;
+  const precision = Math.min(1, Math.max(0, 1 - Math.abs(charge - 72) / 72) + (state.skills.casting || 0) * 0.06);
+  const score = Math.random() + precision * 0.25 + (state.skills.trophy || 0) * 0.08 + (hasBuff('trophy_boost') ? 0.25 : 0);
+  state.records[fish.name] = Math.max(previous, fish.weight);
+  fish.quality = fish.weight > previous ? 'record' : score > 1.25 ? 'trophy' : score > 0.72 ? 'good' : 'normal';
+  return fish;
+}
+
+const worldActivity = () => {
+  const weather = weatherData[world.weather] || weatherData.clear;
+  const time = timeData[world.time] || timeData.day;
+  const season = seasons[world.season] || seasons.spring;
+  const event = eventData[world.event] || eventData.calm;
+  const pierBonus = 1 + (state.base.pier || 0) * 0.08;
+  const buffSpeed = hasBuff('bite_boost') ? 1.3 : 1;
+  return weather.bite * time.bite * season.bite * event.bite * activeTechnique().bite * pierBonus * buffSpeed;
+};
+
+// Розрахунок вартості риби
+function price(f) {
+  const quality = qualityOf(f);
+  const perKg = f.pricePerKg || fishPrices[f.name] || 40;
+  const smokehouse = 1 + (state.base.smokehouse || 0) * 0.1;
+  const buffPrice = hasBuff('price_boost') ? 1.15 : 1;
+  const petMul = petBonus('money') ? 1.2 : 1;
+  const smallBonus = (f.weight < 1.0 && petBonus('money_small')) ? 1.1 : 1;
+  return Math.max(1, Math.round(f.weight * perKg * rarities[f.rarity-1].multiplier * quality.multiplier * marketMultiplier(f) * smokehouse * petMul * smallBonus * buffPrice));
+}
+
+// --------------------------------------------------------
+// Графічний рендерер Canvas (ProceduralScene)
+// --------------------------------------------------------
+class ProceduralScene {
+  constructor(canvas) {
+    this.c = canvas;
+    this.x = 50;
+    this.y = 61;
+    this.cast = 0;
+    this.reel = 0;
+    this.tension = 0;
+    this.biting = false;
+    this.pulling = false;
+    this.fish = null;
+    this.biteMode = 'idle';
+    this.surface = false;
+    this.fightOffset = {x:0, y:0, targetX:0, targetY:0, next:0};
+    this.splashes = [];
+    this.t0 = performance.now();
+    this.resize();
+    addEventListener('resize', () => this.resize());
+    requestAnimationFrame(t => this.frame(t));
+  }
+  resize() {
+    const d = Math.min(window.devicePixelRatio || 1, 2);
+    const r = this.c.getBoundingClientRect();
+    this.w = Math.max(1, r.width);
+    this.h = Math.max(1, r.height);
+    this.c.width = this.w * d;
+    this.c.height = this.h * d;
+    this.g = this.c.getContext('2d');
+    this.g.setTransform(d, 0, 0, d, 0, 0);
+  }
+  startCast(power) {
+    this.cast = power;
+    this.reel = 0;
+    this.x = state.atDepth ? 52 + power * 0.35 : 31 + power * 0.55;
+    this.y = state.atDepth ? 56 : 60;
+    this.biting = false;
+    this.fish = null;
+    this.biteMode = 'idle';
+    this.surface = false;
+    const fl = $('equippedFloat');
+    if (fl) fl.hidden = true;
+    this.fightOffset = {x:0, y:0, targetX:0, targetY:0, next:0};
+  }
+  beginBite(fish) {
+    this.fish = fish || this.fish;
+    this.biteMode = this.fish?.reaction || 'cautious';
+    this.surface = this.biteMode === 'surface';
+    if (this.biteMode === 'escape') this.fightOffset.targetX = (Math.random() * 2 - 1) * 22;
+    this.addSplash(this.w * this.x / 100, this.h * this.y / 100, 8);
+  }
+  clear() {
+    this.cast = 0;
+    this.reel = 0;
+    this.tension = 0;
+    this.biting = false;
+    this.pulling = false;
+    this.fish = null;
+    this.biteMode = 'idle';
+    this.surface = false;
+    const fl = $('equippedFloat');
+    if (fl) fl.hidden = true;
+    this.fightOffset = {x:0, y:0, targetX:0, targetY:0, next:0};
+  }
+  addSplash(x, y, count = 6) {
+    for (let i = 0; i < count; i++) {
+      this.splashes.push({
+        x, y,
+        vx: (Math.random() * 2 - 1) * 35,
+        vy: -Math.random() * 45 - 10,
+        life: 1.0,
+        r: Math.random() * 3 + 1.5
+      });
+    }
+  }
+  floatPoint(w, h, now = performance.now()) {
+    const p = this.pulling ? this.reel / 100 : 0;
+    const base = {x: w * (this.x + (56 - this.x) * p) / 100, y: h * (this.y + (84 - this.y) * p) / 100};
+    if (this.pulling && this.fish) {
+      const resistance = Math.min(1, Math.max(0.2, this.fish.weight / Math.max(1, tackleLimits().rod)));
+      const amplitude = (this.biteMode === 'surface' ? 14 : (this.biteMode === 'escape' ? 18 : 8) + resistance * 24) * (1 - p);
+      if (now >= this.fightOffset.next) {
+        this.fightOffset.targetX = (Math.random() * 2 - 1) * amplitude;
+        this.fightOffset.targetY = (Math.random() * 2 - 1) * amplitude * 0.65;
+        this.fightOffset.next = now + Math.max(50, 180 - resistance * 100);
+      }
+      this.fightOffset.x += (this.fightOffset.targetX - this.fightOffset.x) * 0.15;
+      this.fightOffset.y += (this.fightOffset.targetY - this.fightOffset.y) * 0.15;
+    } else {
+      this.fightOffset.x *= 0.85;
+      this.fightOffset.y *= 0.85;
+    }
+    return {
+      x: Math.max(w * 0.05, Math.min(w * 0.95, base.x + this.fightOffset.x)),
+      y: Math.max(h * 0.52, Math.min(h * 0.92, base.y + this.fightOffset.y))
+    };
+  }
+  rodTip(w, h) {
+    const image = $('equippedRodImage');
+    if (!image) return {x: w * 0.8, y: h * 0.2};
+    const rect = image.getBoundingClientRect();
+    const canvas = this.c.getBoundingClientRect();
+    const scale = Math.min(rect.width / (image.naturalWidth || 1536), rect.height / (image.naturalHeight || 1024));
+    const width = (image.naturalWidth || 1536) * scale;
+    const height = (image.naturalHeight || 1024) * scale;
+    return {
+      x: rect.left - canvas.left + (rect.width - width) / 2 + width * 0.97,
+      y: rect.top - canvas.top + (rect.height - height) / 2 + height * 0.05
+    };
+  }
+  frame(now) {
+    const dt = 0.016;
+    const t = (now - this.t0) / 1000;
+    const g = this.g, w = this.w, h = this.h;
+    if (!g) return;
+    g.clearRect(0, 0, w, h);
+
+    if (state.atDepth) this.deepWater(g, w, h, t);
+    this.ripples(g, w, h, t, now);
+
+    // Підводна тінь риби (перед клюванням або під час виважування)
+    if (this.cast && (this.biting || this.pulling || Math.sin(t * 0.8) > 0.2)) {
+      this.drawFishShadow(g, w, h, t, now);
+    }
+
+    this.line(g, w, h, now);
+    if (this.cast) this.bobber(g, w, h, t, now);
+    if (this.pulling && this.surface) this.surfaceFight(g, w, h, t, now);
+
+    // Частинки бризок
+    this.updateSplashes(g, dt);
+
+    // Снігопад для зимової локації або снігової погоди
+    if (state.location === 'winter' || world.weather === 'snow') {
+      this.drawSnow(g, w, h, t);
+    }
+
+    requestAnimationFrame(n => this.frame(n));
+  }
+  drawFishShadow(g, w, h, t, now) {
+    const p = this.floatPoint(w, h, now);
+    const angle = t * 1.8;
+    const dist = this.biting ? 12 : 28 + Math.sin(t * 1.2) * 14;
+    const sx = p.x + Math.cos(angle) * dist;
+    const sy = p.y + Math.sin(angle) * dist * 0.4 + 14;
+    g.save();
+    g.fillStyle = 'rgba(6, 32, 45, 0.42)';
+    g.beginPath();
+    g.ellipse(sx, sy, 22, 9, Math.cos(angle) * 0.35, 0, Math.PI * 2);
+    g.fill();
+    // Хвостик тіні
+    g.beginPath();
+    g.moveTo(sx - 18, sy);
+    g.lineTo(sx - 28, sy - 6);
+    g.lineTo(sx - 28, sy + 6);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+  updateSplashes(g, dt) {
+    if (!this.splashes.length) return;
+    g.save();
+    g.fillStyle = 'rgba(235, 255, 255, 0.75)';
+    for (let i = this.splashes.length - 1; i >= 0; i--) {
+      const s = this.splashes[i];
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vy += 120 * dt; // гравітація
+      s.life -= dt * 2.2;
+      if (s.life <= 0) {
+        this.splashes.splice(i, 1);
+        continue;
+      }
+      g.globalAlpha = Math.max(0, s.life);
+      g.beginPath();
+      g.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+  }
+  drawSnow(g, w, h, t) {
+    g.save();
+    g.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    for (let i = 0; i < 28; i++) {
+      const x = (i * 73 + t * 40 + Math.sin(t + i) * 20) % w;
+      const y = (i * 53 + t * 65) % (h * 0.95);
+      g.beginPath();
+      g.arc(x, y, (i % 3) + 1.2, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+  }
+  deepWater(g, w, h, t) {
+    g.save();
+    const grad = g.createRadialGradient(w * 0.5, h * 0.75, 40, w * 0.5, h * 0.75, w * 0.65);
+    grad.addColorStop(0, 'rgba(3, 14, 26, 0.4)');
+    grad.addColorStop(1, 'rgba(0, 8, 16, 0.85)');
+    g.fillStyle = grad;
+    g.fillRect(0, h * 0.52, w, h * 0.48);
+    g.restore();
+  }
+  ripples(g, w, h, t, now) {
+    if (!this.cast) return;
+    const p = this.floatPoint(w, h, now);
+    for (let i = 0; i < 3; i++) {
+      const r = (t * 30 + i * 19) % 70;
+      g.strokeStyle = `rgba(225,255,255,${0.46 - r / 170})`;
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.ellipse(p.x, p.y, r, r * 0.3, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+  }
+  line(g, w, h, now) {
+    if (!this.cast) return;
+    const p = this.floatPoint(w, h, now), tip = this.rodTip(w, h);
+    g.save();
+    g.strokeStyle = this.tension > 82 ? '#ff8a7d' : this.tension > 60 ? '#ffe078' : (lineColors[state.lines - 1] || '#b8e7ffaa');
+    g.lineWidth = 0.9 + state.lines * 0.16 + this.tension / 100;
+    g.beginPath();
+    g.moveTo(tip.x, tip.y);
+    g.lineTo(p.x, p.y);
+    g.stroke();
+    g.restore();
+  }
+  bobber(g, w, h, t, now) {
+    const p = this.floatPoint(w, h, now), float = $('equippedFloat');
+    if (!float) return;
+    float.hidden = false;
+    float.style.left = p.x + 'px';
+    float.style.top = (p.y + Math.sin(t * (this.biting ? 15 : 4)) * (this.biting ? 9 : 3)) + 'px';
+    float.classList.toggle('night-float', state.floats >= 4 && world.time === 'night');
+  }
+  surfaceFight(g, w, h, t, now) {
+    const p = this.floatPoint(w, h, now), jump = Math.sin(t * 12) * 6;
+    g.save();
+    g.strokeStyle = 'rgba(235,255,255,.85)';
+    g.lineWidth = 1.6;
+    for (let i = 0; i < 4; i++) {
+      const a = t * 5 + i * Math.PI / 2, x = p.x + Math.cos(a) * 20, y = p.y + Math.sin(a) * 7 + jump;
+      g.beginPath();
+      g.moveTo(p.x, y);
+      g.lineTo(x, y - 9 - Math.abs(Math.sin(a)) * 8);
+      g.stroke();
+    }
+    g.fillStyle = 'rgba(220,250,255,.75)';
+    g.beginPath();
+    g.ellipse(p.x - 11, p.y + jump, 14, 5, -0.35, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+}
+
+const sceneRenderer = new ProceduralScene($('worldCanvas'));
+
+// --------------------------------------------------------
+// Логіка вибору риби та реакцій
+// --------------------------------------------------------
+function availableBoss() {
+  return bosses.find(boss =>
+    boss.locations.includes(state.location) &&
+    boss.season.includes(world.season) &&
+    boss.time.includes(world.time) &&
+    state.reputation >= boss.minReputation &&
+    tackleLimits().limit >= boss.weight[0]
+  );
+}
+
+function determineFishReaction(weight) {
+  const roll = Math.random();
+  if (weight <= 1.5 && roll < 0.25) return 'cautious';
+  if (weight >= 5 && roll < 0.3) return 'escape';
+  if (roll < 0.2) return 'surface';
+  return 'idle';
+}
+
+function activePool(key = state.location) {
+  const loc = locations[key];
+  if (!loc) return [];
+  const pool = loc.fishPool.filter(fish => {
+    const cond = catchConditions[fish.name];
+    if (!cond) return true;
+    const sOk = !cond.seasons || cond.seasons.includes(world.season);
+    const wOk = !cond.weather || cond.weather.includes(world.weather);
+    const tOk = !cond.time || cond.time.includes(world.time);
+    return sOk && wOk && tOk;
+  });
+  return pool.length ? pool : loc.fishPool;
+}
+
+function pickFish() {
+  const technique = activeTechnique();
+  const event = eventData[world.event] || eventData.calm;
+  const bait = activeBait();
+  const eventRarity = event.nightOnly && world.time !== 'night' ? 0 : (event.rarity || 0);
+  const boatBonus = state.atDepth && state.boat ? (boats.find(b => b.id === state.boat)?.rarity || 0) : 0;
+  const max = Math.min(5, state.rods + boatBonus);
+  const bonus = Math.max(0, state.rods - 1) + bait.rarity + technique.rarity + eventRarity + boatBonus;
+  
+  let weights = [Math.max(16, 60 - bonus * 4), 24 + bonus, 9 + bonus, 4 + Math.ceil(bonus / 2), 1 + Math.floor(bonus / 3)];
+  if (petBonus('luck')) weights = [weights[0] - 8, weights[1] + 2, weights[2] + 2, weights[3] + 2, weights[4] + 2];
+
+  const boss = availableBoss();
+  if (boss && Math.random() < 0.035) {
+    const weight = +(boss.weight[0] + Math.random() * (boss.weight[1] - boss.weight[0])).toFixed(2);
+    return {
+      id: Date.now() + Math.random(),
+      name: boss.name,
+      rarity: 5,
+      weight,
+      pricePerKg: boss.pricePerKg,
+      clean: false,
+      cuts: 0,
+      location: state.location,
+      boss: boss.id,
+      image: fishImages[boss.base],
+      reaction: 'escape'
+    };
+  }
+
+  const pool = activePool();
+  const allowed = weights.slice(0, Math.min(max, pool.length));
+  let roll = Math.random() * allowed.reduce((a, b) => a + b, 0), rarity = 1;
+  for (let i = 0; i < allowed.length; i++) {
+    roll -= allowed[i];
+    if (roll <= 0) { rarity = i + 1; break; }
+  }
+
+  const choices = pool.filter(fish => fish.rarity === rarity);
+  const targeted = pool.filter(fish => bait.species.includes(fish.name) && fish.rarity <= max);
+  const species = targeted.length && Math.random() < bait.focus
+    ? targeted[Math.floor(Math.random() * targeted.length)]
+    : choices[Math.floor(Math.random() * choices.length)] || pool[0];
+
+  const range = species.weight || [0.4, 3];
+  const boatWeightMul = state.atDepth && state.boat ? (boats.find(b => b.id === state.boat)?.weight || 1) : 1;
+  const weight = +((range[0] + Math.random() * (range[1] - range[0])) * (event.weight || 1) * technique.weight * boatWeightMul).toFixed(2);
+  const reaction = determineFishReaction(weight);
+
+  return {
+    id: Date.now() + Math.random(),
+    name: species.name,
+    rarity: species.rarity,
+    weight,
+    pricePerKg: species.pricePerKg,
+    clean: false,
+    cuts: 0,
+    location: state.location,
+    reaction
+  };
+}
+
+// --------------------------------------------------------
+// Керування процесом риболовлі
+// --------------------------------------------------------
+function consumeBait() {
+  const bait = activeBait();
+  if (!baitCount()) {
+    note(`Закінчилася наживка «${bait.name}». Придбайте набір у магазині або на базі.`);
+    return false;
+  }
+  state.baitStock[bait.id]--;
+  return true;
+}
+
+const fishingBlocked = () => !!document.querySelector('.modal.open, .butcher-overlay.open');
+
+function updateFishingControls() {
+  const castBtn = $('castButton'), pullBtn = $('pullButton');
+  if (castBtn) {
+    castBtn.disabled = casting;
+    castBtn.classList.toggle('holding', charging);
+  }
+  if (pullBtn) {
+    pullBtn.disabled = !casting || !sceneRenderer.fish;
+    pullBtn.classList.toggle('holding', pulling);
+  }
+  const unClean = state.inventory.filter(f => !f.clean && !f.favorite).length;
+  const badge = $('uncleanCount');
+  if (badge) badge.textContent = unClean ? String(unClean) : '';
+}
+
+function beginCharge() {
+  if (casting || charging || fishingBlocked()) return;
+  if (!baitCount()) {
+    note('Наживка закінчилася! Натисніть її іконку внизу або отримайте щоденний подарунок.');
+    return;
+  }
+  charging = true;
+  charge = 0;
+  perfectCast = false;
+  sound.playCast();
+  note('Утримуйте кнопку та відпустіть у золотій зоні (66–78%)!');
+  updateFishingControls();
+  castTimer = setInterval(() => {
+    charge = Math.min(100, charge + 2);
+    $('castPower').style.width = charge + '%';
+    $('powerMeter').setAttribute('aria-valuenow', charge);
+    $('powerMeter').classList.toggle('on-target', Math.abs(charge - 72) <= 6);
+    updateDepth();
+  }, 35);
+}
+
+function cancelCharge() {
+  charging = false;
+  clearInterval(castTimer);
+  $('castPower').style.width = '0%';
+  $('powerMeter').setAttribute('aria-valuenow', '0');
+  $('powerMeter').classList.remove('on-target');
+  updateFishingControls();
+}
+
+function cast() {
+  if (!charging) return;
+  cancelCharge();
+  if (fishingBlocked()) return;
+  if (charge < 8) {
+    note('Закид надто слабкий. Утримуйте кнопку трохи довше.');
+    return;
+  }
+  if (!consumeBait()) return;
+
+  perfectCast = Math.abs(charge - 72) <= 6;
+  casting = true;
+  reel = 0;
+  clearTimeout(biteTimer);
+  sceneRenderer.startCast(charge);
+  sound.playSplash();
+
+  checkAchievements({type:'cast'});
+  if (perfectCast) checkAchievements({type:'perfectCast'});
+
+  note(perfectCast ? '🎯 Точний закид! Кльов на 25% швидший · +15 XP за рибу.' : `Закид на ${charge}% — очікуємо клювання…`);
+  
+  const baseDelay = (petBonus('speed') ? 1800 : 3100) - (state.floats - 1) * 140;
+  const delay = (Math.max(600, baseDelay / worldActivity()) + Math.random() * 1600) * (perfectCast ? 0.75 : 1);
+  biteTimer = setTimeout(bite, delay);
+  renderEquipment();
+  updateFishingControls();
+  save();
+}
+
+function bite() {
+  if (!casting) return;
+  sceneRenderer.biting = true;
+  sound.playBite();
+
+  // Шанс хибного клювання
+  if (Math.random() < Math.min(0.38, Math.max(0.04, 0.16 / worldActivity()))) {
+    note('Хибне клювання — риба збила наживку й пішла.');
+    biteTimer = setTimeout(() => loseFish('Хибне клювання: наживку збито.'), 900);
+    return;
+  }
+
+  const f = pickFish();
+  sceneRenderer.beginBite(f);
+  updateFishingControls();
+
+  // Ініціалізація фаз боротьби
+  fightState.active = true;
+  fightState.phase = 'calm';
+  fightState.stamina = Math.min(100, f.weight * 12);
+  fightState.direction = Math.random() < 0.5 ? -1 : 1;
+  fightState.timer = 0;
+
+  note('Клює! Утримуйте «Підтягнути», ЛКМ або R.');
+  biteTimer = setTimeout(() => loseFish('Риба зірвалася: ви не встигли підтягнути снасть.'), 6500);
+}
+
+function releaseLine() {
+  if (!pulling && !casting) return;
+  // Швидке стравлювання волосіні знижує натяг
+  fightState.phase = 'calm';
+  setTension(0.2);
+  sound.beep(300, 'sine', 0.08, 0.2);
+  showFightHud(false);
+  note('Волосінь послаблено! Навантаження впало до безпечного.');
+}
+
+function beginPull() {
+  if (!casting || pulling || fishingBlocked()) return;
+  const fish = sceneRenderer.fish;
+  if (!fish) return;
+
+  const limits = tackleLimits();
+  if (fish.weight > limits.hook) {
+    loseFish('Гачок надто малий для цього велетня.');
+    return;
+  }
+  if (fish.weight > limits.rod) {
+    loseFish('Вудилище тріснуло від ваги риби.');
+    return;
+  }
+
+  pulling = true;
+  sceneRenderer.pulling = true;
+  $('equippedRod').classList.add('pulling');
+  updateFishingControls();
+  note(`Підтягуйте снасть: ${fishWeight(fish)} на гачку.`);
+
+  pullTimer = setInterval(() => {
+    fightState.timer++;
+    
+    // Динамічний штучний інтелект риби: періодичні ривки (dash)
+    if (fightState.timer % 15 === 0 && Math.random() < 0.6) {
+      fightState.phase = 'dash';
+      fightState.dashPower = Math.random() * 1.5 + 1;
+      fightState.direction = Math.random() < 0.5 ? -1 : 1;
+      sound.playStrain();
+      showFightHud(true);
+    } else if (fightState.timer % 24 === 0) {
+      fightState.phase = 'calm';
+      showFightHud(false);
+    }
+
+    const reelStep = fightState.phase === 'dash' ? 1.5 : (fightState.phase === 'struggle' ? 4 : 8);
+    reel = Math.min(100, reel + reelStep * limits.reel * 0.15);
+    sceneRenderer.reel = reel;
+    updateDepth(true);
+    $('depthNeedle').style.left = (20 + reel * 0.7) + '%';
+    
+    sound.playReel();
+
+    const load = fightLoad(fish, reel);
+    const ratio = setTension(load);
+
+    const timerBar = $('fightTimer') ? $('fightTimer').querySelector('i') : null;
+    if (timerBar) {
+      timerBar.style.width = Math.min(100, Math.max(6, ratio * 100)) + '%';
+    }
+
+    if (ratio > 0.82 && !$('fightHud').classList.contains('active')) {
+      showFightHud(true, 'КРИТИЧНИЙ НАТЯГ ВОЛОСІНІ!', 'Загроза обриву! Послабте (S)');
+    }
+
+    if (ratio >= 1.0) {
+      sound.playSnap();
+      loseFish(load > limits.line ? 'Волосінь обірвалася від сильного натягу!' : 'Вудилище зламалося під вагою улову.');
+      return;
+    }
+
+    if (reel >= 100) landFish();
+  }, 80);
+}
+
+function showFightHud(show, customTitle, customHint) {
+  const hud = $('fightHud');
+  if (!hud) return;
+  if (!show) {
+    hud.hidden = true;
+    hud.classList.remove('active');
+    return;
+  }
+  hud.hidden = false;
+  hud.classList.add('active');
+  const titleEl = $('fightTitle');
+  const hintEl = $('fightHint');
+  const arrowEl = $('fightArrow');
+  if (titleEl) {
+    titleEl.textContent = customTitle || (fightState.phase === 'dash' ? 'РИБА РОБИТЬ РИВОК!' : 'РИБА ПРУЧАЄТЬСЯ');
+  }
+  if (arrowEl) {
+    arrowEl.textContent = fightState.direction < 0 ? '⮜' : '⮞';
+  }
+  if (hintEl) {
+    if (customHint) {
+      hintEl.textContent = customHint;
+    } else {
+      hintEl.textContent = fightState.direction < 0 ? 'Ривок ліворуч! Послабте волосінь (S)' : 'Ривок праворуч! Послабте волосінь (S)';
+    }
+  }
+}
+
+function stopPull(e) {
+  if (e && e.button !== 0 && !e.force) return;
+  if (!pulling) return;
+  pulling = false;
+  sceneRenderer.pulling = false;
+  $('equippedRod').classList.remove('pulling');
+  clearInterval(pullTimer);
+  updateFishingControls();
+  showFightHud(false);
+  const fish = sceneRenderer.fish;
+  if (fish) setTension(fightLoad(fish, reel) * 0.5);
+  if (casting) note('Риба пручається — контролюйте натяг та продовжуйте тягнути.');
+}
+
+function loseFish(reason) {
+  if (!casting) return;
+  perfectCast = false;
+  casting = false;
+  pulling = false;
+  clearInterval(pullTimer);
+  clearTimeout(biteTimer);
+  $('equippedRod').classList.remove('pulling');
+  sceneRenderer.clear();
+  setTension(0);
+  showFightHud(false);
+  resetTournamentStreak();
+  state.journal.unshift(reason);
+  state.journal = state.journal.slice(0, 35);
+  note(reason);
+  render();
+}
+
+function landFish() {
+  if (!casting) return;
+  const visibleFish = sceneRenderer.fish;
+  casting = false;
+  pulling = false;
+  clearInterval(pullTimer);
+  clearTimeout(biteTimer);
+  $('equippedRod').classList.remove('pulling');
+  sceneRenderer.clear();
+  setTension(0);
+  showFightHud(false);
+  sound.playLand();
+
+  const catches = [];
+  if (visibleFish) catches.push(visibleFish);
+  while (catches.length < state.hooks) catches.push(pickFish());
+
+  catches.forEach(f => {
+    assignQuality(f);
+    f.bait = state.bait;
+    f.perfectCast = perfectCast;
+  });
+
+  state.inventory.unshift(...catches);
+
+  if (perfectCast) {
+    state.xp += 15;
+    state.perfectCasts = (state.perfectCasts || 0) + 1;
+    state.journal.unshift('🎯 Точний закид: +15 XP за успішний улов.');
+  }
+  perfectCast = false;
+
+  catches.forEach(f => {
+    if (!state.discovered.includes(f.name)) state.discovered.push(f.name);
+  });
+
+  const xpEarned = catches.reduce((sum, f) => sum + f.rarity * 24, 0);
+  state.xp += Math.round(xpEarned * (hasBuff('xp_boost') ? 1.25 : 1));
+
+  rewardMaterials(catches);
+  updateTournament(catches);
+  checkAchievements({type:'catch', catches});
+  advanceContract(catches.length);
+  advanceNpcQuest(catches);
+
+  const top = catches.reduce((a, b) => a.rarity > b.rarity ? a : b);
+  const r = rarities[top.rarity - 1];
+  state.best = top.name;
+  
+  $('rarityDisplay').innerHTML = `<i style="background:${r.color};box-shadow:0 0 9px ${r.color}"></i><span>${r.name}: ${top.name}</span>`;
+  note(`Улов: ${catches.map(x => x.name).join(', ')}. Відкрийте Садок!`);
+  state.journal.unshift(`Спіймано: ${catches.map(x => `${x.name} (${fishWeight(x)})`).join(', ')} (${locations[state.location].name})`);
+  state.journal = state.journal.slice(0, 35);
+  
+  render();
+  showCatchDialog(catches);
+}
+
+function setTension(load = 0) {
+  const {limit} = tackleLimits();
+  const ratio = Math.min(1.2, load / limit);
+  const bar = $('tensionBar');
+  if ($('tensionValue')) $('tensionValue').textContent = `${load.toFixed(1)} / ${limit.toFixed(1)} кг`;
+  if (bar) {
+    bar.style.width = Math.min(100, ratio * 100) + '%';
+    bar.style.background = ratio > 0.82 ? '#ff5645' : ratio > 0.6 ? '#ffe067' : '#58e5d0';
+  }
+  $('equippedRod').classList.toggle('strained', ratio > 0.82);
+  sceneRenderer.tension = ratio * 100;
+  return ratio;
+}
+
+function updateDepth(pulling = false) {
+  const point = Math.min(90, 15 + (pulling ? 65 : charge * 0.65));
+  $('depthNeedle').style.left = point + '%';
+  $('depthNeedle').style.height = (pulling ? 70 : 28 + charge * 0.45) + '%';
+  $('depthReadout').textContent = (4.8 + point * 0.09).toFixed(1);
+}
+
+// --------------------------------------------------------
+// Стіл розбирання (філеювання) та швидке очищення
+// --------------------------------------------------------
+let butcherFishId = null, butcherDragging = false, butcherStart = null;
+
+function autoClean() {
+  cancelCharge();
+  if (casting) loseFish('Снасть витягнуто перед розбиранням.');
+  const fish = state.inventory.find(f => !f.clean && !f.favorite && state.knives >= f.rarity);
+  if (!fish) {
+    note('Немає риби для розбирання: потрібен гостріший ніж або спіймайте рибу.');
+    return;
+  }
+  butcherFishId = fish.id;
+  updateButcherTable();
+  $('butcherTable').classList.add('open');
+  $('butcherTable').setAttribute('aria-hidden', 'false');
+}
+
+function closeButcherTable() {
+  $('butcherTable').classList.remove('open');
+  $('butcherTable').setAttribute('aria-hidden', 'true');
+  butcherFishId = null;
+  butcherDragging = false;
+}
+
+function finishButcherAutoClean() {
+  const available = state.inventory.filter(f => !f.clean && !f.favorite && state.knives >= f.rarity);
+  if (!available.length) {
+    note('Немає риби, яку можна обробити вашим поточним ножем.');
+    return;
+  }
+  available.forEach(f => {
+    f.cuts = cutsNeeded();
+    f.clean = true;
+  });
+  state.materials.fish = (state.materials.fish || 0) + available.length;
+  sound.playSlice();
+  state.journal.unshift(`Очищено всю доступну рибу: ${available.length} шт.`);
+  note(`Швидке очищення завершено: оброблено ${available.length} рибин.`);
+  checkAchievements({type:'clean', count: available.length});
+  closeButcherTable();
+  render();
+}
+
+function updateButcherTable() {
+  const fish = state.inventory.find(f => f.id === butcherFishId);
+  const needed = cutsNeeded();
+  if (!fish) { closeButcherTable(); return; }
+  $('butcherFishImage').src = fish.image || fishImages[fish.name] || 'assets/freshwater-fish.png';
+  $('butcherFishImage').alt = fish.name;
+  $('butcherProgress').textContent = `${gear.knives[state.knives - 1][0]} · ${fish.cuts} / ${needed} надрізів`;
+  $('butcherKnife').innerHTML = gearIcon('knives', state.knives);
+}
+
+function butcherCut(e) {
+  const fish = state.inventory.find(f => f.id === butcherFishId);
+  if (!fish || fish.clean || fish.favorite || !butcherDragging) return;
+  butcherDragging = false;
+  const distance = Math.hypot(e.clientX - butcherStart.x, e.clientY - butcherStart.y);
+  if (distance < 22) return;
+  fish.cuts++;
+  sound.playSlice();
+  if (fish.cuts >= cutsNeeded()) {
+    fish.clean = true;
+    state.materials.fish = (state.materials.fish || 0) + 1;
+    state.journal.unshift(`Риба філейована: ${fish.name}`);
+    note(`${fish.name} готова до продажу чи приготування страв.`);
+    checkAchievements({type:'clean', count:1});
+    closeButcherTable();
+    render();
+    return;
+  }
+  updateButcherTable();
+  renderKeepnet();
+  save();
+}
+
+function cutFish(id) {
+  const f = state.inventory.find(x => x.id == id);
+  if (!f || f.clean || f.favorite) return;
+  if (state.knives < Math.min(f.rarity, 5)) {
+    note('Потрібен гостріший ніж для цієї риби!');
+    return;
+  }
+  f.cuts++;
+  sound.playSlice();
+  if (f.cuts >= cutsNeeded()) {
+    f.clean = true;
+    state.materials.fish = (state.materials.fish || 0) + 1;
+    state.journal.unshift(`Риба очищена: ${f.name}`);
+    note(`${f.name} готова до продажу. +1 рибний матеріал.`);
+    checkAchievements({type:'clean', count:1});
+  }
+  render();
+}
+
+// --------------------------------------------------------
+// Матеріали та баланс черепашок (випадання на всіх морях)
+// --------------------------------------------------------
+function isMarineLocation(loc) {
+  return ['blackSea', 'baltic'].includes(loc) || (locations[loc]?.region && ['japan','china','australia','papua','archipelago'].includes(locations[loc].region));
+}
+
+function rewardMaterials(catches) {
+  const gatherBonus = petBonus('gather') ? 0.35 : 0;
+  catches.forEach(fish => {
+    state.localReputation[fish.location] = localRep(fish.location) + 1;
+    state.materials.plants += Math.random() < (0.35 + gatherBonus) ? 1 : 0;
+    state.materials.worms += Math.random() < 0.25 ? 1 : 0;
+    // Черепашки випадають на всіх солоноводних та морських локаціях!
+    if (isMarineLocation(fish.location)) {
+      state.materials.shells += Math.random() < (0.42 + gatherBonus) ? 1 : 0;
+    } else {
+      state.materials.shells += Math.random() < 0.08 ? 1 : 0; // річкові черепашки
+    }
+    if (fish.rarity >= 3 && state.base.aquarium) {
+      state.reputation += state.base.aquarium;
+    }
+    addTreasure();
+  });
+}
+
+function addTreasure() {
+  const treasure = treasures.find(item => Math.random() < item.chance);
+  if (!treasure) return;
+  state.treasures.unshift({...treasure, foundAt: state.location});
+  state.treasures = state.treasures.slice(0, 25);
+  for (const [material, amount] of Object.entries(treasure.materials)) {
+    state.materials[material] = (state.materials[material] || 0) + amount;
+  }
+  if (treasure.value) {
+    state.coins += treasure.value;
+    state.total += treasure.value;
+  }
+  if (treasure.reputation) {
+    state.reputation += treasure.reputation;
+    state.localReputation[state.location] = localRep(state.location) + treasure.reputation;
+  }
+  note(`Знайдено скарб: ${treasure.icon} ${treasure.name}${treasure.value ? ` · +${treasure.value} ◉` : ''}!`);
+}
+
+// --------------------------------------------------------
+// Досягнення та Зала трофеїв
+// --------------------------------------------------------
+function unlockAchievement(id) {
+  if (state.achievements[id]) return;
+  const ach = achievements.find(item => item.id === id);
+  if (!ach) return;
+  state.achievements[id] = true;
+  state.coins += ach.reward;
+  state.total += ach.reward;
+  sound.playCoin();
+  state.journal.unshift(`🏆 Досягнення: «${ach.name}» (+${ach.reward} ◉).`);
+  note(`🏆 Досягнення здобуто: ${ach.name}! +${ach.reward} ◉`);
+}
+
+function checkAchievements(event) {
+  if (event.type === 'cast') unlockAchievement('firstCast');
+  if (event.type === 'perfectCast') unlockAchievement('perfectCast');
+  if (event.type === 'clean') {
+    if (state.materials.fish >= 10) unlockAchievement('masterCutter');
+  }
+  if (event.type === 'catch' && event.catches) {
+    unlockAchievement('firstFish');
+    if (event.catches.some(f => f.rarity === 5)) unlockAchievement('legendary');
+    if (event.catches.some(f => f.boss)) unlockAchievement('bossHunter');
+    
+    // Перевірка Чорного моря та Дніпра
+    const blackSeaAll = locations.blackSea.fish.every(name => state.discovered.includes(name));
+    if (blackSeaAll) unlockAchievement('blackSea');
+    const dnieperAll = locations.dnieper.fish.every(name => state.discovered.includes(name));
+    if (dnieperAll) unlockAchievement('dnieperMaster');
+
+    if (state.discovered.length >= 30) unlockAchievement('oceanMaster');
+    if (state.discovered.length >= 51) unlockAchievement('ichthyologist');
+  }
+  if (state.released >= 5) unlockAchievement('natureFriend');
+  if (state.released >= 30) unlockAchievement('guardianFauna');
+  if (state.coins >= 10000) unlockAchievement('wealthyFisher');
+}
+
+// --------------------------------------------------------
+// Кухня рибалки
+// --------------------------------------------------------
+function cookDish(id) {
+  const recipe = kitchenRecipes.find(r => r.id === id);
+  if (!recipe) return;
+  
+  // Перевірка інгредієнтів
+  if (recipe.needs.fish) {
+    const cleaned = state.inventory.filter(f => f.clean && !f.favorite);
+    if (cleaned.length < recipe.needs.fish) {
+      note(`Потрібно ${recipe.needs.fish} очищеної риби в садку.`);
+      return;
+    }
+  }
+  for (const [mat, count] of Object.entries(recipe.needs)) {
+    if (mat === 'fish') continue;
+    if ((state.materials[mat] || 0) < count) {
+      note(`Не вистачає матеріалу: ${mat} (потрібно ${count}).`);
+      return;
+    }
+  }
+
+  // Списання інгредієнтів
+  if (recipe.needs.fish) {
+    for (let i = 0; i < recipe.needs.fish; i++) {
+      const idx = state.inventory.findIndex(f => f.clean && !f.favorite);
+      if (idx >= 0) state.inventory.splice(idx, 1);
+    }
+  }
+  for (const [mat, count] of Object.entries(recipe.needs)) {
+    if (mat === 'fish') continue;
+    state.materials[mat] -= count;
+  }
+
+  applyBuff(recipe.buff, recipe.name, recipe.duration);
+  unlockAchievement('chef');
+  render();
+}
+window.cookDish = cookDish;
+
+function renderKitchen() {
+  const buffsRoot = $('activeBuffsContainer'), grid = $('kitchenRecipesGrid');
+  if (!grid) return;
+
+  const now = Date.now();
+  const activeList = Object.entries(state.buffs).filter(([,b]) => b.until > now);
+  if (buffsRoot) {
+    buffsRoot.innerHTML = activeList.length
+      ? activeList.map(([,b]) => `<span class="buff-pill">✨ <b>${b.name}</b> (ще ${Math.ceil((b.until - now)/60000)} хв)</span>`).join('')
+      : '<p class="muted" style="margin:0">Зараз немає активних бафів. Приготуйте страву нижче!</p>';
+  }
+
+  grid.innerHTML = kitchenRecipes.map(r => {
+    const cleanedCount = state.inventory.filter(f => f.clean && !f.favorite).length;
+    let canCook = true;
+    const reqStr = Object.entries(r.needs).map(([k, v]) => {
+      const have = k === 'fish' ? cleanedCount : (state.materials[k] || 0);
+      if (have < v) canCook = false;
+      const label = k === 'fish' ? 'очищена риба' : k === 'plants' ? 'рослини' : 'мушлі';
+      return `${label}: ${have}/${v}`;
+    }).join(' · ');
+
+    return `<article class="kitchen-card">
+      <div>
+        <h3>${r.icon} ${r.name}</h3>
+        <p>${r.desc}</p>
+        <small>Інгредієнти: ${reqStr}</small>
+      </div>
+      <button onclick="cookDish('${r.id}')" ${canCook ? '' : 'disabled'}>Приготувати страву</button>
+    </article>`;
+  }).join('');
+}
+
+// --------------------------------------------------------
+// Зала трофеїв та досягнення
+// --------------------------------------------------------
+function renderTrophyRoom() {
+  const sumRoot = $('trophyRecordsSummary'), achRoot = $('achievementsFullGrid');
+  if (!sumRoot || !achRoot) return;
+
+  const topRec = Object.entries(state.records).sort((a,b) => b[1] - a[1])[0];
+  sumRoot.innerHTML = `
+    <div class="trophy-record-card"><i>👑</i><small>РЕКОРД ВАГИ</small><b>${topRec ? `${topRec[0]} (${topRec[1].toFixed(1)} кг)` : '—'}</b></div>
+    <div class="trophy-record-card"><i>🐟</i><small>ВІДПУЩЕНО РИБ</small><b>${state.released || 0} шт.</b></div>
+    <div class="trophy-record-card"><i>🎯</i><small>ТОЧНИХ ЗАКИДІВ</small><b>${state.perfectCasts || 0}</b></div>
+    <div class="trophy-record-card"><i>🏆</i><small>ДОСЯГНЕНЬ</small><b>${Object.keys(state.achievements).length} / ${achievements.length}</b></div>
+  `;
+
+  achRoot.innerHTML = achievements.map(ach => {
+    const done = !!state.achievements[ach.id];
+    return `<article class="achievement-card ${done ? 'done' : ''}">
+      <i>${ach.icon || '🏅'}</i>
+      <div>
+        <b>${ach.name} ${done ? '✓' : ''}</b>
+        <p>${ach.desc}</p>
+        <small>Нагорода: +${ach.reward} ◉</small>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+// --------------------------------------------------------
+// Налаштування, Експорт, Імпорт, Скидання
+// --------------------------------------------------------
+function exportSave() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ukr_fishing_save_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  note('Збереження успішно експортовано у файл .json!');
+}
+
+function copySaveToClipboard() {
+  const json = JSON.stringify(state);
+  navigator.clipboard.writeText(json).then(() => {
+    note('Код збереження скопійовано в буфер обміну!');
+  }).catch(() => {
+    note('Не вдалося скопіювати автоматично — скопіюйте вручну.');
+  });
+}
+
+function importSave() {
+  const text = $('importSaveInput').value.trim();
+  if (!text) { note('Вставте текст збереження у поле.'); return; }
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== 'object') throw new Error();
+    state = {...initial, ...parsed};
+    save();
+    render();
+    note('Збереження успішно відновлено!');
+  } catch {
+    note('Помилка: недійсний формат файлу збереження.');
+  }
+}
+
+function importSaveFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const parsed = JSON.parse(evt.target.result);
+      state = {...initial, ...parsed};
+      save();
+      render();
+      note('Збереження з файлу успішно імпортовано!');
+    } catch {
+      note('Помилка читання файлу JSON.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetGameProgress() {
+  if (confirm('Ви впевнені, що хочете видалити весь прогрес гри? Це неможливо буде скасувати.')) {
+    if (confirm('Підтвердіть повне скидання гри «Українська Рибалка».')) {
+      localStorage.removeItem(SAVE_KEY);
+      location.reload();
+    }
+  }
+}
+
+window.exportSave = exportSave;
+window.copySaveToClipboard = copySaveToClipboard;
+window.importSave = importSave;
+window.importSaveFile = importSaveFile;
+window.resetGameProgress = resetGameProgress;
+
+// --------------------------------------------------------
+// Банк: 0% Кредит
+// --------------------------------------------------------
+const bankMaxLimit = () => 500 + playerLevel() * 400 + state.reputation * 35;
+
+function takeLoan(amt) {
+  const limit = bankMaxLimit();
+  const available = Math.max(0, limit - (state.bankDebt || 0));
+  const amount = Math.min(amt, available);
+  if (amount <= 0) { note('Кредитний ліміт вичерпано. Погасіть борг.'); return; }
+  state.bankDebt = (state.bankDebt || 0) + amount;
+  state.coins += amount;
+  state.total += amount;
+  sound.playCoin();
+  note(`Отримано кредит: +${amount} ◉. Безвідсотково.`);
+  render();
+}
+
+function takeMaxLoan() {
+  const limit = bankMaxLimit();
+  const available = Math.max(0, limit - (state.bankDebt || 0));
+  if (available <= 0) { note('Кредитний ліміт уже вичерпано.'); return; }
+  takeLoan(available);
+}
+
+function repayLoan(amt) {
+  if (!state.bankDebt) { note('У вас немає заборгованості.'); return; }
+  const toPay = Math.min(amt, state.bankDebt, state.coins);
+  if (toPay <= 0) { note('Недостатньо монет для погашення.'); return; }
+  state.coins -= toPay;
+  state.bankDebt -= toPay;
+  sound.playCoin();
+  note(`Погашено ${toPay} ◉ боргу. Залишок: ${state.bankDebt} ◉.`);
+  if (!state.bankDebt) unlockAchievement('creditClear');
+  render();
+}
+
+function repayAllLoan() {
+  if (!state.bankDebt) return;
+  repayLoan(state.bankDebt);
+}
+
+function submitCustomRepay() {
+  const input = $('customRepayInput');
+  const val = parseInt(input.value, 10);
+  if (val > 0) repayLoan(val);
+  input.value = '';
+}
+
+window.takeLoan = takeLoan;
+window.takeMaxLoan = takeMaxLoan;
+window.repayLoan = repayLoan;
+window.repayAllLoan = repayAllLoan;
+window.submitCustomRepay = submitCustomRepay;
+
+function renderBank() {
+  const coinsEl = $('bankCoins'), availEl = $('bankAvailable'), debtEl = $('bankDebt');
+  if (!coinsEl) return;
+  const limit = bankMaxLimit();
+  const debt = state.bankDebt || 0;
+  const available = Math.max(0, limit - debt);
+  coinsEl.textContent = state.coins.toLocaleString('uk-UA') + ' ◉';
+  availEl.textContent = available.toLocaleString('uk-UA') + ' ◉';
+  debtEl.textContent = debt.toLocaleString('uk-UA') + ' ◉';
+  $('bankMaxLimit').textContent = `Загальний ліміт: ${limit.toLocaleString('uk-UA')} ◉`;
+  $('bankDebtStatus').textContent = debt > 0 ? 'Є активна заборгованість' : 'Заборгованості немає';
+  $('bankRepayAllBtn').textContent = `Погасити повністю (${debt.toLocaleString('uk-UA')} ◉)`;
+  const badge = $('debtBadge');
+  if (badge) {
+    badge.hidden = !debt;
+    $('debtAmount').textContent = debt.toLocaleString('uk-UA');
+  }
+}
+
+// --------------------------------------------------------
+// Човнова станція
+// --------------------------------------------------------
+function renderBoats() {
+  const selectedBoat = boats.find(b => b.id === state.boat);
+  const status = $('boatStatus'), root = $('boatsContent'), launch = $('boatLaunchLabel');
+  if (launch) launch.textContent = state.atDepth && selectedBoat ? `Глибина · ${selectedBoat.depth} м` : 'Берег';
+  if (!status || !root) return;
+
+  status.innerHTML = selectedBoat
+    ? `<b>${selectedBoat.icon} ${selectedBoat.name}</b><span>${state.atDepth ? `На глибині ${selectedBoat.depth} м · трофейні ями активні` : 'Біля причалу · натисніть «Вийти на глибину»'}</span>`
+    : '<b>Берегова ловля</b><span>Придбайте човен, щоб дістатися до глибоководних трофеїв.</span>';
+
+  root.innerHTML = boats.map(item => {
+    const profile = boatProfiles[item.id] || boatProfiles.rowboat;
+    const owned = state.ownedBoats.includes(item.id);
+    const equipped = state.boat === item.id;
+    const canBuy = state.coins >= item.price;
+    const action = !owned
+      ? `Купити · ${item.price.toLocaleString('uk-UA')} ◉`
+      : equipped
+        ? (state.atDepth ? 'Повернутися до берега' : 'Вийти на глибину')
+        : 'Екіпірувати';
+
+    return `<article class="boat-card ${equipped ? 'equipped' : ''}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">
+      ${drawBoatArt(item)}
+      <small>ГЛИБИНА ДО ${item.depth} М</small>
+      <h3>${item.name}</h3>
+      <p>${item.desc}</p>
+      <div class="boat-bonus">★ +${item.rarity} до рідкості · ×${item.weight.toFixed(2)} до ваги</div>
+      <button onclick="manageBoat('${item.id}')" ${!owned && !canBuy ? 'disabled' : ''}>${action}</button>
+    </article>`;
+  }).join('');
+}
+
+function manageBoat(id) {
+  const boat = boats.find(b => b.id === id);
+  if (!boat) return;
+  if (!state.ownedBoats.includes(id)) {
+    if (state.coins < boat.price) return;
+    state.coins -= boat.price;
+    state.ownedBoats.push(id);
+    state.boat = id;
+    state.atDepth = false;
+    sound.playCoin();
+    unlockAchievement('boatCaptain');
+    state.journal.unshift(`Придбано плавзасіб: ${boat.name}.`);
+    note(`${boat.name} готовий біля причалу.`);
+  } else if (state.boat !== id) {
+    state.boat = id;
+    state.atDepth = false;
+    note(`Екіпіровано: ${boat.name}.`);
+  } else {
+    state.atDepth = !state.atDepth;
+    sound.playSplash();
+    note(state.atDepth ? `${boat.name}: ви вийшли на глибину ${boat.depth} м. Трофейні ями доступні.` : 'Ви повернулися до берега.');
+  }
+  render();
+}
+window.manageBoat = manageBoat;
+
+// --------------------------------------------------------
+// Світ, час доби та плавний цикл
+// --------------------------------------------------------
+function syncWorld() {
+  const weatherKeys = Object.keys(weatherData);
+  const times = ['day', 'night'];
+  const rareEvents = Object.keys(eventData).filter(key => key !== 'calm');
+  const seasonKeys = Object.keys(seasons);
+
+  // Плавний цикл: доба 12 хвилин (720 сек), пора року 30 хвилин
+  const dayPhase = Math.floor(session / 360) % times.length;
+  const weatherPhase = Math.floor(session / 180) % weatherKeys.length;
+  const eventPhase = Math.floor(session / 300);
+  const eventKey = eventPhase % 3 === 0 ? rareEvents[Math.floor(eventPhase / 3) % rareEvents.length] : 'calm';
+  const seasonPhase = Math.floor(session / 900) % seasonKeys.length;
+
+  world = {
+    weather: weatherKeys[weatherPhase],
+    time: times[dayPhase],
+    event: eventKey,
+    season: seasonKeys[seasonPhase]
+  };
+
+  $('game').className = `game location-${state.location} time-${world.time} weather-${world.weather} season-${world.season} ${state.atDepth ? 'deep-water' : ''}`;
+  $('weatherFx').className = `weather-fx weather-${world.weather}`;
+  renderWorld();
+}
+
+function time() {
+  session++;
+  $('sessionTime').textContent = `${String(Math.floor(session / 60)).padStart(2,'0')}:${String(session % 60).padStart(2,'0')}`;
+  if (session % 30 === 0) {
+    syncWorld();
+    renderDailyGift();
+    renderMarketRequest();
+  }
+}
+setInterval(time, 1000);
+
+// --------------------------------------------------------
+// Рендеринг основного інтерфейсу
+// --------------------------------------------------------
+function render() {
+  if (!locations[state.location]) state.location = 'pier';
+  const location = locations[state.location];
+  if (!techniques[state.technique]) state.technique = 'float';
+
+  $('coins').textContent = state.coins.toLocaleString('uk-UA');
+  $('fishCount').textContent = state.inventory.length;
+
+  renderEquipment();
+  renderDailyGift();
+  updateFishingControls();
+
+  $('hookName').textContent = gear.hooks[state.hooks - 1][0];
+  $('locationLabel').textContent = `${location.name} · ${location.sub}`;
+  $('depthPanel').classList.toggle('locked', !state.sonar);
+
+  Object.assign($('scene').style, {
+    backgroundImage: `url('${location.image}')`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center center',
+    backgroundRepeat: 'no-repeat'
+  });
+
+  $('bestCatch').textContent = state.best;
+  syncWorld();
+
+  $('playerLevel').textContent = playerLevel();
+  $('xpBar').style.width = levelProgress() + '%';
+  $('contractLabel').textContent = `Контракт: ${state.contract.progress}/${state.contract.target} · ${state.contract.reward} ◉`;
+
+  if (!casting) {
+    setTension(0);
+    updateDepth();
+  }
+
+  renderKeepnet();
+  renderMarketRequest();
+  renderCatchActions();
+  renderMap();
+  renderBag();
+  renderProfile();
+  renderJournal();
+  renderIndex();
+  renderProgress();
+  renderShop();
+  renderPets();
+  renderBoats();
+  renderAuctions();
+  renderBase();
+  renderBaseUpgrades();
+  renderBank();
+  renderKitchen();
+  renderTrophyRoom();
+  save();
+}
+
+function renderEquipment() {
+  const limits = tackleLimits(), bait = activeBait();
+  const items = [
+    ['rods','Вудка',gear.rods[state.rods-1].name,`${limits.rod.toFixed(1)} кг`,rodImages],
+    ['lines','Волосінь',gear.lines[state.lines-1][0],`${limits.line.toFixed(1)} кг`,lineImages],
     ['hooks','Гачок',gear.hooks[state.hooks-1][0],`×${state.hooks}`,null],
     ['reels','Котушка',gear.reels[state.reels-1][0],`×${limits.reel.toFixed(2)}`,reelImages],
     ['knives','Ніж',gear.knives[state.knives-1][0],`${cutsNeeded()} надрізи`,null],
     ['floats','Поплавок',gear.floats[state.floats-1][0],`Рів. ${roman(state.floats)}`,floatImages],
     ['baits','Наживка',bait.name,`×${baitCount()}`,null],
-    ['sonar','Ехолот',state.sonar?'Глибина':'Не встановлено',state.sonar?'Увімкнено':'Магазин',null]
+    ['sonar','Ехолот',state.sonar?'Увімкнено':'Не встановлено',state.sonar?'Глибина':'Магазин',null]
   ];
-  $('equipmentBar').innerHTML=items.map(([type,label,name,detail,images])=>{
-    const level=type==='baits'?state.bait:state[type],visual=images?`<img src="${images[level-1]}" alt="">`:['hooks','knives'].includes(type)?gearIcon(type,level):`<span class="gear-emoji" aria-hidden="true">${type==='baits'?baitIcons[bait.id]:'📡'}</span>`;
-    return `<button type="button" class="equipment-slot ${type==='baits'&&!baitCount()?'empty':''} ${type==='sonar'&&!state.sonar?'unequipped':''}" data-gear="${type}" data-level="${level}" title="${label}: ${name} · ${detail}" aria-label="${label}: ${name}, ${detail}. Відкрити магазин" onclick="openGearShop('${type}')">${visual}<span class="gear-copy"><small>${label}</small><strong>${name}</strong><b>${detail}</b></span></button>`;
+  $('equipmentBar').innerHTML = items.map(([type, label, name, detail, images]) => {
+    const level = type === 'baits' ? state.bait : state[type];
+    const visual = images
+      ? `<img src="${images[level-1]}" alt="">`
+      : ['hooks','knives'].includes(type)
+        ? gearIcon(type, level)
+        : `<span class="gear-emoji" aria-hidden="true">${type === 'baits' ? baitIcons[bait.id] : '📡'}</span>`;
+    return `<button type="button" class="equipment-slot ${type==='baits'&&!baitCount()?'empty':''} ${type==='sonar'&&!state.sonar?'unequipped':''}" data-gear="${type}" data-level="${level}" title="${label}: ${name} · ${detail}" onclick="openGearShop('${type}')">${visual}<span class="gear-copy"><small>${label}</small><strong>${name}</strong><b>${detail}</b></span></button>`;
   }).join('');
-  const rod=$('equippedRodImage'),source=rodImages[state.rods-1];
-  if(rod.getAttribute('src')!==source)rod.src=source;
-  rod.alt=gear.rods[state.rods-1].name;
-  $('equippedRod').dataset.level=state.rods;
-  const float=$('equippedFloat');
-  if(float.getAttribute('src')!==floatImages[state.floats-1])float.src=floatImages[state.floats-1];
+
+  const rod = $('equippedRodImage'), source = rodImages[state.rods - 1];
+  if (rod && rod.getAttribute('src') !== source) rod.src = source;
+  const float = $('equippedFloat');
+  if (float && float.getAttribute('src') !== floatImages[state.floats - 1]) float.src = floatImages[state.floats - 1];
 }
-function openGearShop(type){shop=type;openModal('shops')}
-function rewardDay(now=new Date()){return Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000}
-function dailyGiftInfo(){
-  const day=rewardDay(),previous=state.dailyReward,claimed=previous&&previous.day>=day;
-  const streak=claimed?previous.streak:previous?.day===day-1?previous.streak+1:1;
-  return {day,claimed,streak,coins:40+Math.min(streak-1,6)*10};
+
+function openGearShop(type) { shop = type; openModal('shops'); }
+
+// Щоденний подарунок
+function rewardDay(now = new Date()) { return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000; }
+function dailyGiftInfo() {
+  const day = rewardDay(), previous = state.dailyReward;
+  const claimed = previous && previous.day >= day;
+  const streak = claimed ? previous.streak : previous?.day === day - 1 ? previous.streak + 1 : 1;
+  return {day, claimed, streak, coins: 40 + Math.min(streak - 1, 6) * 15};
 }
-function renderDailyGift(){
-  const gift=dailyGiftInfo(),button=$('dailyGift');
-  button.disabled=!!gift.claimed;
-  button.innerHTML=`🎁 <b>${gift.claimed?'Подарунок отримано':'Щоденний подарунок'}</b><small>${gift.claimed?`Серія: ${gift.streak} дн. · повертайся завтра`:`${gift.coins} ◉ · хліб ×6 · черв’як ×2`}</small>`;
+function renderDailyGift() {
+  const gift = dailyGiftInfo(), button = $('dailyGift');
+  if (!button) return;
+  button.disabled = !!gift.claimed;
+  button.innerHTML = `🎁 <b>${gift.claimed ? 'Подарунок отримано' : 'Щоденний подарунок'}</b><small>${gift.claimed ? `Серія: ${gift.streak} дн. · приходьте завтра` : `+${gift.coins} ◉ · хліб ×6 · черв’як ×3`}</small>`;
 }
-function claimDailyGift(){
-  const gift=dailyGiftInfo();if(gift.claimed)return;
-  state.dailyReward={day:gift.day,streak:gift.streak};
-  state.coins+=gift.coins;state.total+=gift.coins;state.baitStock.bread+=6;state.baitStock.worm+=2;
-  const message=`🎁 Подарунок за день ${gift.streak}: +${gift.coins} ◉, хліб ×6, черв’як ×2.`;
-  state.journal.unshift(message);note(message);render();
-}
-function toggleFavorite(id){
-  const fish=state.inventory.find(f=>f.id==id);if(!fish)return;
-  fish.favorite=!fish.favorite;
-  if(fish.favorite&&butcherFishId===fish.id)closeButcherTable();
-  note(fish.favorite?'★ Трофей захищено від продажу, розбирання та відпускання.':'Захист трофея знято.');render();
-}
-function releaseFish(id){
-  const fish=state.inventory.find(f=>f.id==id);
-  if(!fish||fish.clean||fish.cuts>0||fish.favorite)return;
-  state.inventory=state.inventory.filter(f=>f!==fish);
-  const reward=fish.rarity+1;
-  state.reputation+=reward;state.localReputation[fish.location]=localRep(fish.location)+reward;state.released++;
-  const message=`🌊 ${fish.name}: відпущено у водойму. +${reward} репутації.`;
-  state.journal.unshift(message);note(message);
-  if(butcherFishId===fish.id)closeButcherTable();
-  if($('catch').dataset.fishId===String(fish.id))$('catch').classList.remove('open');
+function claimDailyGift() {
+  const gift = dailyGiftInfo();
+  if (gift.claimed) return;
+  state.dailyReward = {day: gift.day, streak: gift.streak};
+  state.coins += gift.coins;
+  state.total += gift.coins;
+  state.baitStock.bread += 6;
+  state.baitStock.worm += 3;
+  sound.playCoin();
+  const msg = `🎁 Отримано подарунок (День ${gift.streak}): +${gift.coins} ◉, хліб ×6, черв’як ×3.`;
+  state.journal.unshift(msg);
+  note(msg);
   render();
 }
-function renderCatchActions(){
-  const root=$('catchActions'),fish=state.inventory.find(f=>String(f.id)===$('catch').dataset.fishId);
-  root.innerHTML=fish?`<button type="button" aria-pressed="${!!fish.favorite}" onclick="toggleFavorite('${fish.id}')">${fish.favorite?'★ Захищено':'☆ Зберегти трофей'}</button><button type="button" onclick="releaseFish('${fish.id}')" ${fish.favorite||fish.clean||fish.cuts>0?'disabled':''}>Відпустити · +${fish.rarity+1} реп.</button>`:'';
+
+function toggleFavorite(id) {
+  const fish = state.inventory.find(f => f.id == id);
+  if (!fish) return;
+  fish.favorite = !fish.favorite;
+  if (fish.favorite && butcherFishId === fish.id) closeButcherTable();
+  note(fish.favorite ? '★ Трофей захищено від продажу, розбирання та відпускання.' : 'Захист трофея знято.');
+  render();
 }
-function activeTrip(){const trip=state.trip;if(!trip)return null;if(trip.until>Date.now())return trip;state.trip=null;if(locations[state.location]?.region)state.location='pier';state.npcQuest=null;state.journal.unshift('Экспедиция завершена: вы вернулись на Лесное озеро.');return null}
-const spentSkillPoints=()=>Object.values(state.skills).reduce((sum,value)=>sum+value,0);
-const skillPoints=()=>Math.max(0,Math.floor(state.xp/300)-spentSkillPoints());
-const conditionAllows=(name)=>{const condition=catchConditions[name];return !condition||(!condition.seasons||condition.seasons.includes(world.season))&&(!condition.weather||condition.weather.includes(world.weather))&&(!condition.time||condition.time.includes(world.time))};
-const activePool=(key=state.location)=>{const pool=locations[key].fishPool.filter(fish=>conditionAllows(fish.name));return pool.length?pool:locations[key].fishPool};
-const tackleLimits=()=>{const workshop=1+state.base.workshop*.06;return {rod:gear.rods[state.rods-1].maxWeight,line:gear.lines[state.lines-1][2],hook:gear.hooks[state.hooks-1][2],reel:gear.reels[state.reels-1][2]*(state.questReel?1.12:1)*workshop,brake:gear.reels[state.reels-1][3]*workshop,limit:Math.min(gear.rods[state.rods-1].maxWeight,gear.lines[state.lines-1][2],gear.hooks[state.hooks-1][2])}}
-const fishWeight=(fish)=>Number.isFinite(fish.weight)?`${fish.weight.toFixed(fish.weight<1?2:1)} кг`:'—';
-const fightLoad=(fish,reel=0)=>Math.max(.1,fish.weight*(1.05+fish.rarity*.12)*(1-state.skills.hook*.045)-tackleLimits().brake*.035+reel*.006);
-const activeTechnique=()=>techniques[state.technique]||techniques.float;
-function dailyMarket(){const day=new Date().toISOString().slice(0,10);if(state.market?.day===day&&Object.hasOwn(fishPrices,state.market.fish)&&Number.isFinite(state.market.bonus)&&state.market.bonus>=0)return state.market;const seed=[...day].reduce((sum,char)=>sum+char.charCodeAt(0),0),names=Object.keys(fishPrices);state.market={day,fish:names[seed%names.length],bonus:.3+(seed%51)/100};return state.market}
-const marketMultiplier=(fish)=>dailyMarket().fish===fish.name?1+dailyMarket().bonus:1;
-function assignQuality(fish){const previous=state.records[fish.name]||0,precision=Math.min(1,Math.max(0,1-Math.abs(charge-72)/72)+state.skills.casting*.06),score=Math.random()+precision*.25+state.skills.trophy*.07+((state.rods+state.reels-2)/14)+((locationLevels[fish.location]-1)/45);state.records[fish.name]=Math.max(previous,fish.weight);fish.quality=fish.weight>previous?'record':score>1.22?'trophy':score>.72?'good':'normal';return fish}
-const eventBite=()=>{const event=eventData[world.event];return event.nightOnly&&world.time!=='night'?0.65:event.bite};
-const worldActivity=()=>weatherData[world.weather].bite*timeData[world.time].bite*seasons[world.season].bite*eventBite()*activeTechnique().bite*(1+state.base.pier*.08)*(state.technique==='ice'&&state.location==='winter'?3:1);
-const worldWeight=()=>eventData[world.event].weight*activeTechnique().weight;
-function makeNpcQuest(){const limit=tackleLimits().limit,fish=activePool().filter(item=>item.weight[0]<limit),species=fish[Math.floor(Math.random()*fish.length)]||activePool()[0],name=species.name,range=species.weight,weight=+(range[0]+(Math.min(range[1],limit*.6)-range[0])*.6).toFixed(2),bait=baitTypes[(state.completedQuests+locationLevels[state.location])%baitTypes.length];return {day:new Date().toISOString().slice(0,10),completed:false,npc:'Инспектор Марина',fish:name,weight,target:Math.random()<.4?2:1,progress:0,reward:{coins:Math.round(55+fishPrices[name]*weight*.5),reputation:4+Math.floor(locationLevels[state.location]/2),bait:bait.id,amount:2}}}
-function ensureNpcQuest(){
-  const quest=state.npcQuest,reward=quest?.reward,today=new Date().toISOString().slice(0,10);
-  const validReward=reward&&['coins','reputation','amount'].every(key=>Number.isFinite(reward[key])&&reward[key]>=0)&&baitTypes.some(bait=>bait.id===reward.bait);
-  // An assigned daily order stays valid while its fish waits for suitable weather.
-  if(!quest||quest.day!==today||!locations[state.location].fish.includes(quest.fish)||!validReward||!Number.isFinite(quest.weight)||!Number.isInteger(quest.target)||quest.target<1||!Number.isInteger(quest.progress)||quest.progress<0)state.npcQuest=makeNpcQuest();
+
+function releaseFish(id) {
+  const fish = state.inventory.find(f => f.id == id);
+  if (!fish || fish.clean || fish.cuts > 0 || fish.favorite) return;
+  state.inventory = state.inventory.filter(f => f !== fish);
+  const reward = fish.rarity + 1;
+  state.reputation += reward;
+  state.localReputation[fish.location] = localRep(fish.location) + reward;
+  state.released = (state.released || 0) + 1;
+  checkAchievements({type:'release'});
+  sound.playSplash();
+  const msg = `🌊 ${fish.name} відпущено у рідну водойму. +${reward} репутації.`;
+  state.journal.unshift(msg);
+  note(msg);
+  if (butcherFishId === fish.id) closeButcherTable();
+  if ($('catch').dataset.fishId === String(fish.id)) $('catch').classList.remove('open');
+  render();
+}
+
+function renderCatchActions() {
+  const root = $('catchActions');
+  const fish = state.inventory.find(f => String(f.id) === $('catch').dataset.fishId);
+  if (!root) return;
+  root.innerHTML = fish ? `
+    <button type="button" aria-pressed="${!!fish.favorite}" onclick="toggleFavorite('${fish.id}')">${fish.favorite ? '★ Захищено' : '☆ Захистити трофей'}</button>
+    <button type="button" onclick="releaseFish('${fish.id}')" ${fish.favorite || fish.clean || fish.cuts > 0 ? 'disabled' : ''}>Відпустити · +${fish.rarity + 1} реп.</button>
+  ` : '';
+}
+
+function showCatchDialog(catches) {
+  $('catch').dataset.fishId = String(catches[0].id);
+  renderCatchActions();
+  const fish = catches[0], rarity = rarities[fish.rarity - 1], quality = qualityOf(fish), location = locations[fish.location];
+  $('catchFishImage').src = fish.image || fishImages[fish.name] || 'assets/freshwater-fish.png';
+  $('catchFishImage').alt = fish.name;
+  $('catchFishName').textContent = `${fish.boss ? '★ ' : ''}${fish.name}`;
+  $('catchFishWeight').textContent = fishWeight(fish);
+  $('catchFishRarity').textContent = rarity.name;
+  $('catchFishRarity').style.color = rarity.color;
+  $('catchFishQuality').textContent = quality.name;
+  $('catchFishValue').textContent = `${price(fish)} ◉`;
+  $('catchFishLocation').textContent = location.name;
+  $('catchFishBait').textContent = (baitTypes.find(b => b.id === fish.bait) || activeBait()).name;
+  $('catchFishDescription').textContent = fishDescriptions[fish.name] || `${location.desc} Цей вид записано у ваш альбом улову.`;
+  $('catchFishExtra').textContent = catches.length > 1
+    ? `Додатковий улов: ${catches.slice(1).map(f => `${f.name} (${fishWeight(f)}, ${price(f)} ◉)`).join(', ')}.`
+    : 'Риба у садку. Очистіть її на столі розбирання або віднесіть на ринок.';
+  if (fish.perfectCast) $('catchFishExtra').textContent += ' 🎯 Точний закид: +15 XP.';
+  $('catch').classList.add('open');
+}
+
+function renderBase() {
+  const root = $('baseStatus');
+  if (!root) return;
+  const location = locations[state.location], market = dailyMarket();
+  root.innerHTML = `
+    <span>📍 <b>${location.name}</b><small>${location.sub}</small></span>
+    <span>◉ <b>${state.coins.toLocaleString('uk-UA')}</b><small>монет у гаманці</small></span>
+    <span>⭐ <b>${playerLevel()} рівень</b><small>Замовлення ринку: ${market.fish}</small></span>
+    <button class="base-upgrade-launch" onclick="openModal('baseUpgrades')">🏗️ Покращення бази</button>
+  `;
+}
+
+function buyBaseUpgrade(id) {
+  const upgrade = baseUpgrades[id], level = state.base[id] || 0;
+  if (!upgrade || level >= 3) return;
+  const cost = upgrade.cost * (level + 1);
+  if (state.coins < cost) {
+    note(`Для покращення «${upgrade.name}» потрібно ${cost} ◉.`);
+    return;
+  }
+  state.coins -= cost;
+  state.base[id] = level + 1;
+  sound.playCoin();
+  state.journal.unshift(`Базу покращено: ${upgrade.name} (рівень ${state.base[id]}/3).`);
+  note(`${upgrade.icon} ${upgrade.name}: покращено до ${state.base[id]}/3!`);
+  if (Object.values(state.base).every(lvl => lvl >= 3)) unlockAchievement('baseTycoon');
+  render();
+}
+window.buyBaseUpgrade = buyBaseUpgrade;
+
+function renderBaseUpgrades() {
+  const root = $('baseUpgradeContent');
+  if (!root) return;
+  root.innerHTML = Object.entries(baseUpgrades).map(([id, upgrade]) => {
+    const level = state.base[id] || 0;
+    const cost = upgrade.cost * (level + 1);
+    const maxed = level >= 3;
+    return `<article class="base-upgrade-card ${maxed ? 'maxed' : ''}">
+      <i>${upgrade.icon}</i>
+      <div>
+        <small>ОБ’ЄКТ БАЗИ · РІВ. ${level}/3</small>
+        <h3>${upgrade.name}</h3>
+        <p>${upgrade.desc}</p>
+        <button onclick="buyBaseUpgrade('${id}')" ${maxed || state.coins < cost ? 'disabled' : ''}>
+          ${maxed ? 'Максимум' : `Покращити · ${cost} ◉`}
+        </button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function renderWorld() {
+  const weather = weatherData[world.weather] || weatherData.clear;
+  const timeOfDay = timeData[world.time] || timeData.day;
+  const season = seasons[world.season] || seasons.spring;
+  const event = eventData[world.event] || eventData.calm;
+  const quest = ensureNpcQuest();
+  const market = dailyMarket();
+  const bait = baitTypes.find(b => b.id === quest.reward.bait) || baitTypes[0];
+  const available = activePool().map(f => f.name);
+  const workshop = state.base.workshop || 0;
+
+  $('weatherStatus').textContent = `${weather.icon} ${weather.name}`;
+  $('timeStatus').textContent = `${season.icon} ${season.name} · ${timeOfDay.name}`;
+  $('eventStatus').textContent = event.name;
+
+  $('worldSummary').innerHTML = `
+    <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name}</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility}.</small></article>
+    <article><b>${event.name}</b><small>${event.desc} Зараз клює: ${available.slice(0, 4).join(' · ')}...</small></article>
+    <article><b>★ Репутація: ${state.reputation} · місцева: ${localRep(state.location)}</b><small>Нові локації відкриваються з рівнем та репутацією.</small></article>
+    <article class="dock-npc"><b>🔧 Майстер Гліб</b><small>Майстерня ${workshop}/3 · додає швидкості котушці.</small><button onclick="openModal('baseUpgrades')">Покращити базу</button></article>
+  `;
+
+  $('techniqueGrid').innerHTML = Object.entries(techniques).map(([key, t]) => `
+    <button class="technique-card ${state.technique === key ? 'active' : ''}" onclick="setTechnique('${key}')">
+      <b>${t.icon} ${t.name}</b>
+      <small>${t.desc}</small>
+    </button>
+  `).join('');
+
+  $('questContent').innerHTML = quest.completed
+    ? `<b>👩‍✈️ ${quest.npc} · завдання виконано</b><p>Чудова робота! Новий контракт з’явиться завтра.</p><small>Отримано: ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутації.</small>`
+    : `<b>👩‍✈️ ${quest.npc} · контракт дня</b><p>Виловити ${quest.target} × ${quest.fish} вагою від ${quest.weight} кг.</p><div class="quest-meter"><i style="width:${quest.progress/quest.target*100}%"></i></div><small>${quest.progress} / ${quest.target} · ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутації · ${bait.name} ×${quest.reward.amount}</small>`;
+
+  if ($('marketContent')) {
+    $('marketContent').innerHTML = `
+      <b>🧺 Торговець ринку</b>
+      <p>Сьогодні шукаємо: <b>${market.fish}</b> (доплата +${Math.round(market.bonus*100)}%).</p>
+      <small>Здавайте очищену рибу в садку для отримання максимального прибутку.</small>
+    `;
+  }
+}
+
+function setTechnique(key) {
+  if (!techniques[key]) return;
+  state.technique = key;
+  state.journal.unshift(`Обрано техніку ловлі: ${techniques[key].name}.`);
+  note(`Техніка: ${techniques[key].name}. ${techniques[key].desc}`);
+  render();
+}
+window.setTechnique = setTechnique;
+
+function ensureNpcQuest() {
+  const quest = state.npcQuest, today = new Date().toISOString().slice(0, 10);
+  if (!quest || quest.day !== today || !locations[state.location].fish.includes(quest.fish)) {
+    state.npcQuest = makeNpcQuest();
+  }
   return state.npcQuest;
 }
-function advanceNpcQuest(catches){const quest=ensureNpcQuest();if(quest.completed)return;const caught=catches.filter(f=>f.name===quest.fish&&f.weight>=quest.weight).length;if(!caught)return;quest.progress+=caught;if(quest.progress<quest.target)return;const reward=quest.reward,bait=baitTypes.find(item=>item.id===reward.bait);state.coins+=reward.coins;state.total+=reward.coins;state.xp+=50;state.reputation+=reward.reputation;state.localReputation[state.location]=localRep(state.location)+reward.reputation;state.baitStock[reward.bait]=(state.baitStock[reward.bait]||0)+reward.amount;state.completedQuests++;quest.completed=true;const reelAward=!state.questReel&&state.completedQuests>=5;if(reelAward)state.questReel=true;state.journal.unshift(`Задание NPC выполнено: +${reward.coins} ◉, +${reward.reputation} репутации${reelAward?', получена катушка инспектора':''}.`);note(`Задание инспектора выполнено! Новый заказ появится завтра.${reelAward?' · Катушка инспектора':''}`) }
-function setTechnique(key){if(!techniques[key])return;state.technique=key;state.journal.unshift(`Выбрана техника: ${techniques[key].name}.`);note(`Техника: ${techniques[key].name}. ${techniques[key].desc}`);render()}
-const baseUpgradeCost=id=>baseUpgrades[id].cost*(state.base[id]+1);
-function buyBaseUpgrade(id){const upgrade=baseUpgrades[id],level=state.base[id];if(!upgrade||level>=3)return;const cost=baseUpgradeCost(id);if(state.coins<cost){note(`Для улучшения «${upgrade.name}» нужно ${cost} ◉.`);return}state.coins-=cost;state.base[id]++;state.journal.unshift(`База улучшена: ${upgrade.name} · уровень ${state.base[id]}.`);note(`${upgrade.icon} ${upgrade.name}: уровень ${state.base[id]}/3.`);render()}
-function renderBaseUpgrades(){const root=$('baseUpgradeContent');if(!root)return;root.innerHTML=Object.entries(baseUpgrades).map(([id,upgrade])=>{const level=state.base[id],cost=baseUpgradeCost(id),maxed=level>=3;return `<article class="base-upgrade-card ${maxed?'maxed':''}"><i>${upgrade.icon}</i><div><small>ОБЪЕКТ БАЗЫ · УР. ${level}/3</small><h3>${upgrade.name}</h3><p>${upgrade.desc}</p><button onclick="buyBaseUpgrade('${id}')" ${maxed||state.coins<cost?'disabled':''}>${maxed?'Максимум':`Улучшить · ${cost} ◉`}</button></div></article>`}).join('')}
-function renderWorld(){
-  const weather=weatherData[world.weather],timeOfDay=timeData[world.time],season=seasons[world.season],event=eventData[world.event],quest=ensureNpcQuest(),market=dailyMarket(),bait=baitTypes.find(item=>item.id===quest.reward.bait),available=activePool().map(fish=>fish.name),offer=traderOffer(),offerCost=Math.ceil(offer.price*.65),workshop=state.base.workshop;
-  $('weatherStatus').textContent=`${weather.icon} ${weather.name}`;$('timeStatus').textContent=`${season.icon} ${season.name} · ${timeOfDay.name}`;$('eventStatus').textContent=event.name;
-  $('worldSummary').innerHTML=`<article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name}</b><small>Активность: ${Math.round(worldActivity()*100)}% · видимость: ${weather.visibility}.</small></article><article><b>${event.name}</b><small>${event.desc} Сейчас клюёт: ${available.join(' · ')}.</small></article><article><b>★ Репутация: ${state.reputation} · местная: ${localRep(state.location)}</b><small>Новые локации требуют уровень и репутацию.</small></article><article class="dock-npc"><b>🔧 Мастер Глеб</b><small>Мастерская ${workshop}/3 · улучшает скорость катушки.</small><button onclick="openModal('baseUpgrades')">Улучшить базу</button></article>`;
-  $('techniqueGrid').innerHTML=Object.entries(techniques).map(([key,t])=>`<button class="technique-card ${state.technique===key?'active':''}" onclick="setTechnique('${key}')"><b>${t.icon} ${t.name}</b><small>${t.desc}</small></button>`).join('');
-  $('questContent').innerHTML=quest.completed?`<b>👩‍✈️ ${quest.npc} · задание выполнено</b><p>Отличная работа. Новый заказ появится завтра.</p><small>Награда получена: ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутации.</small>`:`<b>👩‍✈️ ${quest.npc} · ежедневное задание</b><p>Поймать ${quest.target} × ${quest.fish} весом от ${quest.weight} кг.</p><div class="quest-meter"><i style="width:${quest.progress/quest.target*100}%"></i></div><small>${quest.progress} / ${quest.target} · ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутации · ${bait.name} ×${quest.reward.amount}</small>`;
-  if($('marketContent'))$('marketContent').innerHTML=`<b>🧺 Продавец Олег</b><p>Предложение: ${offer.name} ×3 за ${offerCost} ◉ · репутация ${localRep(state.location)}/10.</p><button onclick="buyTraderBait()" ${localRep(state.location)<10||state.coins<offerCost?'disabled':''}>Купить у продавца</button><hr><b>📈 Заказ на сегодня: ${market.fish}</b><small>Рынок платит на ${Math.round(market.bonus*100)}% больше за этот вид.</small>`
+
+function makeNpcQuest() {
+  const limit = tackleLimits().limit;
+  const pool = activePool().filter(item => item.weight[0] < limit);
+  const species = pool[Math.floor(Math.random() * pool.length)] || activePool()[0];
+  const name = species.name;
+  const range = species.weight;
+  const targetWeight = +(range[0] + (Math.min(range[1], limit * 0.6) - range[0]) * 0.6).toFixed(2);
+  const bait = baitTypes[(state.completedQuests + locationLevels[state.location]) % baitTypes.length];
+  return {
+    day: new Date().toISOString().slice(0, 10),
+    completed: false,
+    npc: 'Інспектор Марина',
+    fish: name,
+    weight: targetWeight,
+    target: Math.random() < 0.4 ? 2 : 1,
+    progress: 0,
+    reward: {
+      coins: Math.round(60 + (fishPrices[name] || 40) * targetWeight * 0.5),
+      reputation: 4 + Math.floor(locationLevels[state.location] / 2),
+      bait: bait.id,
+      amount: 3
+    }
+  };
 }
-function syncWorld(){const weather=Object.keys(weatherData),times=Object.keys(timeData),rareEvents=Object.keys(eventData).filter(key=>key!=='calm'),seasonKeys=Object.keys(seasons),phase=Math.floor(session/20),eventPhase=Math.floor(session/60),eventKey=eventPhase%3===0?rareEvents[Math.floor(eventPhase/3)%rareEvents.length]:'calm',event=eventData[eventKey];world={weather:event.weather||weather[phase%weather.length],time:event.time||times[Math.floor(session/40)%times.length],event:eventKey,season:seasonKeys[Math.floor(session/90)%seasonKeys.length]};$('game').className=`game location-${state.location} time-${world.time} weather-${world.weather} season-${world.season} ${state.atDepth?'deep-water':''}`;$('weatherFx').className=`weather-fx weather-${world.weather}`;renderWorld()}
-function setTension(load=0){const {limit}=tackleLimits(),ratio=Math.min(1,load/limit),bar=$('tensionBar');$('tensionValue').textContent=`${load.toFixed(1)} / ${limit.toFixed(1)} кг`;bar.style.width=(ratio*100)+'%';bar.style.background=ratio>.82?'#ff6e60':ratio>.6?'#ffe067':'#58e5d0';$('equippedRod').classList.toggle('strained',ratio>.82);sceneRenderer.tension=ratio*100;return ratio}
-console.assert(playerLevel()>=1&&playerLevel()<=12,'Некорректный уровень игрока');console.assert(Object.keys(baseUpgrades).every(id=>Number.isInteger(state.base[id])),'Некорректные улучшения базы');
-function renderBase(){const root=$('baseStatus');if(!root)return;const location=locations[state.location],market=dailyMarket();root.innerHTML=`<span>📍 <b>${location.name}</b><small>${location.sub}</small></span><span>◉ <b>${state.coins.toLocaleString('ru-RU')}</b><small>монет в кошельке</small></span><span>⭐ <b>${playerLevel()} уровень</b><small>Заказ: ${market.fish}</small></span><button class="base-upgrade-launch" onclick="openModal('baseUpgrades')">🏗️ Улучшения базы</button>`}
-function renderBoats(){
-  const selectedBoat=boats.find(item=>item.id===state.boat),boat=boatProfiles[selectedBoat?.id]||null,status=$('boatStatus'),root=$('boatsContent'),launch=$('boatLaunchLabel');
-  if(launch)launch.textContent=state.atDepth&&selectedBoat?`Глубина · ${selectedBoat.depth} м`:'Берег';
-  if(!status||!root)return;
-  status.innerHTML=selectedBoat?`<b>${selectedBoat.icon} ${selectedBoat.name}</b><span>${state.atDepth?`На глубине ${selectedBoat.depth} м · трофейный пул активен`:'У причала · выйдите на глубину'}</span>`:`<b>Береговая ловля</b><span>Купите лодку, чтобы добраться до трофейных ям.</span>`;
-  root.innerHTML=boats.map(item=>{
-    const profile=boatProfiles[item.id]||boatProfiles.rowboat;
-    const owned=state.ownedBoats.includes(item.id);
-    const equipped=state.boat===item.id;
-    const canBuy=state.coins>=item.price;
-    const action=!owned?`Купить · ${item.price.toLocaleString('ru-RU')} ◉`:equipped?(state.atDepth?'Вернуться к берегу':'Выйти на глубину'):'Экипировать';
-    return `<article class="boat-card ${equipped?'equipped':''}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">${drawBoatArt(item)}<small>ГЛУБИНА ДО ${item.depth} М</small><h3>${item.name}</h3><p>${item.desc}</p><div class="boat-bonus">★ +${item.rarity} к редкости · ×${item.weight.toFixed(2)} к весу</div><button onclick="manageBoat('${item.id}')" ${!owned&&!canBuy?'disabled':''}>${action}</button></article>`;
-  }).join('');
+function advanceNpcQuest(catches) {
+  const quest = ensureNpcQuest();
+  if (quest.completed) return;
+  const caught = catches.filter(f => f.name === quest.fish && f.weight >= quest.weight).length;
+  if (!caught) return;
+  quest.progress += caught;
+  if (quest.progress < quest.target) return;
+  quest.completed = true;
+  state.coins += quest.reward.coins;
+  state.total += quest.reward.coins;
+  state.xp += 60;
+  state.reputation += quest.reward.reputation;
+  state.localReputation[state.location] = localRep(state.location) + quest.reward.reputation;
+  state.baitStock[quest.reward.bait] = (state.baitStock[quest.reward.bait] || 0) + quest.reward.amount;
+  state.completedQuests = (state.completedQuests || 0) + 1;
+  sound.playCoin();
+  state.journal.unshift(`Контракт виконано: +${quest.reward.coins} ◉, +${quest.reward.reputation} репутації.`);
+  note('Контракт інспектора успішно виконано!');
 }
-function manageBoat(id){
-  const boat=boats.find(item=>item.id===id);if(!boat)return;
-  if(!state.ownedBoats.includes(id)){
-    if(state.coins<boat.price)return;
-    state.coins-=boat.price;state.ownedBoats.push(id);state.boat=id;state.atDepth=false;state.journal.unshift(`Куплено плавсредство: ${boat.name}.`);note(`${boat.name} готова у причала.`);
-  }else if(state.boat!==id){state.boat=id;state.atDepth=false;note(`Экипировано: ${boat.name}.`)}
-  else {state.atDepth=!state.atDepth;note(state.atDepth?`${boat.name}: вы вышли на глубину ${boat.depth} м. Трофейные ямы доступны.`:'Вы вернулись к берегу.');}
+
+function advanceContract(count) {
+  state.contract.progress += count;
+  if (state.contract.progress < state.contract.target) return;
+  const reward = state.contract.reward;
+  state.coins += reward;
+  state.total += reward;
+  state.xp += 80;
+  state.contract = {target: state.contract.target + 4, progress: 0, reward: Math.round(reward * 1.6)};
+  sound.playCoin();
+  state.journal.unshift(`Виконано контракт рибалки: +${reward} ◉ та 80 XP.`);
+  note(`Контракт закрито! Отримано +${reward} ◉`);
+}
+
+// --------------------------------------------------------
+// Садок та продаж риби
+// --------------------------------------------------------
+function sell(id) {
+  const i = state.inventory.findIndex(x => x.id == id);
+  if (i < 0) return;
+  const f = state.inventory[i];
+  if (f.favorite) return;
+  if (!f.clean) { note('Спочатку розберіть рибу на столі.'); return; }
+  state.inventory.splice(i, 1);
+  const earned = price(f);
+  state.coins += earned;
+  state.total += earned;
+  sound.playCoin();
+  state.journal.unshift(`Продано: ${f.name} за ${earned} ◉.`);
   render();
 }
-window.manageBoat=manageBoat;
-$('releaseLine').onclick=releaseLine;
-let lastFightPointerX=null,lastHookPointerY=null;
-window.addEventListener('pointermove',event=>{if(lastFightPointerX!==null&&fightState?.direction){const delta=event.clientX-lastFightPointerX;if(Math.abs(delta)>24)parryFight(delta<0?'left':'right')}if(lastHookPointerY!==null&&sceneRenderer.fish?.hookWindowUntil>Date.now()&&lastHookPointerY-event.clientY>28)beginPull();lastFightPointerX=event.clientX;lastHookPointerY=event.clientY});
-window.addEventListener('keydown',event=>{if(event.repeat)return;if(event.code==='KeyA'){parryFight('left')}if(event.code==='KeyD'){parryFight('right')}if(event.code==='KeyS'){releaseLine()}});
-function render(){
-  renderBoats();
-  activeTrip(); if(!locations[state.location])state.location='pier'; const location=locations[state.location];
-  if(!techniques[state.technique])state.technique='float'; ensureNpcQuest();
-  settleAuctions();
-  $('coins').textContent=state.coins.toLocaleString('ru-RU'); $('fishCount').textContent=state.inventory.length; const debt=state.credit?.debt||0,debtBadge=$('debtBadge');if(debtBadge){debtBadge.hidden=debt<=0;if(debt>0)$('debtAmount').textContent=debt.toLocaleString('ru-RU')}
-  renderEquipment(); renderDailyGift(); updateFishingControls();
-  $('hookName').textContent=gear.hooks[state.hooks-1][0]; $('locationLabel').textContent=`${location.name} · ${location.sub}`; $('depthPanel').classList.toggle('locked',!state.sonar); Object.assign($('scene').style,{backgroundImage:`url('${location.image}')`,backgroundSize:'cover',backgroundPosition:'center center',backgroundRepeat:'no-repeat'});
-  $('bestCatch').textContent=state.best; syncWorld();
-  $('playerLevel').textContent=playerLevel(); $('xpBar').style.width=levelProgress()+'%'; $('contractLabel').textContent=`Контракт: ${state.contract.progress}/${state.contract.target} · ${state.contract.reward} ◉`;
-  if(!casting){setTension();updateDepth()}
-  renderKeepnet(); renderMarketRequest(); renderCatchActions(); renderMap(); renderBag(); renderProfile(); renderJournal(); renderIndex(); renderProgress(); renderShop(); renderPets(); renderAuctions(); renderBase(); renderBaseUpgrades(); renderBank(); save();
-}
-function openModal(id){cancelCharge();if(casting)loseFish('Снасть витягнуто перед відкриттям меню.');closeAll();$(id).classList.add('open');render()}
-function closeAll(){document.querySelectorAll('.modal').forEach(x=>x.classList.remove('open'));if(document.activeElement?.closest('.modal'))$('castButton').focus({preventScroll:true})}
-function note(text){$('castMessage').textContent=text}
-function time(){session++; $('sessionTime').textContent=`${String(Math.floor(session/60)).padStart(2,'0')}:${String(session%60).padStart(2,'0')}`;if(session%20===0){syncWorld();renderDailyGift();renderMarketRequest()}}
-setInterval(time,1000);
-class ProceduralScene {
-  constructor(canvas){this.c=canvas;this.x=50;this.y=61;this.cast=0;this.reel=0;this.tension=0;this.biting=false;this.pulling=false;this.fish=null;this.biteMode='idle';this.surface=false;this.fightOffset={x:0,y:0,targetX:0,targetY:0,next:0};this.t0=performance.now();this.resize();addEventListener('resize',()=>this.resize());requestAnimationFrame(t=>this.frame(t))}
-  resize(){const d=Math.min(devicePixelRatio||1,2),r=this.c.getBoundingClientRect();this.w=Math.max(1,r.width);this.h=Math.max(1,r.height);this.c.width=this.w*d;this.c.height=this.h*d;this.g=this.c.getContext('2d');this.g.setTransform(d,0,0,d,0,0)}
-  startCast(power){this.cast=power;this.reel=0;this.x=state.atDepth?52+power*.35:31+power*.55;this.y=state.atDepth?56:60;this.biting=false;this.fish=null;this.biteMode='idle';this.surface=false;const fl=$('equippedFloat');if(fl)fl.hidden=true;this.fightOffset={x:0,y:0,targetX:0,targetY:0,next:0}}
-  beginBite(fish){this.fish=fish||this.fish;this.biteMode=this.fish?.reaction||'idle';this.surface=this.biteMode==='surface';if(this.biteMode==='escape')this.fightOffset.targetX=(Math.random()*2-1)*18;}
-  clear(){this.cast=0;this.reel=0;this.tension=0;this.biting=false;this.pulling=false;this.fish=null;this.biteMode='idle';this.surface=false;const fl=$('equippedFloat');if(fl)fl.hidden=true;this.fightOffset={x:0,y:0,targetX:0,targetY:0,next:0}}
-  floatPoint(w,h,now=performance.now()){const p=this.pulling?this.reel/100:0,base={x:w*(this.x+(56-this.x)*p)/100,y:h*(this.y+(84-this.y)*p)/100};if(this.pulling&&this.fish){const resistance=Math.min(1,Math.max(.2,this.fish.weight/Math.max(1,tackleLimits().rod))),amplitude=(this.biteMode==='surface'?12:(this.biteMode==='escape'?15:7)+resistance*24)*(1-p);if(now>=this.fightOffset.next){this.fightOffset.targetX=(Math.random()*2-1)*amplitude;this.fightOffset.targetY=(Math.random()*2-1)*amplitude*.65;this.fightOffset.next=now+Math.max(55,190-resistance*105)}this.fightOffset.x+=(this.fightOffset.targetX-this.fightOffset.x)*.13;this.fightOffset.y+=(this.fightOffset.targetY-this.fightOffset.y)*.13}else{this.fightOffset.x*=.82;this.fightOffset.y*=.82}return{x:Math.max(w*.05,Math.min(w*.95,base.x+this.fightOffset.x)),y:Math.max(h*.53,Math.min(h*.91,base.y+this.fightOffset.y))}}
-  // Follow the artwork in its actual layout, including narrow screens.
-  rodTip(w,h){if(state.atDepth)return {x:w*.72,y:h*.28};const image=$('equippedRodImage');if(image&&image.naturalWidth){const rect=image.getBoundingClientRect(),canvas=this.c.getBoundingClientRect(),scale=Math.min(rect.width/(image.naturalWidth||1536),rect.height/(image.naturalHeight||1024)),width=(image.naturalWidth||1536)*scale,height=(image.naturalHeight||1024)*scale;return {x:rect.left-canvas.left+(rect.width-width)/2+width*.97,y:rect.top-canvas.top+(rect.height-height)/2+height*.05}}return innerWidth<=700?{x:w*.47,y:h*.18}:{x:w*.43,y:h*.16}}
-  frame(now){const t=(now-this.t0)/1000,g=this.g,w=this.w,h=this.h;g.clearRect(0,0,w,h);if(state.atDepth)this.deepWater(g,w,h,t);this.ripples(g,w,h,t,now);this.line(g,w,h,now);if(this.cast)this.bobber(g,w,h,t,now);if(this.pulling&&this.surface)this.surfaceFight(g,w,h,t,now);requestAnimationFrame(n=>this.frame(n))}
-  deepWater(g,w,h,t){
-    const roll=Math.sin(t*1.25)*.018,sway=Math.sin(t*1.7)*5,cx=w*.5,cy=h*.72;
-    g.save();
-    const ocean=g.createLinearGradient(0,h*.36,0,h);ocean.addColorStop(0,'rgba(28,129,162,.42)');ocean.addColorStop(.35,'rgba(5,90,125,.30)');ocean.addColorStop(1,'rgba(0,22,54,.62)');g.fillStyle=ocean;g.fillRect(0,h*.34,w,h);
-    // Layered waves: short bright crests in front and small, calmer waves on the horizon.
-    for(let row=0;row<30;row++){const p=row/29,y=h*(.42+p*.59),amp=2+p*10,step=18+p*31;g.strokeStyle=`rgba(188,244,250,${.18*(1-p)+.025})`;g.lineWidth=.55+p*1.05;g.beginPath();for(let x=-step;x<=w+step;x+=step){const wave=Math.sin(x*.028+t*(1.25+p*1.9)+row*1.73)*amp+Math.sin(x*.071-t*1.9+row)*amp*.38;x===-step?g.moveTo(x,y+wave):g.lineTo(x,y+wave)}g.stroke()}
-    for(let i=0;i<34;i++){const x=(i*97+t*(22+i%5*8))%(w+100)-50,y=h*(.48+((i*37)%100)/190),size=3+(i%5)*3;g.fillStyle=`rgba(220,255,255,${.05+(i%4)*.018})`;g.beginPath();g.ellipse(x,y,size,size*.22,0,0,Math.PI*2);g.fill()}
-    // First-person cockpit: the bow fills the foreground, so the player is sitting inside it.
-    g.translate(0,sway);g.rotate(roll);
-    const cockpit=g.createLinearGradient(0,h*.58,0,h);cockpit.addColorStop(0,'#c6d7cf');cockpit.addColorStop(.13,'#497d83');cockpit.addColorStop(.14,'#092e3b');cockpit.addColorStop(1,'#021520');g.fillStyle=cockpit;g.beginPath();g.moveTo(0,h*.66);g.quadraticCurveTo(w*.5,h*.53,w,h*.66);g.lineTo(w,h);g.lineTo(0,h);g.closePath();g.fill();
-    g.strokeStyle='#c9f3e8';g.lineWidth=2;g.beginPath();g.moveTo(0,h*.66);g.quadraticCurveTo(w*.5,h*.53,w,h*.66);g.stroke();
-    const inner=g.createLinearGradient(0,h*.67,0,h);inner.addColorStop(0,'#183f48');inner.addColorStop(1,'#061a26');g.fillStyle=inner;g.beginPath();g.moveTo(w*.11,h);g.lineTo(w*.26,h*.72);g.quadraticCurveTo(w*.5,h*.63,w*.74,h*.72);g.lineTo(w*.89,h);g.closePath();g.fill();
-    g.strokeStyle='rgba(166,231,225,.34)';g.lineWidth=1;for(let i=1;i<7;i++){const x=w*i/7;g.beginPath();g.moveTo(x,h);g.lineTo(w*.5+(x-w*.5)*.43,h*.68);g.stroke()}
-    // Player's sleeves and hands in front of the camera.
-    g.lineCap='round';g.strokeStyle='#314c68';g.lineWidth=Math.max(20,w*.035);g.beginPath();g.moveTo(w*.24,h*1.03);g.lineTo(w*.43,h*.78);g.moveTo(w*.78,h*1.03);g.lineTo(w*.59,h*.78);g.stroke();
-    g.strokeStyle='#e8ae79';g.lineWidth=Math.max(13,w*.022);g.beginPath();g.moveTo(w*.43,h*.78);g.lineTo(w*.52,h*.73);g.moveTo(w*.59,h*.78);g.lineTo(w*.55,h*.73);g.stroke();
-    g.strokeStyle='#c7e9ee';g.lineWidth=3;g.beginPath();g.moveTo(w*.535,h*.73);g.lineTo(w*.63,h*.47);g.lineTo(w*.72,h*.28);g.stroke();g.fillStyle='#ffdb79';g.beginPath();g.arc(w*.72,h*.28,3,0,Math.PI*2);g.fill();
-    g.restore();
-  }
-  ripples(g,w,h,t,now){if(!this.cast)return;const p=this.floatPoint(w,h,now);for(let i=0;i<3;i++){const r=(t*30+i*19)%70;g.strokeStyle=`rgba(225,255,255,${.46-r/170})`;g.lineWidth=1.2;g.beginPath();g.ellipse(p.x,p.y,r,r*.3,0,0,Math.PI*2);g.stroke()}}
-  surfaceFight(g,w,h,t,now){const p=this.floatPoint(w,h,now),jump=Math.sin(t*12)*5;g.save();g.strokeStyle='rgba(235,255,255,.78)';g.lineWidth=1.6;for(let i=0;i<4;i++){const a=t*5+i*Math.PI/2,x=p.x+Math.cos(a)*20,y=p.y+Math.sin(a)*7+jump;g.beginPath();g.moveTo(p.x,y);g.lineTo(x,y-9-Math.abs(Math.sin(a))*8);g.stroke()}g.fillStyle='rgba(220,250,255,.72)';g.beginPath();g.ellipse(p.x-11,p.y+jump,13,4,-.35,0,Math.PI*2);g.fill();g.restore()}
-  line(g,w,h,now){
-    if(!this.cast)return;
-    const p=this.floatPoint(w,h,now),tip=this.rodTip(w,h),dx=p.x-tip.x,dy=p.y-tip.y;
-    // A real cast has a slight sag; while fighting, the line becomes straight and taut.
-    const slack=this.pulling?2:Math.min(22,Math.max(7,Math.hypot(dx,dy)*.11));
-    const controlX=tip.x+dx*.52,controlY=tip.y+dy*.48+slack;
-    const color=this.tension>82?'#ff8a7d':this.tension>60?'#ffe078':(lineColors?.[state.lines-1]||'#e5fbffdd');
-    g.save();g.lineCap='round';g.shadowColor=color;g.shadowBlur=state.atDepth?5:2;g.strokeStyle=color;g.lineWidth=1.2+state.lines*.16+this.tension/95;
-    g.beginPath();g.moveTo(tip.x,tip.y);g.quadraticCurveTo(controlX,controlY,p.x,p.y);g.stroke();
-    // Small guide marker makes the connection point at the bobber unambiguous.
-    g.shadowBlur=0;g.fillStyle='#f4ffff';g.beginPath();g.arc(p.x,p.y,1.7,0,Math.PI*2);g.fill();g.restore();
-  }
-  sky(g,w,h,t,loc){const sets={pier:['#103c71','#ef9274','#ffd68a'],ocean:['#06345f','#6e9fc0','#d5dbca'],swamp:['#1a302a','#63765c','#b0a77c']}[loc];const sky=g.createLinearGradient(0,0,0,h*.58);sky.addColorStop(0,sets[0]);sky.addColorStop(.72,sets[1]);sky.addColorStop(1,sets[2]);g.fillStyle=sky;g.fillRect(0,0,w,h*.6);const sx=w*.77,sy=h*.22;const sun=g.createRadialGradient(sx,sy,2,sx,sy,h*.11);sun.addColorStop(0,'#fff9cf');sun.addColorStop(.35,'#ffe8a4');sun.addColorStop(1,'#ffcf8400');g.fillStyle=sun;g.fillRect(0,0,w,h*.6);g.fillStyle='rgba(255,246,232,.35)';for(let i=0;i<5;i++){let x=((i*263+t*9)% (w+220))-110,y=h*(.12+i*.055);g.beginPath();g.ellipse(x,y,90,12,0,0,Math.PI*2);g.ellipse(x+45,y-10,38,20,0,0,Math.PI*2);g.fill()}g.fillStyle=loc==='swamp'?'#244437':'#1a5660';g.beginPath();g.moveTo(0,h*.51);for(let x=0;x<=w;x+=35){const y=h*(.43+((Math.sin(x*.027)+Math.sin(x*.071))*0.025));g.lineTo(x,y)}g.lineTo(w,h*.57);g.lineTo(0,h*.57);g.fill();if(loc!=='swamp'){g.fillStyle='#263f4b';g.beginPath();g.moveTo(w*.73,h*.47);g.lineTo(w*.76,h*.39);g.lineTo(w*.79,h*.47);g.fill();g.fillRect(w*.755,h*.445,w*.045,2)}}
-  water(g,w,h,t,loc){const top=h*.51,sets={pier:['#1786a0','#043150'],ocean:['#087da6','#012642'],swamp:['#496f49','#102d2b']}[loc],grad=g.createLinearGradient(0,top,0,h);grad.addColorStop(0,sets[0]);grad.addColorStop(1,sets[1]);g.fillStyle=grad;g.fillRect(0,top,w,h-top);for(let row=0;row<18;row++){const y=top+row*18;g.strokeStyle=`rgba(210,255,255,${.11-row*.004})`;g.lineWidth=1;g.beginPath();for(let x=0;x<=w;x+=8){const wave=Math.sin(x*.025+t*(1.5+(loc==='ocean'?1:0))+row*.8)*((row+2)/10)+Math.sin(x*.07-t*1.7)*1.5; x?g.lineTo(x,y+wave):g.moveTo(x,y+wave)}g.stroke()}const rx=w*.77;for(let i=0;i<18;i++){const yy=top+18+i*i*1.5;const ww=Math.max(3,5+i*5);g.fillStyle=`rgba(255,239,178,${.22-i*.01})`;g.fillRect(rx-ww/2+Math.sin(t*3+i)*5,yy,ww,1.5)}if(this.cast){const x=w*this.x/100,y=h*this.y/100;for(let i=0;i<3;i++){const r=((t*42+i*19)%72);g.strokeStyle=`rgba(220,255,255,${.5-r/145})`;g.beginPath();g.ellipse(x,y,r,r*.3,0,0,Math.PI*2);g.stroke()}}}
-  pier(g,w,h){g.save();g.fillStyle='#51311f';g.beginPath();g.moveTo(0,h);g.lineTo(w,h);g.lineTo(w*.72,h*.78);g.lineTo(w*.28,h*.78);g.closePath();g.fill();g.strokeStyle='#9a6139';g.lineWidth=3;for(let i=0;i<9;i++){const x=w*.28+(w*.44/8)*i;g.beginPath();g.moveTo(x,h*.78);g.lineTo(x+(x-w*.5)*.7,h);g.stroke()}g.restore()}
-  rod(g,w,h,t){const styles=[['#25130b','#c79655','#c98c64'],['#101419','#a8b7bd','#29323a'],['#302017','#d2a642','#c79749'],['#1a2545','#7cc9f0','#263d60'],['#36151b','#dc545d','#64212a'],['#0d1926','#78c7d9','#1d4052'],['#1d1d24','#ddeeff','#747786'],['#1a102d','#e9cf5b','#6d4b9f']][state.rods-1],baseX=w*.51,baseY=h*1.03,point=this.cast?this.floatPoint(w,h):{x:baseX+w*.13,y:baseY-h*.33},tipX=point.x,tipY=point.y,bend=this.biting?34:this.pulling?21:8;g.save();g.lineCap='round';g.strokeStyle=styles[0];g.lineWidth=13;g.beginPath();g.moveTo(baseX,baseY);g.quadraticCurveTo(baseX+w*.07,baseY-h*.2,tipX-bend,tipY+bend);g.stroke();g.strokeStyle=styles[1];g.lineWidth=6;g.beginPath();g.moveTo(baseX,baseY);g.quadraticCurveTo(baseX+w*.07,baseY-h*.2,tipX-bend,tipY+bend);g.stroke();g.strokeStyle='#e5fbffcc';g.lineWidth=1;g.beginPath();g.moveTo(tipX-bend,tipY+bend);g.quadraticCurveTo((tipX+baseX)/2+Math.sin(t*3)*8,(tipY+baseY)/2,tipX,tipY);g.stroke();g.fillStyle=styles[2];g.beginPath();g.ellipse(baseX-w*.08,baseY-h*.01,w*.09,h*.1,-.35,0,Math.PI*2);g.fill();g.beginPath();g.ellipse(baseX+w*.08,baseY-h*.01,w*.08,h*.095,.35,0,Math.PI*2);g.fill();g.restore()}
-  bobber(g,w,h,t,now){const p=this.floatPoint(w,h,now),float=$('equippedFloat');if(float){float.hidden=false;float.style.left=p.x+'px';float.style.top=(p.y+Math.sin(t*(this.biting?15:4))*(this.biting?9:3))+'px';float.classList.toggle('night-float',state.floats>=4&&world.time==='night')}}
-  drawFish(g,x,y,t,r){const colors=['#a9c4c6','#48a7ff','#bd6cff','#ff8c55','#ffe36b'];const a=Math.sin(t*7)*.18;g.save();g.translate(x+Math.sin(t*2)*20,y+18);g.rotate(a);if(r>=3){g.shadowBlur=r*7;g.shadowColor=colors[r-1]}const fill=r===4?g.createLinearGradient(-30,0,30,0):colors[r-1];if(r===4){fill.addColorStop(0,'#ffcf6d');fill.addColorStop(.5,'#ff6ac1');fill.addColorStop(1,'#7b64ff')}g.fillStyle=fill;g.beginPath();g.ellipse(0,0,27,13,0,0,Math.PI*2);g.fill();g.beginPath();g.moveTo(-23,0);g.lineTo(-39,-14);g.lineTo(-35,0);g.lineTo(-39,14);g.closePath();g.fill();g.fillStyle='#061824';g.beginPath();g.arc(14,-3,2.5,0,Math.PI*2);g.fill();if(r===5){g.fillStyle='#fff4af';for(let i=0;i<8;i++){g.fillRect(Math.sin(t*3+i)*37,Math.cos(t*4+i)*22,2,2)}}g.restore()}
-}
-const sceneRenderer=new ProceduralScene($('worldCanvas'));
-function fishIcon(r){return ['🐠','🐟','🐡','🦈','🐉'][r-1]}
-function showCatchDialog(catches){$('catch').dataset.fishId=String(catches[0].id);renderCatchActions();const fish=catches[0],rarity=rarities[fish.rarity-1],quality=qualityOf(fish),location=locations[fish.location];$('catchFishImage').src=fish.image||fishImages[fish.name]||'assets/freshwater-fish.png';$('catchFishImage').alt=fish.name;$('catchFishName').textContent=`${fish.boss?'★ ':''}${fish.name}`;$('catchFishWeight').textContent=fishWeight(fish);$('catchFishRarity').textContent=rarity.name;$('catchFishRarity').style.color=rarity.color;$('catchFishQuality').textContent=quality.name;$('catchFishValue').textContent=`${price(fish)} ◉`;$('catchFishLocation').textContent=location.name;$('catchFishBait').textContent=(baitTypes.find(b=>b.id===fish.bait)||activeBait()).name;$('catchFishDescription').textContent=fishDescriptions[fish.name]||`${location.desc} Цей вид додано до вашого альбому улову.`;$('catchFishExtra').textContent=catches.length>1?`Додатковий улов: ${catches.slice(1).map(f=>`${f.name} (${fishWeight(f)}, ${price(f)} ◉)`).join(', ')}.`:'Риба відправлена до садка. Очистіть її ножем або продайте, коли вона буде готова.';if(fish.perfectCast)$('catchFishExtra').textContent+=' 🎯 Точний закид: +15 XP.';$('catch').classList.add('open')}
-function availableBoss(){return bosses.find(boss=>boss.locations.includes(state.location)&&boss.season.includes(world.season)&&boss.time.includes(world.time)&&state.reputation>=boss.minReputation&&tackleLimits().limit>=boss.weight[0])}
-function pickBiteReaction(fish={}){
-  const weight = Number(fish.weight)||0; const roll = Math.random();
-  if (weight <= 1.5 && roll < .22) return 'cautious';
-  if (weight >= 5 && roll < .18) return 'escape';
-  if (weight >= 2.5 && roll < .3) return 'surface';
-  return 'normal';
-}
-function pickFish(){
-  const boat=boats.find(item=>item.id===state.boat);
-  if(state.atDepth&&boat&&Math.random()<.12+boat.rarity*.035){
-    const deepPool=activePool().filter(item=>item.weight[1]>=1.5);
-    const species=deepPool[Math.floor(Math.random()*deepPool.length)]||activePool()[0],range=species.weight;
-    const weight=+((range[1]*1.3+Math.random()*range[1]*(1.1+boat.rarity*.25))*boat.weight).toFixed(2);
-    return {id:Date.now()+Math.random(),name:`Трофейный ${species.name}`,rarity:5,weight,pricePerKg:Math.round(species.pricePerKg*(2.2+boat.rarity*.35)),clean:false,cuts:0,location:state.location,image:fishImages[species.name],reaction:pickBiteReaction({weight}),deep:true};
-  }
-  const technique=activeTechnique(),event=eventData[world.event],bait=activeBait(),eventRarity=event.nightOnly&&world.time!=='night'?0:event.rarity,max=Math.min(5,state.rods),bonus=Math.max(0,state.rods-1)+bait.rarity+technique.rarity+eventRarity; let weights=[Math.max(18,64-bonus*4),24+bonus,8+bonus,3+Math.ceil(bonus/2),1+Math.floor(bonus/3)]; if(petBonus('luck')){weights=[weights[0]-8,weights[1]+2,weights[2]+2,weights[3]+2,weights[4]+2]}
-  const boss=availableBoss();if(boss&&Math.random()<.025){const weight=+(boss.weight[0]+Math.random()*(boss.weight[1]-boss.weight[0])).toFixed(2);return {id:Date.now()+Math.random(),name:boss.name,rarity:5,weight,pricePerKg:boss.pricePerKg,clean:false,cuts:0,location:state.location,boss:boss.id,image:fishImages[boss.base],reaction:pickBiteReaction({weight})}}
-  const pool=activePool();
-  const allowed=weights.slice(0,Math.min(max,pool.length)); let roll=Math.random()*allowed.reduce((a,b)=>a+b,0), rarity=1;
-  for(let i=0;i<allowed.length;i++){roll-=allowed[i];if(roll<=0){rarity=i+1;break}}
-  const choices=pool.filter(fish=>fish.rarity===rarity),targeted=pool.filter(fish=>bait.species.includes(fish.name)&&fish.rarity<=max),species=targeted.length&&Math.random()<bait.focus?targeted[Math.floor(Math.random()*targeted.length)]:choices[Math.floor(Math.random()*choices.length)]||pool[0],range=species.weight,weight=+((range[0]+Math.random()*(range[1]-range[0]))*worldWeight()).toFixed(2); return {id:Date.now()+Math.random(), name:species.name, rarity:species.rarity, weight, pricePerKg:species.pricePerKg, clean:false, cuts:0, location:state.location, reaction:pickBiteReaction({weight})};
-}
-function consumeBait(){const bait=activeBait();if(!baitCount()){note(`Закончилась наживка «${bait.name}». Купите набор в магазине.`);return false}state.baitStock[bait.id]--;return true}
-const fishingBlocked=()=>!!document.querySelector('.modal.open,.butcher-overlay.open');
-function updateFishingControls(){
-  $('castButton').disabled=casting;
-  $('castButton').classList.toggle('holding',charging);
-  $('pullButton').disabled=!casting||!sceneRenderer.fish;
-  $('pullButton').classList.toggle('holding',pulling);
-}
-function startCharge(e){if(e.button===2&&!e.target.closest('button,input,select,.modal,.butcher-overlay')){e.preventDefault();beginCharge()}}
-function beginCharge(){
-  if(casting||charging||fishingBlocked())return;
-  if(!baitCount()){note('Наживка закінчилась. Натисни її значок унизу або отримай щоденний подарунок.');return}
-  charging=true;charge=0;perfectCast=false;note('Утримуй і відпусти в золотій зоні!');updateFishingControls();
-  castTimer=setInterval(()=>{charge=Math.min(100,charge+2);$('castPower').style.width=charge+'%';$('powerMeter').setAttribute('aria-valuenow',charge);$('powerMeter').classList.toggle('on-target',Math.abs(charge-72)<=6);updateDepth()},35);
-}
-function cancelCharge(){charging=false;clearInterval(castTimer);$('castPower').style.width='0%';$('powerMeter').setAttribute('aria-valuenow','0');$('powerMeter').classList.remove('on-target');updateFishingControls()}
-function cast(){
-  if(!charging)return;cancelCharge();if(fishingBlocked())return;
-  if(charge<8){note('Закид надто слабкий. Утримуй кнопку довше.');return}if(!consumeBait())return;
-  perfectCast=Math.abs(charge-72)<=6;casting=true;reel=0;clearTimeout(biteTimer);sceneRenderer.startCast(charge);
-  note(perfectCast?'🎯 Точний закид! Кльов на 25% швидше · +15 XP, якщо впіймаєш рибу.':`Закид на ${charge}% — чекаємо клювання…`);
-  const delay=(Math.max(650,((petBonus('speed')?2000:3300)-(state.floats-1)*150)/worldActivity())+Math.random()*1800)*(perfectCast?.75:1);
-  biteTimer=setTimeout(bite,delay);renderEquipment();updateFishingControls();save();
-}
-function bite(){
-  if(!casting)return;sceneRenderer.biting=true;
-  const falseBite=Math.random()<Math.min(.42,Math.max(.05,.18/worldActivity()));
-  if(falseBite){note('Ложная поклёвка — рыба ушла с приманкой.');biteTimer=setTimeout(()=>loseFish('Ложная поклёвка: улова нет.'),900);return}
-  sceneRenderer.fish=pickFish();sceneRenderer.fish.hookWindowUntil=Date.now()+1000;sceneRenderer.beginBite(sceneRenderer.fish);updateFishingControls();
-  if(sceneRenderer.biteMode==='cautious'){note('Осторожная поклёвка — рыба осторожно взяла наживку. Не делайте резких рывков.');}
-  else if(sceneRenderer.biteMode==='escape'){note('Рыба резко ушла в сторону! Она готова рвануть в любой момент.');}
-  else if(sceneRenderer.biteMode==='surface'){note('Рыба бьётся у поверхности — держите снасть ровно и не давайте ей уйти.');sceneRenderer.surface=true;}
-  else{note('Клює! Утримуй «Підтягнути», ЛКМ або R.');}
-  const reactionWindow=sceneRenderer.biteMode==='cautious'?2200:sceneRenderer.biteMode==='escape'?1300:sceneRenderer.biteMode==='surface'?1800:6200;
-  sceneRenderer.fish.reaction=sceneRenderer.biteMode;
-  biteTimer=setTimeout(()=>{
-    if(!casting||pulling)return;
-    const fish=sceneRenderer.fish;if(!fish)return;
-    if(fish.reaction==='cautious'){loseFish('Осторожная рыба выпустила крючок и ушла.')}
-    else if(fish.reaction==='escape'){loseFish('Резкий уход: рыба вырвалась и сорвалась с крючка.')}
-    else if(fish.reaction==='surface'){loseFish('Рыба ушла под воду, не дав вывести её к берегу.')}
-    else{loseFish('Рыба сорвалась: вы не успели подтянуть снасть.')}
-  }, reactionWindow + Math.random()*1100);
-}
-function updateFightHud(){const hud=$('fightHud');if(!hud)return;const active=fightState&&(fightState.direction||fightState.snag);hud.hidden=!active;if(!active)return;const arrow=$('fightArrow'),title=$('fightTitle'),hint=$('fightHint'),timer=$('fightTimer'),release=$('releaseLine');hud.classList.toggle('snag',!!fightState.snag);release.hidden=!fightState.snag;if(fightState.snag){title.textContent='ЗАЦЕП ЗА КОРЯГУ';arrow.textContent='⚓';hint.textContent='Стравьте леску аккуратно, чтобы спасти крючок и наживку';timer.style.width=`${Math.max(0,100-(Date.now()-fightState.snagAt)/42)}%`;return}title.textContent='РЫБА ТЯНЕТ';arrow.textContent=fightState.direction==='left'?'←':'→';hint.textContent=`Парируйте ${fightState.direction==='left'?'влево':'вправо'}: ${fightState.direction==='left'?'A':'D'} или движением мыши`;timer.style.width=`${Math.max(0,(fightState.deadline-Date.now())/16)}%`}
-function clearFight(){if(fightState?.timer)clearInterval(fightState.timer);fightState=null;updateFightHud()}
-function startDirectionChallenge(fish){if(!casting||!pulling||fightState?.snag)return;const direction=Math.random()<.5?'left':'right',deadline=Date.now()+1600;fightState={direction,deadline,fish,timer:setInterval(()=>{if(!casting||!pulling){clearFight();return}if(Date.now()>=deadline){clearInterval(fightState.timer);fightState.penaltyUntil=Date.now()+1600;fightState.direction=null;note('Рывок не парирован — натяжение удвоено!');updateFightHud();setTimeout(()=>startDirectionChallenge(fish),700);return}updateFightHud()},60)};updateFightHud()}
-function startFightChallenge(fish){clearFight();setTimeout(()=>startDirectionChallenge(fish),850)}
-function parryFight(direction){if(!fightState?.direction||fightState.direction!==direction||Date.now()>fightState.deadline)return;clearInterval(fightState.timer);fightState.direction=null;fightState.penaltyUntil=0;note('Парирование выполнено — натяжение под контролем.');updateFightHud();setTimeout(()=>startDirectionChallenge(fightState.fish),900)}
-function startSnag(fish){if(fightState?.snag)return;fish.snagAt=Date.now();fightState={fish,snag:true,snagAt:fish.snagAt,timer:setInterval(()=>{if(!casting||!fightState?.snag){clearFight();return}if(Date.now()-fightState.snagAt>4200)loseFish('Зацеп за корягу: крючок и наживка потеряны.');else updateFightHud()},60)};note('Зацеп за корягу! Стравьте леску клавишей S или кнопкой.');updateFightHud()}
-function releaseLine(){const fish=sceneRenderer.fish;if(!casting||!fish||!fightState?.snag)return;clearInterval(fightState.timer);fish.snagResolved=true;fish.snagAt=0;reel=Math.max(8,reel-19);sceneRenderer.reel=reel;setTension(Math.max(0,fightLoad(fish,reel)*.45));note('Леска стравлена — крючок спасён.');fightState=null;updateFightHud();setTimeout(()=>startDirectionChallenge(fish),750)}
-function startPull(e){if(e.button===0&&!e.target.closest('button,input,select,.modal,.butcher-overlay'))beginPull()}
-function beginPull(){
-  if(!casting||pulling||fishingBlocked())return;
-  const fish=sceneRenderer.fish;if(!fish){note('Это была ложная поклёвка.');return}
-  if(fish.hookWindowUntil&&Date.now()<=fish.hookWindowUntil){fish.idealHook=true;state.xp+=10;note('Идеальная подсечка! Шанс схода заметно снижен.');}
-  const limits=tackleLimits();
-  if(fish.weight>limits.hook){loseFish('Крючок слишком мал для этого улова.');return}
-  if(fish.weight>limits.rod){loseFish('Удилище не выдержало вес улова.');return}
-  pulling=true;sceneRenderer.pulling=true;sceneRenderer.surface=fish.reaction==='surface';startFightChallenge(fish);
-  $('equippedRod').classList.add('pulling');updateFishingControls();
-  note(fish.reaction==='cautious'?'Осторожная поклёвка: аккуратно подматывайте, чтобы не спугнуть рыбу.':fish.reaction==='escape'?'Резкий уход: удерживайте леску и не бросайте рыбу в сторону!':fish.reaction==='surface'?'Бой у поверхности: держите снасть ровно и давите сверху.':`Подтягивайте снасть: ${fishWeight(fish)} на крючке.`);
-  pullTimer=setInterval(()=>{
-    reel=Math.min(100,reel+8*limits.reel);sceneRenderer.reel=reel;updateDepth(true);$('depthNeedle').style.left=(20+reel*.7)+'%';
-    let load=fightLoad(fish,reel),parryPenalty=fightState?.penaltyUntil>Date.now()?2:1;
-    if(fish.idealHook)load*=.78;
-    if(reel>34&&!fish.snagChecked){fish.snagChecked=true;if(Math.random()<.18){startSnag(fish);return}}
-    if(fightState?.snag){setTension(load*2);return}
-    load*=parryPenalty;
-    if(fish.reaction==='escape'&&reel>55&&Math.random()<.24){loseFish('Резкий уход: рыба бросилась в сторону и сорвала снасть.');return}
-    if(fish.reaction==='cautious'&&reel>76&&Math.random()<.17){loseFish('Осторожная рыба сбежала с крючка: слишком резкая подмотка.');return}
-    if(fish.reaction==='surface'){sceneRenderer.surface=true;sceneRenderer.fish.reaction='surface';setTension(load*1.06)}
-    else{if(setTension(load)>=1){loseFish(load>limits.line?'Леска оборвалась от натяга.':'Удилище не выдержало вес рыбы.');return}}
-    if(reel>=100)landFish()
-  },80);
-}
-function stopPull(e){
-  if(e.button!==0||!pulling)return;
-  clearFight();
-  pulling=false;sceneRenderer.pulling=false;sceneRenderer.surface=(sceneRenderer.fish&&sceneRenderer.fish.reaction==='surface');
-  $('equippedRod').classList.remove('pulling');clearInterval(pullTimer);updateFishingControls();
-  const fish=sceneRenderer.fish;if(fish)setTension(fightLoad(fish,reel)*.65);
-  if(casting)note(fish&&fish.reaction==='escape'?'Рыба всё ещё в панике — держите снасть без резких рывков.':fish&&fish.reaction==='cautious'?'Тут рыба ещё настороже — лучше немного выждать.':'Риба пручається — продовжуй підтягувати.');
-}
-function loseFish(reason){
-  clearFight();
-  if(!casting)return;perfectCast=false;casting=false;pulling=false;clearInterval(pullTimer);clearTimeout(biteTimer);
-  $('equippedRod').classList.remove('pulling');sceneRenderer.clear();setTension();resetTournamentStreak();
-  updateFishingControls();state.journal.unshift(reason);state.journal=state.journal.slice(0,30);note(reason);render();
-}
-function landFish(){
-  clearFight();
-  if(!casting)return; const visibleFish=sceneRenderer.fish; casting=false; pulling=false; clearInterval(pullTimer); clearTimeout(biteTimer); $('equippedRod').classList.remove('pulling'); sceneRenderer.clear(); setTension();
-  const catches=[]; if(visibleFish)catches.push(visibleFish); while(catches.length<state.hooks)catches.push(pickFish()); catches.forEach(fish=>{assignQuality(fish);fish.bait=state.bait;fish.perfectCast=perfectCast}); state.inventory.unshift(...catches);
-  if(perfectCast){state.xp+=15;state.perfectCasts++;state.journal.unshift('🎯 Точний закид: +15 XP за успішний улов.')}perfectCast=false;
-  catches.forEach(f=>{if(!state.discovered.includes(f.name))state.discovered.push(f.name)}); state.xp+=catches.reduce((sum,f)=>sum+f.rarity*24,0); rewardMaterials(catches); updateTournament(catches); updateAchievements(catches); advanceContract(catches.length); advanceNpcQuest(catches); const top=catches.reduce((a,b)=>a.rarity>b.rarity?a:b); const r=rarities[top.rarity-1];
-  state.best=top.name; $('rarityDisplay').innerHTML=`<i style="background:${r.color};box-shadow:0 0 9px ${r.color}"></i><span>${r.name}: ${top.name}</span>`; note(`Улов: ${catches.map(x=>x.name).join(', ')}. Откройте Садок!`); state.journal.unshift(`Поймано: ${catches.map(x=>x.name).join(', ')} (${locations[state.location].name})`); state.journal=state.journal.slice(0,30); render(); showCatchDialog(catches);
-}
-function updateDepth(pulling=false){const point=Math.min(90,15+(pulling?65:charge*.65));$('depthNeedle').style.left=point+'%';$('depthNeedle').style.height=(pulling?70:28+charge*.45)+'%';$('depthReadout').textContent=(4.8+point*.09).toFixed(1)}
-const cutsNeeded=()=>Math.max(1,4-Math.floor((state.knives+1)/3));
-function advanceContract(count){state.contract.progress+=count;if(state.contract.progress<state.contract.target)return;const reward=state.contract.reward;state.coins+=reward;state.total+=reward;state.xp+=80;state.contract={target:state.contract.target+4,progress:0,reward:Math.round(reward*1.6)};state.journal.unshift(`Контракт выполнен: +${reward} монет и 80 XP.`);note(`Контракт выполнен! +${reward} ◉`)}
-function settleAuctions(){const now=Date.now();state.auctions=state.auctions.filter(a=>{if(a.endsAt>now)return true;state.coins+=a.bid;state.total+=a.bid;state.auctionLog.unshift(`${a.fish.name} продана на аукционе за ${a.bid} ◉.`);return false});state.auctionLog=state.auctionLog.slice(0,4)}
-const auctionEligible=(fish)=>fish.rarity>=3||['trophy','record'].includes(fish.quality);
-const auctionStartBid=fish=>Math.round(price(fish)*(1.3+fish.rarity*.18));
-function auctionFish(id){const i=state.inventory.findIndex(f=>f.id==id),fish=state.inventory[i];if(!fish||!fish.clean||fish.favorite)return;if(!auctionEligible(fish)){note('На аукцион принимают эпический и более редкий либо трофейный улов.');return}state.inventory.splice(i,1);const bid=auctionStartBid(fish);state.auctions.unshift({id:Date.now()+Math.random(),fish,bid,bidders:1,endsAt:Date.now()+45000});state.journal.unshift(`Рыба выставлена на аукцион: ${fish.name}.`);openModal('auction')}
-function auctionTick(){let changed=false;state.auctions.forEach(a=>{if(a.endsAt>Date.now()&&Math.random()<.45){a.bid+=Math.max(10,Math.round(a.bid*.08));a.bidders++;changed=true}});const active=state.auctions.length;settleAuctions();if(active!==state.auctions.length){note('Аукционный лот продан — монеты зачислены.');render();return}if(changed&&$('auction').classList.contains('open'))renderAuctions();if(changed)save()}
-setInterval(auctionTick,1500);
-function cutFish(id){const f=state.inventory.find(x=>x.id==id);if(!f||f.clean||f.favorite)return;if(state.knives<Math.min(f.rarity,5)){note('Нужен нож поострее!');return}f.cuts++;if(f.cuts>=cutsNeeded()){f.clean=true;state.materials.fish++;state.journal.unshift(`Рыба очищена: ${f.name}`);note(`${f.name} готова к продаже. +1 рыбный материал.`)}render()}
-let butcherFishId=null,butcherDragging=false,butcherStart=null;
-function updateButcherTable(){const fish=state.inventory.find(f=>f.id===butcherFishId),needed=cutsNeeded();if(!fish){closeButcherTable();return}$('butcherFishImage').src=fish.image||fishImages[fish.name]||'assets/freshwater-fish.png';$('butcherFishImage').alt=fish.name;$('butcherProgress').textContent=`${gear.knives[state.knives-1][0]} · ${fish.cuts} / ${needed} надрізів`;$('butcherKnife').innerHTML=gearIcon('knives',state.knives);}
-function autoClean(){cancelCharge();if(casting)loseFish('Снасть витягнуто перед розбиранням.');const fish=state.inventory.find(f=>!f.clean&&!f.favorite&&state.knives>=f.rarity);if(!fish){note('Нет рыбы для разделки: нужен нож поострее.');return}butcherFishId=fish.id;updateButcherTable();$('butcherTable').classList.add('open');$('butcherTable').setAttribute('aria-hidden','false')}
-function closeButcherTable(){$('butcherTable').classList.remove('open');$('butcherTable').setAttribute('aria-hidden','true');butcherFishId=null;butcherDragging=false}
-function finishButcherAutoClean(){const fish=state.inventory.filter(f=>!f.clean&&!f.favorite&&state.knives>=f.rarity);if(!fish.length){note('Нет рыбы, которую можно очистить текущим ножом.');return}fish.forEach(f=>{f.cuts=cutsNeeded();f.clean=true});state.materials.fish+=fish.length;state.journal.unshift(`Автоматически очищено рыб: ${fish.length}`);note(`Самоочистка завершена: очищено рыб — ${fish.length}.`);closeButcherTable();render()}
-function butcherCut(e){const fish=state.inventory.find(f=>f.id===butcherFishId);if(!fish||fish.clean||fish.favorite||!butcherDragging)return;butcherDragging=false;const distance=Math.hypot(e.clientX-butcherStart.x,e.clientY-butcherStart.y);if(distance<22)return;fish.cuts++;if(fish.cuts>=cutsNeeded()){fish.clean=true;state.materials.fish++;state.journal.unshift(`Рыба очищена на столе: ${fish.name}`);note(`${fish.name} готова к продаже.`);closeButcherTable();render();return}updateButcherTable();renderKeepnet();save()}
-function price(f){const quality=qualityOf(f),perKg=f.pricePerKg||fishPrices[f.name]||f.basePrice||rarities[f.rarity-1].value,smokehouse=1+state.base.smokehouse*.1;return Math.max(1,Math.round(f.weight*perKg*rarities[f.rarity-1].multiplier*quality.multiplier*marketMultiplier(f)*smokehouse*(petBonus('money')?1.2:1)))}
-function unlockAchievement(id){if(state.achievements[id])return;const achievement=achievements.find(item=>item.id===id);if(!achievement)return;state.achievements[id]=true;state.coins+=achievement.reward;state.total+=achievement.reward;state.journal.unshift(`Достижение «${achievement.name}»: +${achievement.reward} ◉.`);note(`Достижение: ${achievement.name}! +${achievement.reward} ◉`) }
-function ensureTournament(){const day=new Date().toISOString().slice(0,10);if(state.tournament?.day===day)return state.tournament;const seed=[...day].reduce((sum,char)=>sum+char.charCodeAt(0),0);state.tournament={day,heaviest:0,valuable:0,streak:0,bestStreak:0,rivals:{heaviest:[3+(seed%4),5+(seed%5),8+(seed%7)],valuable:[120+(seed%100),220+(seed%180),400+(seed%280)],streak:[2+(seed%3),4+(seed%4),6+(seed%5)]}};return state.tournament}
-const tournamentRank=(type)=>{const tournament=ensureTournament(),score=type==='heaviest'?tournament.heaviest:type==='valuable'?tournament.valuable:tournament.bestStreak;return 1+tournament.rivals[type].filter(value=>value>score).length};
-function updateTournament(catches){const tournament=ensureTournament();tournament.streak+=catches.length;tournament.bestStreak=Math.max(tournament.bestStreak,tournament.streak);catches.forEach(fish=>{tournament.heaviest=Math.max(tournament.heaviest,fish.weight);tournament.valuable=Math.max(tournament.valuable,price(fish))});if(tournamentRank('heaviest')===1)unlockAchievement('dailyRecord')}
-function resetTournamentStreak(){const tournament=ensureTournament();tournament.streak=0}
-function addTreasure(){const treasure=treasures.find(item=>Math.random()<item.chance);if(!treasure)return;state.treasures.unshift({...treasure,foundAt:state.location});state.treasures=state.treasures.slice(0,24);for(const [material,amount] of Object.entries(treasure.materials))state.materials[material]+=amount;if(treasure.value){state.coins+=treasure.value;state.total+=treasure.value}if(treasure.reputation){state.reputation+=treasure.reputation;state.localReputation[state.location]=localRep(state.location)+treasure.reputation}note(`Найдено: ${treasure.icon} ${treasure.name}${treasure.value?` · +${treasure.value} ◉`:''}.`) }
-function rewardMaterials(catches){catches.forEach(fish=>{state.localReputation[fish.location]=localRep(fish.location)+1;state.materials.plants+=Math.random()<.35?1:0;state.materials.worms+=Math.random()<.22?1:0;state.materials.shells+=fish.location==='baltic'&&Math.random()<.4?1:0;if(fish.rarity>=3&&state.base.aquarium)state.reputation+=state.base.aquarium;addTreasure()})}
-function updateAchievements(catches){if(catches.some(fish=>fish.rarity===5))unlockAchievement('legendary');const blackSea=locations.blackSea.fish.every(name=>state.discovered.includes(name));if(blackSea)unlockAchievement('blackSea');catches.filter(fish=>fish.boss).forEach(fish=>state.bossKills[fish.boss]=(state.bossKills[fish.boss]||0)+1)}
-function craftBait(id){const recipe=craftRecipes.find(item=>item.bait===id);if(!recipe)return;for(const [material,amount] of Object.entries(recipe.needs))if((state.materials[material]||0)<amount){note(`Не хватает материала: ${material}.`);return}for(const [material,amount] of Object.entries(recipe.needs))state.materials[material]-=amount;state.baitStock[id]=(state.baitStock[id]||0)+recipe.amount;state.bait=id;state.journal.unshift(`Создано: ${recipe.name} ×${recipe.amount}.`);render()}
-function traderOffer(){return baitTypes[Math.min(baitTypes.length-1,Math.floor((locationLevels[state.location]-1)/2)+1)]}
-function buyTraderBait(){const bait=traderOffer(),cost=Math.max(1,Math.ceil(bait.price*.65));if(localRep(state.location)<10){note('Местный торговец доверяет с 10 репутации локации.');return}if(state.coins<cost)return;state.coins-=cost;state.baitStock[bait.id]=(state.baitStock[bait.id]||0)+3;state.bait=bait.id;state.journal.unshift(`Покупка у местного торговца: ${bait.name} ×3.`);render()}
-function upgradeSkill(id){if(!(id in state.skills)||skillPoints()<1||state.skills[id]>=5)return;state.skills[id]++;state.journal.unshift(`Улучшен навык: ${id}.`);render()}
-function sell(id){const i=state.inventory.findIndex(x=>x.id==id);if(i<0)return;const f=state.inventory[i];if(f.favorite)return;if(!f.clean){note('Сначала разделайте рыбу.');return}state.inventory.splice(i,1);const earned=price(f);state.coins+=earned;state.total+=earned;state.journal.unshift(`Продано: ${f.name} за ${earned} монет.`);render()}
-function sellAll(){const cleaned=state.inventory.filter(f=>f.clean&&!f.favorite);if(!cleaned.length){note('В садке нет очищенной рыбы.');return}const earned=cleaned.reduce((n,f)=>n+price(f),0);state.inventory=state.inventory.filter(f=>!f.clean||f.favorite);state.coins+=earned;state.total+=earned;state.journal.unshift(`Продано очищенной рыбы на ${earned} монет.`);render()}
-let marketRequest='clean';
-function openMarketRequest(type){
-  if(!['trophy','clean','order'].includes(type))return;
-  marketRequest=type;openModal('marketRequests');$('marketRequestTitle').focus();
-}
-function marketRequestMatches(fish){
-  return marketRequest==='trophy'?auctionEligible(fish):marketRequest==='order'?fish.name===dailyMarket().fish:fish.clean;
-}
-function marketRequestOffers(){
-  const market=dailyMarket(),localPool=locations[state.location].fishPool,allFish=Object.values(locations).flatMap(location=>location.fishPool);
-  const names=marketRequest==='order'?[market.fish]:[...new Set([...localPool.map(fish=>fish.name),...state.inventory.filter(marketRequestMatches).map(fish=>fish.name)])];
-  return names.map(name=>{
-    const species=localPool.find(fish=>fish.name===name)||state.inventory.find(fish=>fish.name===name)||allFish.find(fish=>fish.name===name);
-    const fish={...species,name,weight:1,quality:marketRequest==='trophy'?'trophy':'normal'};
-    return {fish,value:marketRequest==='trophy'?auctionStartBid(fish):price(fish),where:Object.values(locations).filter(location=>location.fish.includes(name)).map(location=>location.name)};
-  });
-}
-function renderMarketRequest(){
-  if(!$('marketRequests').classList.contains('open'))return;
-  const market=dailyMarket(),trophy=marketRequest==='trophy',order=marketRequest==='order';
-  $('marketRequestTitle').textContent=trophy?'Трофейний улов':order?'Замовлення дня':'Приймаємо очищену рибу';
-  $('marketRequestTerms').textContent=trophy?'Потрібна очищена риба епічної або вищої рідкості, або будь-яка риба трофейної чи рекордної якості. Нижче — стартові ставки за 1 кг трофейної якості. Ставки покупців можуть зростати.':order?`Сьогодні шукаємо: ${market.fish}. Доплата +${Math.round(market.bonus*100)}% уже включена в ціну. Будь-яка вага та якість; перед продажем очистіть рибу. Ціна нижче — за 1 кг звичайної якості. Замовлення змінюється о 00:00 UTC.`:`Приймаємо будь-яку очищену рибу без обмеження ваги чи кількості. Нижче — запити для локації «${locations[state.location].name}» та види з вашого садка. Ціни за 1 кг звичайної якості; трофеї та рекорди коштують більше.`;
-  $('marketOffers').innerHTML=marketRequestOffers().map(({fish,value,where})=>`<article class="market-offer ${order?'daily-order':''}"><img src="${fish.image||fishImages[fish.name]}" alt="${fish.name}" loading="lazy"><div><small>ПОТРІБНО · ${rarities[fish.rarity-1].name}</small><h3>${fish.name}</h3><b>${trophy?'Старт аукціону: ':''}${value} ◉ / 1 кг</b><p>${trophy?'Трофейна якість · очищена':'Будь-яка якість · очищена'}${order?` · +${Math.round(market.bonus*100)}%`:''}</p><small>Де ловити: ${where.join(' · ')||locations[fish.location]?.name||'дивіться альбом улову'}</small></div></article>`).join('');
-  const matches=state.inventory.filter(marketRequestMatches),ready=matches.filter(fish=>fish.clean&&!fish.favorite);
-  $('marketRequestCount').textContent=`Готово: ${ready.length} / ${matches.length}`;
-  $('marketRequestFish').innerHTML=matches.length?matches.map(renderFishCard).join(''):'<p class="muted">Відповідної риби ще немає. Спіймайте її за запитом вище та принесіть до садка.</p>';
-}
-function renderKeepnet(){
-  const cleaned=state.inventory.filter(f=>f.clean&&!f.favorite),total=cleaned.reduce((sum,fish)=>sum+price(fish),0),protectedCount=state.inventory.filter(f=>f.favorite).length;
-  $('keepnetSummary').textContent=`До продажу: ${cleaned.length} · ${total} ◉${protectedCount?` · ★ ${protectedCount} захищено`:''}`;
-  $('sellAll').disabled=!cleaned.length;
-  $('sellAll').textContent=`Продати незахищену очищену рибу · ${total} ◉`;
-  $('keepnetList').innerHTML=state.inventory.length?state.inventory.map(renderFishCard).join(''):'<p class="muted">Садок порожній — час закинути вудку.</p>';
-}
-function renderFishCard(f){
-    const rarity=rarities[f.rarity-1],quality=qualityOf(f),needed=cutsNeeded();
-    const action=f.clean?`<button onclick="sell('${f.id}')" ${f.favorite?'disabled':''}>Продати ${price(f)} ◉</button>${auctionEligible(f)?`<button class="auction-button" onclick="auctionFish('${f.id}')" ${f.favorite?'disabled':''}>Аукціон від ${auctionStartBid(f)} ◉</button>`:''}`:`<button onclick="cutFish('${f.id}')" ${f.favorite||state.knives<Math.min(f.rarity,5)?'disabled':''}>Розібрати ${f.cuts}/${needed}</button><button class="release-button" onclick="releaseFish('${f.id}')" ${f.favorite||f.cuts>0?'disabled':''}>Відпустити · +${f.rarity+1} реп.</button>`;
-    return `<article class="fish-card ${f.favorite?'protected-fish':''}" data-fish-id="${f.id}" style="--rarity:${rarity.color}"><span class="fish-icon">${fishIcon(f.rarity)}</span><div class="fish-info"><b>${f.name}</b><br><small>${rarity.name} · ${quality.name} · ${fishWeight(f)} · ${price(f)} ◉${marketMultiplier(f)>1?' · замовлення ринку':''}${f.clean?' · очищена':''}</small>${!f.clean?`<div class="cut-progress"><i style="width:${Math.min(100,f.cuts/needed*100)}%"></i></div>`:''}</div><div class="fish-actions"><button class="favorite-button" aria-pressed="${!!f.favorite}" onclick="toggleFavorite('${f.id}')">${f.favorite?'★ Захищено':'☆ Трофей'}</button>${action}</div></article>`;
-}
-function selectMap(region){if(region!=='home'&&!travelRegions[region])return;mapRegion=region;renderMap()}
-function setTravelDays(days){state.travelDays=Math.max(1,Math.min(10,Number(days)||1));renderMap()}
-Object.assign(window,{selectMap,setTravelDays,bookTrip,returnHome});
-function bookTrip(region,spotKey){const destination=travelRegions[region],spot=destination?.spots.find(([key])=>key===spotKey)||destination?.spots[0],target=spot&&locations[spot[0]],currentTrip=activeTrip();if(!destination||!target)return;if(currentTrip&&currentTrip.region!==region){note('Сначала завершите текущую экспедицию или вернитесь домой.');return}const days=state.travelDays,cost=days*target.stayCost;if(playerLevel()<destination.level||state.reputation<destination.reputation){note(`Для экспедиции нужны уровень ${destination.level} и репутация ${destination.reputation}.`);return}if(state.coins<cost){note(`Недостаточно монет: экспедиция стоит ${cost} ◉.`);return}state.coins-=cost;state.trip={region,days,until:Date.now()+days*86400000};state.location=spot[0];state.npcQuest=null;state.journal.unshift(`Забронирована экспедиция: ${target.name}, ${days} дн. за ${cost} ◉.`);closeAll();$('scene').animate([{opacity:.1},{opacity:1}],{duration:600});render();note(`Экспедиция в ${target.name}: ${days} дн. у вас в распоряжении.`)}
-function returnHome(){if(!state.trip)return;state.trip=null;state.location='pier';state.npcQuest=null;state.journal.unshift('Вы досрочно вернулись из экспедиции.');closeAll();render();note('Возвращение на Лесное озеро.')}
-function renderMap(){const trip=activeTrip(),region=travelRegions[mapRegion],tabs=`<nav class="region-tabs"><button class="${mapRegion==='home'?'active':''}" onclick="selectMap('home')">🏠 Дом</button>${Object.entries(travelRegions).map(([key,data])=>`<button class="${mapRegion===key?'active':''}" onclick="selectMap('${key}')">${data.icon} ${data.name}</button>`).join('')}</nav>`,tripPanel=region?(()=>{const progressLocked=playerLevel()<region.level||state.reputation<region.reputation,active=trip?.region===mapRegion;if(active){const left=Math.max(1,Math.ceil((trip.until-Date.now())/86400000));return `<section class="travel-planner active-trip"><b>${region.icon} Экспедиция активна · ещё ${left} дн.</b><small>Открыты все 5 точек карты ${region.name}.</small><button onclick="returnHome()">Вернуться домой</button></section>`}return `<section class="travel-planner"><b>${region.icon} Экспедиция: ${region.name}</b><label>Срок <input type="range" min="1" max="10" value="${state.travelDays}" oninput="setTravelDays(this.value)"> <strong>${state.travelDays} дн.</strong></label><small>Выберите точку ниже: у каждой своя цена за день · уровень ${region.level} · репутация ${region.reputation}${progressLocked?' · пока закрыто':''}</small></section>`})():`<p class="travel-hint">Выберите зарубежную карту: каждая открывает пять мест после бронирования экспедиции на 1–10 дней.</p>`,keys=region?region.spots.map(([key])=>key):Object.keys(locations).filter(key=>!locations[key].region),cards=keys.map(key=>{const l=locations[key],needed=locationLevels[key],reputation=locationReputation[key],progressLocked=playerLevel()<needed||state.reputation<reputation,travelLocked=l.region&&(!trip||trip.region!==l.region),booking=travelLocked&&!progressLocked,price=l.stayCost?state.travelDays*l.stayCost:0,status=state.location===key?'Вы здесь':progressLocked?'Закрыто':booking?`Бронь ${state.travelDays} дн. · ${price} ◉`:'Отправиться',action=booking?`bookTrip('${l.region}','${key}')`:`changeLocation('${key}')`,disabled=state.location===key||progressLocked;return `<article class="location-card ${l.region?'expedition-spot':''}" style="--scene:url('${l.image}')"><h3>${l.name}</h3><p>${l.desc}<br><small>Клюёт: ${l.fish.join(' · ')}</small><br><small>Уровень ${needed} · репутация ${reputation}${l.region?` · ${l.stayCost} ◉/день`:''}</small></p><button onclick="${action}" ${disabled?'disabled':''}>${status}</button></article>`}).join('');$('locationGrid').innerHTML=`${tabs}${tripPanel}<div class="map-card-grid">${cards}</div>`}
-function changeLocation(key){if(key===state.location)return;const location=locations[key],needed=locationLevels[key],reputation=locationReputation[key],trip=activeTrip();if(playerLevel()<needed||state.reputation<reputation){note(`Для этой локации нужны уровень ${needed} и репутация ${reputation}.`);return}if(location.region&&trip?.region!==location.region){note('Сначала забронируйте экспедицию в эту страну.');return}state.location=key;state.npcQuest=null;state.journal.unshift(`Вы отправились: ${location.name}.`);closeAll();$('scene').animate([{opacity:.1},{opacity:1}],{duration:600});render();note(`Новая локация: ${location.name}.`) }
-function renderBag(){const limits=tackleLimits(),bait=activeBait();$('bagContent').innerHTML=[['🎣','Удочка',gear.rods[state.rods-1].name,`Макс. вес: ${limits.rod} кг`],['🧵','Леска',gear.lines[state.lines-1][0],`Разрывная нагрузка: ${limits.line} кг`],['🪝','Крючки',gear.hooks[state.hooks-1][0],`До ${limits.hook} кг · до ${state.hooks} уловов за заброс`],['⚙','Катушка',gear.reels[state.reels-1][0],`Швидкість: ×${limits.reel.toFixed(2)} · гальмо: ${limits.brake} кг`],['🔪','Нож',gear.knives[state.knives-1][0],`Разделка: ${cutsNeeded()} действия`],['🎈','Поплавок',gear.floats[state.floats-1][0],`Поклёвка быстрее: ${state.floats-1}`],['🪱','Наживка',bait.name,`Осталось: ${baitCount()} · бонус редкости: +${bait.rarity}`]].map(x=>`<div><b>${x[0]} ${x[1]}</b><p>${x[2]}<br><small>${x[3]}</small></p></div>`).join('')}
-function renderProfile(){const limits=tackleLimits();$('profileContent').innerHTML=`<div><b>Рыбак · уровень ${playerLevel()}</b><p>XP: ${state.xp}<br>Баланс: ${state.coins.toLocaleString('ru-RU')} ◉<br>Репутация: ${state.reputation}<br>Відпущено риб: ${state.released}<br>Точних закидів з уловом: ${state.perfectCasts}</p></div><div><b>Коллекционер</b><p>Открыто видов: ${state.discovered.length} / ${Object.keys(fishImages).length}<br>Лучший улов: ${state.best}</p></div><div><b>Навыки</b><p>Свободных очков: ${skillPoints()}<br>Точность ${state.skills.casting}/5 · подсечка ${state.skills.hook}/5 · трофей ${state.skills.trophy}/5</p></div><div><b>Экипировка</b><p>Удочка ${roman(state.rods)} · до ${limits.rod} кг<br>Леска ${roman(state.lines)} · до ${limits.line} кг<br>Катушка ${gear.reels[state.reels-1][0]} · ×${limits.reel.toFixed(2)} · гальмо ${limits.brake} кг${state.questReel?' · катушка инспектора +12%':''}</p></div>`}
-function renderJournal(){$('journalContent').innerHTML=state.journal.map(x=>`<p>${x}</p>`).join('')}
-function renderIndex(){const species=[...new Map(Object.values(locations).flatMap(location=>location.fishPool.map(fish=>[fish.name,fish]))).values()],all=[...species,...bosses.map(boss=>({name:boss.name,rarity:5,pricePerKg:boss.pricePerKg,image:fishImages[boss.base],boss}))];$('indexContent').innerHTML=all.map(fish=>{const known=state.discovered.includes(fish.name),rarity=rarities[fish.rarity-1],visual=known?`<img class="index-photo" src="${fish.image||fishImages[fish.name]}" alt="${fish.name}">`:`<span class="fish-icon">🐟</span>`,record=state.records[fish.name],where=fish.boss?fish.boss.locations:Object.entries(locations).filter(([,location])=>location.fish.includes(fish.name)).map(([,location])=>location.name),description=fishDescriptions[fish.name]||`${fish.boss?'Уникальный босс':'Вид, обитающий в местных водах'}.`;return `<article class="index-card ${known?'':'locked'}">${visual}<strong style="color:${known?rarity.color:'inherit'}">${known?fish.name:'???'}</strong><small>${known?`${description}<br>${rarity.name} · ${fish.pricePerKg||fishPrices[fish.name]} ◉/кг${record?` · рекорд ${record.toFixed(record<1?2:1)} кг`:''}<br>Локации: ${where.join(' · ')}`:'Неизвестный вид'}</small></article>`}).join('')}
-function renderProgress(){const root=$('progressContent');if(!root)return;const tournament=ensureTournament(),materialNames={plants:'🌿 растения',worms:'🪱 черви',shells:'🐚 раковины',fish:'🐟 рыбный материал'},leaderboard=(type,label,unit)=>{const score=type==='heaviest'?tournament.heaviest:type==='valuable'?tournament.valuable:tournament.bestStreak,names=['Рыбак Лев','Марина','Тарас'],rows=[{name:'Вы',score},...tournament.rivals[type].map((value,index)=>({name:names[index],score:value}))].sort((a,b)=>b.score-a.score);return `<div class="leaderboard"><b>${label}</b>${rows.map((row,index)=>`<small class="${row.name==='Вы'?'you':''}">${index+1}. ${row.name} — ${row.score.toFixed(type==='heaviest'?1:0)} ${unit}</small>`).join('')}</div>`};const offer=traderOffer(),offerCost=Math.ceil(offer.price*.65);root.innerHTML=`<div class="progress-grid"><article><h3>Достижения</h3>${achievements.map(item=>`<p class="progress-row ${state.achievements[item.id]?'done':''}"><b>${state.achievements[item.id]?'✓':'○'} ${item.name}</b><small>${item.desc} · ${item.reward} ◉</small></p>`).join('')}</article><article><h3>Материалы и крафт</h3><p>${Object.entries(materialNames).map(([id,name])=>`${name}: <b>${state.materials[id]}</b>`).join('<br>')}</p>${craftRecipes.map(recipe=>{const ready=Object.entries(recipe.needs).every(([id,amount])=>state.materials[id]>=amount),needs=Object.entries(recipe.needs).map(([id,amount])=>`${materialNames[id]} ×${amount}`).join(' · ');return `<p class="progress-row"><b>${recipe.name} ×${recipe.amount}</b><small>${needs}</small><button onclick="craftBait('${recipe.bait}')" ${ready?'':'disabled'}>Создать</button></p>`}).join('')}</article><article><h3>Навыки · ${skillPoints()} очков</h3>${[['casting','Точность заброса','Точнее влияет на качество.'],['hook','Сила подсечки','Снижает натяжение при вываживании.'],['trophy','Шанс трофея','Повышает шанс трофейного качества.']].map(([id,name,desc])=>`<p class="progress-row"><b>${name} ${state.skills[id]}/5</b><small>${desc}</small><button onclick="upgradeSkill('${id}')" ${!skillPoints()||state.skills[id]>=5?'disabled':''}>+1</button></p>`).join('')}</article><article><h3>Местный торговец</h3><p>Репутация ${locations[state.location].name}: <b>${localRep(state.location)}</b> / 10</p><small>Предложение: ${offer.name} ×3 за ${offerCost} ◉</small><button onclick="buyTraderBait()" ${localRep(state.location)<10||state.coins<offerCost?'disabled':''}>Купить у торговца</button></article><article class="tournament-card"><h3>Турнир дня</h3>${leaderboard('heaviest','Самая большая рыба','кг')}${leaderboard('valuable','Самый дорогой улов','◉')}${leaderboard('streak','Самая длинная серия','шт.')}</article><article><h3>Сокровища</h3>${state.treasures.length?state.treasures.slice(0,6).map(treasure=>`<p class="progress-row"><b>${treasure.icon} ${treasure.name}</b><small>${locations[treasure.foundAt]?.name||''}</small></p>`).join(''):'<p class="muted">Редкие находки появляются во время рыбалки.</p>'}</article><article class="boss-card"><h3>Уникальные боссы</h3>${bosses.map(boss=>`<p class="progress-row"><b>${state.bossKills[boss.id]?'✓':'○'} ${boss.name}</b><small>${boss.locations.map(key=>locations[key].name).join(' · ')} · побеждено: ${state.bossKills[boss.id]||0}</small></p>`).join('')}</article></div>`}
-function renderReelsShop(){const active=state.reels,content=$('shopContent');content.classList.add('reel-items');content.innerHTML=gear.reels.map(([name,cost,speed,brake],index)=>{const level=index+1,owned=state.ownedReels.includes(level),equipped=active===level,action=equipped?'Встановлено':owned?'Встановити':`Купити · ${cost.toLocaleString('ru-RU')} ◉`;return `<article class="shop-card reels ${equipped?'current':''}"><div class="reel-title"><small>КОТУШКА</small><h3>${name}</h3><b>Швидкість ×${speed.toFixed(2)}</b></div><div class="reel-showcase"><img class="reel-photo" src="${reelImages[index]}" alt="${name}" loading="lazy"><div><p>${reelDescriptions[index]}<br><small>Сила гальма: ${brake} кг</small></p><button onclick="buyReel(${level})" ${!owned&&state.coins<cost?'disabled':''}>${action}</button></div></div></article>`}).join('');document.querySelectorAll('[data-shop]').forEach(button=>button.classList.toggle('active',button.dataset.shop===shop))}
-function renderShop(){if(shop==='reels'){renderReelsShop();return}const content=$('shopContent');content.classList.remove('reel-items');if(shop==='sonar'){const price=2500;content.innerHTML=`<article class="shop-card sonar ${state.sonar?'current':''}"><span class="sonar-icon">📡</span><small>НАВИГАЦИОННОЕ ОБОРУДОВАНИЕ</small><h3>Эхолот «Глубина»</h3><p>Показывает рельеф дна, глубину и натяжение снасти во время ловли.</p><button onclick="buySonar()" ${state.sonar||state.coins<price?'disabled':''}>${state.sonar?'Установлен':`Купить · ${price.toLocaleString('ru-RU')} ◉`}</button></article>`;document.querySelectorAll('[data-shop]').forEach(button=>button.classList.toggle('active',button.dataset.shop===shop));return}if(shop==='baits'){content.innerHTML=baitTypes.map(bait=>{const stock=state.baitStock[bait.id]||0,selected=state.bait===bait.id,targets=bait.species.length?bait.species.join(' · '):'обычный улов';return `<article class="shop-card baits ${selected?'current':''}"><small>НАБОР ×${bait.amount}</small><h3>${bait.name}</h3><p>Осталось: ${stock}<br><small>Цель: ${targets}</small></p><button onclick="buyBait('${bait.id}')" ${state.coins<bait.price?'disabled':''}>Купить · ${bait.price} ◉</button><button onclick="selectBait('${bait.id}')" ${!stock||selected?'disabled':''}>${selected?'Выбрана':'Использовать'}</button></article>`}).join('');document.querySelectorAll('[data-shop]').forEach(button=>button.classList.toggle('active',button.dataset.shop===shop));return}const list=gear[shop],descriptions={rods:(level)=>`Макс. вес рыбы: ${gear.rods[level-1].maxWeight} кг.`,lines:(level)=>`Разрывная нагрузка: ${gear.lines[level-1][2]} кг.`,knives:()=>`Ускоряет обработку: сейчас ${cutsNeeded()} действия на рыбу.`,hooks:(level)=>`До ${gear.hooks[level-1][2]} кг и ${level} уловов за заброс.`,reels:(level)=>`Скорость вываживания: ×${gear.reels[level-1][2]}.`,floats:(level)=>`Ускоряет поклёвку на ${level-1} ступеней.`};content.innerHTML=list.map((g,i)=>{const level=i+1,owned=level<=state[shop],next=level===state[shop]+1,cost=shop==='rods'?g.price:g[1],name=shop==='rods'?g.name:g[0],picture=shop==='rods'?`<img class="shop-photo" src="${rodImages[i]}" alt="${name}">`:shop==='floats'?`<img class="shop-photo float-photo" src="${floatImages[i]}" alt="${name}">`:shop==='lines'?`<img class="shop-photo line-photo" src="${lineImages[i]}" alt="${name}">`:shop==='knives'?knifeArtwork(i,name):shop==='hooks'?hookArtwork(i,name):'';return `<article class="shop-card ${shop} ${level===state[shop]?'current':''}">${picture}<small>УРОВЕНЬ ${roman(level)}</small><h3>${name}</h3><p>${descriptions[shop](level)}</p><button ${(!next||state.coins<cost)?'disabled':''} onclick="buy('${shop}',${level})">${level===state[shop]?'Экипировано':owned?'Куплено':next?`Купить · ${cost} ◉`:'Сначала предыдущий уровень'}</button></article>`}).join('');document.querySelectorAll('[data-shop]').forEach(button=>button.classList.toggle('active',button.dataset.shop===shop))}
-function renderAuctions(){const root=$('auctionContent'),now=Date.now();root.innerHTML=state.auctions.length?state.auctions.map(a=>`<article class="auction-card"><span>${fishIcon(a.fish.rarity)}</span><div><b>${a.fish.name}</b><small>${a.bidders} покупателя · ${Math.max(1,Math.ceil((a.endsAt-now)/1000))} сек.</small></div><strong>${a.bid} ◉</strong></article>`).join(''):`<p class="muted">Нет активных лотов. Очистите рыбу и отправьте её на аукцион из садка.</p>`;if(state.auctionLog.length)root.innerHTML+=`<div class="auction-log">${state.auctionLog.map(x=>`<small>${x}</small>`).join('')}</div>`}
-function buy(type,level){const item=gear[type][level-1],cost=type==='rods'?item.price:item[1],name=type==='rods'?item.name:item[0];if(state[type]!==level-1||state.coins<cost)return;state.coins-=cost;state[type]=level;state.journal.unshift(`Куплено: ${name}.`);render()}
-function buyReel(level){const reel=gear.reels[level-1];if(!reel)return;const [name,cost]=reel,owned=state.ownedReels.includes(level);if(!owned&&state.coins<cost){note('Недостаточно монет для этой катушки.');return}if(!owned){state.coins-=cost;state.ownedReels.push(level);state.journal.unshift(`Куплена катушка: ${name}.`)}if(state.reels===level){render();return}state.reels=level;state.journal.unshift(`Установлена катушка: ${name}.`);note(`Установлена: ${name}.`);render()}
-function buySonar(){const price=2500;if(state.sonar||state.coins<price)return;state.coins-=price;state.sonar=true;state.journal.unshift('Куплен эхолот «Глубина».');note('Эхолот установлен: рельеф дна доступен.');render()}
-function buyBait(id){const bait=baitTypes.find(item=>item.id===id);if(!bait||state.coins<bait.price)return;state.coins-=bait.price;state.baitStock[id]=(state.baitStock[id]||0)+bait.amount;state.bait=id;state.journal.unshift(`Куплена наживка: ${bait.name} ×${bait.amount}.`);render()}
-function selectBait(id){if(!(state.baitStock[id]>0))return;state.bait=id;note(`Выбрана наживка: ${activeBait().name}.`);render()}
-function renderPets(){$('petContent').innerHTML=pets.map(p=>{const owned=state.pets.some(x=>x.name===p.name),open=state.total>=1000000;return `<article class="pet-card ${open?'':'locked'}"><span class="fish-icon">${p.icon}</span><h3>${p.name}</h3><p>${p.bonus}<br>Стоимость: ${p.price.toLocaleString('ru-RU')} ◉</p><button ${(!open||owned||state.coins<p.price)?'disabled':''} onclick="buyPet('${p.name}')">${owned?'Рядом с вами':open?`Подружиться · ${p.price} ◉`:'Доступно после 1 000 000 ◉'}</button></article>`}).join('')}
-function buyPet(name){const p=pets.find(x=>x.name===name);if(!p||state.coins<p.price||state.total<1000000)return;state.coins-=p.price;state.pets.push(p);state.journal.unshift(`Питомец присоединился: ${p.name}.`);render()}
-document.addEventListener('contextmenu',e=>e.preventDefault()); window.addEventListener('mousedown',startCharge);window.addEventListener('mousedown',startPull);window.addEventListener('mouseup',e=>{if(e.button===2)cast();if(e.button===0)stopPull(e)});$('autoClean').onclick=autoClean;$('sellAll').onclick=sellAll;$('closeButcher').onclick=closeButcherTable;$('butcherAutoClean').onclick=finishButcherAutoClean;$('butcherFish').addEventListener('pointerdown',e=>{butcherDragging=true;butcherStart={x:e.clientX,y:e.clientY};$('butcherFish').setPointerCapture(e.pointerId)});$('butcherFish').addEventListener('pointerup',butcherCut);$('butcherFish').addEventListener('pointercancel',()=>butcherDragging=false);document.querySelectorAll('[data-modal]').forEach(b=>b.onclick=()=>{if(b.dataset.shop){shop=b.dataset.shop}openModal(b.dataset.modal)});document.querySelectorAll('.close,.close-dialog').forEach(b=>b.onclick=closeAll);document.querySelectorAll('.shop-tabs button').forEach(b=>b.onclick=()=>{shop=b.dataset.shop;renderShop()});window.cutFish=cutFish;window.sell=sell;window.changeLocation=changeLocation;window.buy=buy;window.buyReel=buyReel;window.buySonar=buySonar;window.buyBait=buyBait;window.selectBait=selectBait;window.craftBait=craftBait;window.buyTraderBait=buyTraderBait;window.upgradeSkill=upgradeSkill;window.buyPet=buyPet;window.setTechnique=setTechnique;render();
+window.sell = sell;
 
-// Mouse, touch and keyboard all use the same fishing actions.
-for(const [id,start,finish] of [['castButton',beginCharge,cast],['pullButton',beginPull,()=>stopPull({button:0})]]){
-  const button=$(id);
-  button.addEventListener('pointerdown',event=>{
-    if(event.button!==0)return;
-    event.preventDefault();button.setPointerCapture(event.pointerId);start();
-  });
-  button.addEventListener('pointerup',event=>{if(event.button===0)finish()});
-  button.addEventListener('pointercancel',()=>{cancelCharge();stopPull({button:0})});
-  button.addEventListener('lostpointercapture',()=>{if(id==='castButton')cancelCharge();else stopPull({button:0})});
-  button.addEventListener('keydown',event=>{if(['Space','Enter'].includes(event.code)){event.preventDefault();event.stopPropagation();if(!event.repeat)start()}});
-  button.addEventListener('keyup',event=>{if(['Space','Enter'].includes(event.code)){event.preventDefault();event.stopPropagation();finish()}});
+function sellAll() {
+  const cleaned = state.inventory.filter(f => f.clean && !f.favorite);
+  if (!cleaned.length) { note('У садку немає очищеної незахищеної риби.'); return; }
+  const earned = cleaned.reduce((sum, f) => sum + price(f), 0);
+  state.inventory = state.inventory.filter(f => !f.clean || f.favorite);
+  state.coins += earned;
+  state.total += earned;
+  sound.playCoin();
+  state.journal.unshift(`Продано партію очищеної риби на ${earned} ◉.`);
+  note(`Продано ${cleaned.length} рибин на суму ${earned} ◉!`);
+  render();
 }
-window.addEventListener('keydown',event=>{
-  if(event.repeat||fishingBlocked()||event.target.closest('input,select,textarea,[contenteditable="true"]')||event.target.closest('button')&&!event.target.closest('.fishing-buttons'))return;
-  if(event.code==='Space'){event.preventDefault();beginCharge()}
-  if(event.code==='KeyR'){event.preventDefault();beginPull()}
+window.sellAll = sellAll;
+
+function renderKeepnet() {
+  const cleaned = state.inventory.filter(f => f.clean && !f.favorite);
+  const total = cleaned.reduce((sum, f) => sum + price(f), 0);
+  const protectedCount = state.inventory.filter(f => f.favorite).length;
+  $('keepnetSummary').textContent = `До продажу: ${cleaned.length} · ${total} ◉${protectedCount ? ` · ★ ${protectedCount} захищено` : ''}`;
+  $('sellAll').disabled = !cleaned.length;
+  $('sellAll').textContent = `Продати всю очищену рибу · ${total} ◉`;
+  $('keepnetList').innerHTML = state.inventory.length
+    ? state.inventory.map(renderFishCard).join('')
+    : '<p class="muted">Садок порожній — час закинути вудку!</p>';
+}
+
+function renderFishCard(f) {
+  const rarity = rarities[f.rarity - 1] || rarities[0];
+  const quality = qualityOf(f);
+  const needed = cutsNeeded();
+  const action = f.clean
+    ? `<button onclick="sell('${f.id}')" ${f.favorite ? 'disabled' : ''}>Продати ${price(f)} ◉</button>${auctionEligible(f) ? `<button class="auction-button" onclick="auctionFish('${f.id}')" ${f.favorite ? 'disabled' : ''}>Аукціон від ${auctionStartBid(f)} ◉</button>` : ''}`
+    : `<button onclick="cutFish('${f.id}')" ${f.favorite || state.knives < Math.min(f.rarity, 5) ? 'disabled' : ''}>Розрізати ${f.cuts}/${needed}</button><button class="release-button" onclick="releaseFish('${f.id}')" ${f.favorite || f.cuts > 0 ? 'disabled' : ''}>Відпустити · +${f.rarity + 1} реп.</button>`;
+
+  return `<article class="fish-card ${f.favorite ? 'protected-fish' : ''}" data-fish-id="${f.id}" style="--rarity:${rarity.color}">
+    <span class="fish-icon">${['🐠','🐟','🐡','🦈','🐉'][f.rarity-1] || '🐟'}</span>
+    <div class="fish-info">
+      <b>${f.name}</b><br>
+      <small>${rarity.name} · ${quality.name} · ${fishWeight(f)} · ${price(f)} ◉${marketMultiplier(f) > 1 ? ' · замовлення ринку' : ''}${f.clean ? ' · очищена' : ''}</small>
+      ${!f.clean ? `<div class="cut-progress"><i style="width:${Math.min(100, f.cuts / needed * 100)}%"></i></div>` : ''}
+    </div>
+    <div class="fish-actions">
+      <button class="favorite-button" aria-pressed="${!!f.favorite}" onclick="toggleFavorite('${f.id}')">${f.favorite ? '★ Захищено' : '☆ Трофей'}</button>
+      ${action}
+    </div>
+  </article>`;
+}
+
+// --------------------------------------------------------
+// Замовлення ринку та аукціон
+// --------------------------------------------------------
+let marketRequest = 'clean';
+function openMarketRequest(type) {
+  if (!['trophy','clean','order'].includes(type)) return;
+  marketRequest = type;
+  openModal('marketRequests');
+  $('marketRequestTitle').focus();
+}
+window.openMarketRequest = openMarketRequest;
+
+const auctionEligible = (f) => f.rarity >= 3 || ['trophy','record'].includes(f.quality);
+const auctionStartBid = (f) => Math.round(price(f) * (1.3 + f.rarity * 0.18));
+
+function auctionFish(id) {
+  const i = state.inventory.findIndex(f => f.id == id);
+  if (i < 0) return;
+  const f = state.inventory[i];
+  if (!f.clean || f.favorite || !auctionEligible(f)) return;
+  state.inventory.splice(i, 1);
+  const bid = auctionStartBid(f);
+  state.auctions.unshift({id: Date.now() + Math.random(), fish: f, bid, bidders: 1, endsAt: Date.now() + 45000});
+  state.journal.unshift(`Рибу виставлено на аукціон: ${f.name}.`);
+  openModal('auction');
+}
+window.auctionFish = auctionFish;
+
+function auctionTick() {
+  let changed = false;
+  const now = Date.now();
+  state.auctions.forEach(a => {
+    if (a.endsAt > now && Math.random() < 0.45) {
+      a.bid += Math.max(10, Math.round(a.bid * 0.08));
+      a.bidders++;
+      changed = true;
+    }
+  });
+  state.auctions = state.auctions.filter(a => {
+    if (a.endsAt > now) return true;
+    state.coins += a.bid;
+    state.total += a.bid;
+    sound.playCoin();
+    state.auctionLog.unshift(`${a.fish.name} продано на аукціоні за ${a.bid} ◉.`);
+    changed = true;
+    return false;
+  });
+  if (changed) {
+    if ($('auction').classList.contains('open')) renderAuctions();
+    save();
+  }
+}
+setInterval(auctionTick, 1500);
+
+function renderAuctions() {
+  const root = $('auctionContent'), now = Date.now();
+  root.innerHTML = state.auctions.length
+    ? state.auctions.map(a => `<article class="auction-card">
+        <span>${['🐠','🐟','🐡','🦈','🐉'][a.fish.rarity-1] || '🐟'}</span>
+        <div><b>${a.fish.name}</b><small>${a.bidders} покупців · залишилося ${Math.max(1, Math.ceil((a.endsAt - now) / 1000))} сек.</small></div>
+        <strong>${a.bid} ◉</strong>
+      </article>`).join('')
+    : '<p class="muted">Немає активних лотів. Очистіть епічну або трофейну рибу та відправте її на аукціон із садка.</p>';
+  if (state.auctionLog?.length) {
+    root.innerHTML += `<div class="auction-log">${state.auctionLog.slice(0, 4).map(x => `<small>${x}</small>`).join('')}</div>`;
+  }
+}
+
+function renderMarketRequest() {
+  if (!$('marketRequests').classList.contains('open')) return;
+  const market = dailyMarket(), trophy = marketRequest === 'trophy', order = marketRequest === 'order';
+  $('marketRequestTitle').textContent = trophy ? 'Трофейний улов' : order ? 'Замовлення дня' : 'Приймаємо очищену рибу';
+  $('marketRequestTerms').textContent = trophy
+    ? 'Потрібна очищена риба епічної чи вищої рідкості або рекордної якості. Стартові ставки вищі за ринкові ціни!'
+    : order
+      ? `Сьогодні шукаємо: ${market.fish}. Доплата +${Math.round(market.bonus * 100)}% нараховується при продажу.`
+      : `Приймаємо будь-яку очищену рибу без обмежень. Чим вища вага та якість — тим більше монет!`;
+
+  const pool = locations[state.location].fishPool;
+  $('marketOffers').innerHTML = pool.map(item => `<article class="market-offer">
+    <img src="${fishImages[item.name] || 'assets/freshwater-fish.png'}" alt="${item.name}" loading="lazy">
+    <div>
+      <small>${rarities[item.rarity-1].name}</small>
+      <h3>${item.name}</h3>
+      <b>${price({...item, weight:1, quality:'normal'})} ◉ / 1 кг</b>
+      <p>${fishDescriptions[item.name] || 'Місцевий вид водойми.'}</p>
+    </div>
+  </article>`).join('');
+}
+
+// --------------------------------------------------------
+// Магазини курорту
+// --------------------------------------------------------
+function renderShop() {
+  if (shop === 'reels') { renderReelsShop(); return; }
+  const content = $('shopContent');
+  content.classList.remove('reel-items');
+
+  if (shop === 'sonar') {
+    const p = 2500;
+    content.innerHTML = `<article class="shop-card sonar ${state.sonar ? 'current' : ''}">
+      <span class="sonar-icon">📡</span>
+      <small>НАВІГАЦІЙНЕ ОБЛАДНАННЯ</small>
+      <h3>Ехолот «Глибина»</h3>
+      <p>Відображає реальний рельєф дна водойми, точну глибину та навантаження снасті.</p>
+      <button onclick="buySonar()" ${state.sonar || state.coins < p ? 'disabled' : ''}>
+        ${state.sonar ? 'Встановлено' : `Купити · ${p.toLocaleString('uk-UA')} ◉`}
+      </button>
+    </article>`;
+    updateShopTabs();
+    return;
+  }
+
+  if (shop === 'baits') {
+    content.innerHTML = baitTypes.map(bait => {
+      const stock = state.baitStock[bait.id] || 0;
+      const selected = state.bait === bait.id;
+      return `<article class="shop-card baits ${selected ? 'current' : ''}">
+        <small>НАБІР ×${bait.amount}</small>
+        <h3>${bait.name}</h3>
+        <p>Запас: ${stock} шт.<br><small>Цільова риба: ${bait.species.length ? bait.species.join(' · ') : 'будь-яка здобич'}</small></p>
+        <button onclick="buyBait('${bait.id}')" ${state.coins < bait.price ? 'disabled' : ''}>Купити · ${bait.price} ◉</button>
+        <button onclick="selectBait('${bait.id}')" ${!stock || selected ? 'disabled' : ''}>${selected ? 'Обрана' : 'Використати'}</button>
+      </article>`;
+    }).join('');
+    updateShopTabs();
+    return;
+  }
+
+  const list = gear[shop];
+  const descs = {
+    rods: (lvl) => `Максимальна вага улову: ${gear.rods[lvl-1].maxWeight} кг.`,
+    lines: (lvl) => `Розривне навантаження: ${gear.lines[lvl-1][2]} кг.`,
+    knives: () => `Швидкість розбирання: зараз ${cutsNeeded()} надрізи на рибу.`,
+    hooks: (lvl) => `До ${gear.hooks[lvl-1][2]} кг та ${lvl} уловів за один закид.`,
+    reels: (lvl) => `Швидкість виважування: ×${gear.reels[lvl-1][2]}.`,
+    floats: (lvl) => `Прискорює клювання на ${lvl-1} ступенів.`
+  };
+
+  content.innerHTML = list.map((g, i) => {
+    const level = i + 1, owned = level <= state[shop], next = level === state[shop] + 1;
+    const cost = shop === 'rods' ? g.price : g[1];
+    const name = shop === 'rods' ? g.name : g[0];
+    const pic = shop === 'rods' ? `<img class="shop-photo" src="${rodImages[i]}" alt="${name}">`
+      : shop === 'floats' ? `<img class="shop-photo float-photo" src="${floatImages[i]}" alt="${name}">`
+      : shop === 'lines' ? `<img class="shop-photo line-photo" src="${lineImages[i]}" alt="${name}">` : '';
+
+    return `<article class="shop-card ${shop} ${level === state[shop] ? 'current' : ''}">
+      ${pic}
+      <small>РІВЕНЬ ${roman(level)}</small>
+      <h3>${name}</h3>
+      <p>${descs[shop](level)}</p>
+      <button ${!next || state.coins < cost ? 'disabled' : ''} onclick="buy('${shop}',${level})">
+        ${level === state[shop] ? 'Екіпіровано' : owned ? 'Куплено' : next ? `Купити · ${cost} ◉` : 'Спочатку попередній рівень'}
+      </button>
+    </article>`;
+  }).join('');
+  updateShopTabs();
+}
+
+function updateShopTabs() {
+  document.querySelectorAll('[data-shop]').forEach(b => b.classList.toggle('active', b.dataset.shop === shop));
+}
+
+function renderReelsShop() {
+  const active = state.reels, content = $('shopContent');
+  content.classList.add('reel-items');
+  content.innerHTML = gear.reels.map(([name, cost, speed, brake], index) => {
+    const level = index + 1, owned = state.ownedReels.includes(level), equipped = active === level;
+    const action = equipped ? 'Встановлено' : owned ? 'Встановити' : `Купити · ${cost.toLocaleString('uk-UA')} ◉`;
+    return `<article class="shop-card reels ${equipped ? 'current' : ''}">
+      <div class="reel-title"><small>КОТУШКА</small><h3>${name}</h3><b>Швидкість ×${speed.toFixed(2)}</b></div>
+      <div class="reel-showcase">
+        <img class="reel-photo" src="${reelImages[index]}" alt="${name}" loading="lazy">
+        <div>
+          <p>${reelDescriptions[index]}<br><small>Сила гальма: ${brake} кг</small></p>
+          <button onclick="buyReel(${level})" ${!owned && state.coins < cost ? 'disabled' : ''}>${action}</button>
+        </div>
+      </div>
+    </article>`;
+  }).join('');
+  updateShopTabs();
+}
+
+function buy(type, level) {
+  const item = gear[type][level - 1];
+  const cost = type === 'rods' ? item.price : item[1];
+  const name = type === 'rods' ? item.name : item[0];
+  if (state[type] !== level - 1 || state.coins < cost) return;
+  state.coins -= cost;
+  state[type] = level;
+  sound.playCoin();
+  state.journal.unshift(`Куплено спорядження: ${name}.`);
+  render();
+}
+window.buy = buy;
+
+function buyReel(level) {
+  const reel = gear.reels[level - 1];
+  if (!reel) return;
+  const [name, cost] = reel, owned = state.ownedReels.includes(level);
+  if (!owned && state.coins < cost) { note('Недостатньо монет для купівлі.'); return; }
+  if (!owned) {
+    state.coins -= cost;
+    state.ownedReels.push(level);
+    sound.playCoin();
+    state.journal.unshift(`Куплена котушка: ${name}.`);
+  }
+  state.reels = level;
+  note(`Встановлено котушку: ${name}.`);
+  render();
+}
+window.buyReel = buyReel;
+
+function buySonar() {
+  const p = 2500;
+  if (state.sonar || state.coins < p) return;
+  state.coins -= p;
+  state.sonar = true;
+  sound.playCoin();
+  state.journal.unshift('Встановлено навігаційний ехолот.');
+  note('Ехолот увімкнено: рельєф дна доступний на екрані!');
+  render();
+}
+window.buySonar = buySonar;
+
+function buyBait(id) {
+  const bait = baitTypes.find(b => b.id === id);
+  if (!bait || state.coins < bait.price) return;
+  state.coins -= bait.price;
+  state.baitStock[id] = (state.baitStock[id] || 0) + bait.amount;
+  state.bait = id;
+  sound.playCoin();
+  state.journal.unshift(`Куплено наживку: ${bait.name} ×${bait.amount}.`);
+  render();
+}
+window.buyBait = buyBait;
+
+function selectBait(id) {
+  if (!(state.baitStock[id] > 0)) return;
+  state.bait = id;
+  note(`Обрана наживка: ${activeBait().name}.`);
+  render();
+}
+window.selectBait = selectBait;
+
+// --------------------------------------------------------
+// Улюбленці
+// --------------------------------------------------------
+function renderPets() {
+  const root = $('petContent');
+  if (!root) return;
+  root.innerHTML = pets.map(p => {
+    const owned = state.pets.some(x => x.name === p.name);
+    const lvlOk = playerLevel() >= p.minLevel;
+    const canBuy = lvlOk && state.coins >= p.price && !owned;
+    return `<article class="pet-card ${lvlOk ? '' : 'locked'}">
+      <span class="fish-icon">${p.icon}</span>
+      <h3>${p.name}</h3>
+      <p>${p.bonus}<br>Вартість: ${p.price.toLocaleString('uk-UA')} ◉ (з ${p.minLevel} рівня)</p>
+      <button ${canBuy ? '' : 'disabled'} onclick="buyPet('${p.name}')">
+        ${owned ? 'Поруч із вами' : lvlOk ? `Приручити · ${p.price} ◉` : `Потрібен ${p.minLevel} рівень`}
+      </button>
+    </article>`;
+  }).join('');
+}
+
+function buyPet(name) {
+  const p = pets.find(x => x.name === name);
+  if (!p || state.coins < p.price || playerLevel() < p.minLevel || state.pets.some(x => x.name === name)) return;
+  state.coins -= p.price;
+  state.pets.push(p);
+  sound.playCoin();
+  state.journal.unshift(`Улюбленець приєднався до команди: ${p.name}!`);
+  note(`${p.icon} ${p.name} тепер допомагає вам на риболовлі!`);
+  render();
+}
+window.buyPet = buyPet;
+
+// --------------------------------------------------------
+// Карта водойм та подорожі
+// --------------------------------------------------------
+function selectMap(region) {
+  if (region !== 'home' && !travelRegions[region]) return;
+  mapRegion = region;
+  renderMap();
+}
+window.selectMap = selectMap;
+
+function setTravelDays(days) {
+  state.travelDays = Math.max(1, Math.min(10, Number(days) || 1));
+  renderMap();
+}
+window.setTravelDays = setTravelDays;
+
+function renderMap() {
+  const region = travelRegions[mapRegion];
+  const tabs = `<nav class="region-tabs">
+    <button class="${mapRegion === 'home' ? 'active' : ''}" onclick="selectMap('home')">🏠 Рідні водойми</button>
+    ${Object.entries(travelRegions).map(([k, d]) => `<button class="${mapRegion === k ? 'active' : ''}" onclick="selectMap('${k}')">${d.icon} ${d.name}</button>`).join('')}
+  </nav>`;
+
+  const keys = region ? region.spots.map(([k]) => k) : Object.keys(locations).filter(k => !locations[k].region);
+  const cards = keys.map(k => {
+    const loc = locations[k];
+    const needed = locationLevels[k], rep = locationReputation[k];
+    const locked = playerLevel() < needed || state.reputation < rep;
+    const isCurrent = state.location === k;
+    return `<article class="location-card ${loc.region ? 'expedition-spot' : ''}" style="--scene:url('${loc.image}')">
+      <h3>${loc.name}</h3>
+      <p>${loc.desc}<br><small>Клює: ${loc.fish.slice(0, 4).join(' · ')}</small><br><small>Рівень ${needed} · репутація ${rep}</small></p>
+      <button onclick="changeLocation('${k}')" ${locked || isCurrent ? 'disabled' : ''}>
+        ${isCurrent ? 'Ви тут' : locked ? 'Закрито' : 'Вирушити'}
+      </button>
+    </article>`;
+  }).join('');
+
+  $('locationGrid').innerHTML = `${tabs}<div class="map-card-grid">${cards}</div>`;
+}
+
+function changeLocation(key) {
+  if (key === state.location) return;
+  const loc = locations[key];
+  if (!loc) return;
+  const needed = locationLevels[key], rep = locationReputation[key];
+  if (playerLevel() < needed || state.reputation < rep) {
+    note(`Потрібен рівень ${needed} та ${rep} репутації.`);
+    return;
+  }
+  state.location = key;
+  state.atDepth = false;
+  state.npcQuest = null;
+  sound.playSplash();
+  state.journal.unshift(`Вирушили на нову водойму: ${loc.name}.`);
+  closeAll();
+  $('scene').animate([{opacity:0.2},{opacity:1}], {duration: 500});
+  render();
+  note(`Локація: ${loc.name} (${loc.sub}).`);
+}
+window.changeLocation = changeLocation;
+
+// --------------------------------------------------------
+// Інші вікна (Рюкзак, Профіль, Альбом, Прогрес)
+// --------------------------------------------------------
+function renderBag() {
+  const limits = tackleLimits(), bait = activeBait();
+  $('bagContent').innerHTML = [
+    ['🎣','Вудка', gear.rods[state.rods-1].name, `Макс. вага: ${limits.rod.toFixed(1)} кг`],
+    ['🧵','Волосінь', gear.lines[state.lines-1][0], `Розривне навантаження: ${limits.line.toFixed(1)} кг`],
+    ['🪝','Гачок', gear.hooks[state.hooks-1][0], `До ${limits.hook.toFixed(1)} кг · до ${state.hooks} уловів`],
+    ['⚙','Котушка', gear.reels[state.reels-1][0], `Швидкість: ×${limits.reel.toFixed(2)} · гальмо: ${limits.brake.toFixed(1)} кг`],
+    ['🔪','Ніж', gear.knives[state.knives-1][0], `Розбирання: ${cutsNeeded()} надрізи`],
+    ['🎈','Поплавок', gear.floats[state.floats-1][0], `Прискорення клювання: рівень ${state.floats}`],
+    ['🪱','Наживка', bait.name, `Залишок: ${baitCount()} шт.`]
+  ].map(x => `<div><b>${x[0]} ${x[1]}</b><p>${x[2]}<br><small>${x[3]}</small></p></div>`).join('');
+}
+
+function renderProfile() {
+  const limits = tackleLimits();
+  $('profileContent').innerHTML = `
+    <div><b>Рибалка · Рівень ${playerLevel()}</b><p>XP: ${state.xp}<br>Баланс: ${state.coins.toLocaleString('uk-UA')} ◉<br>Репутація: ${state.reputation}<br>Відпущено риб: ${state.released || 0}<br>Точних закидів: ${state.perfectCasts || 0}</p></div>
+    <div><b>Колекціонер</b><p>Відкрито видів: ${state.discovered.length} / 51<br>Кращий улов: ${state.best}</p></div>
+    <div><b>Спорядження</b><p>Вудка: ${roman(state.rods)} (${limits.rod.toFixed(1)} кг)<br>Волосінь: ${roman(state.lines)} (${limits.line.toFixed(1)} кг)<br>Котушка: ${gear.reels[state.reels-1][0]}</p></div>
+  `;
+}
+
+function renderJournal() {
+  $('journalContent').innerHTML = state.journal.map(x => `<p>${x}</p>`).join('');
+}
+
+function renderIndex() {
+  const species = [...new Map(Object.values(locations).flatMap(l => l.fishPool.map(f => [f.name, f]))).values()];
+  $('indexContent').innerHTML = species.map(fish => {
+    const known = state.discovered.includes(fish.name);
+    const rarity = rarities[fish.rarity - 1] || rarities[0];
+    const visual = known
+      ? `<img class="index-photo" src="${fishImages[fish.name] || 'assets/freshwater-fish.png'}" alt="${fish.name}">`
+      : '<span class="fish-icon">🐟</span>';
+    const record = state.records[fish.name];
+    const desc = fishDescriptions[fish.name] || 'Вид місцевих водойм.';
+    return `<article class="index-card ${known ? '' : 'locked'}">
+      ${visual}
+      <strong style="color:${known ? rarity.color : 'inherit'}">${known ? fish.name : '???'}</strong>
+      <small>${known ? `${desc}<br>${rarity.name} · ${fish.pricePerKg} ◉/кг${record ? ` · рекорд ${record.toFixed(1)} кг` : ''}` : 'Невідомий вид'}</small>
+    </article>`;
+  }).join('');
+}
+
+function renderProgress() {
+  const root = $('progressContent');
+  if (!root) return;
+  const matNames = {plants:'🌿 рослини', worms:'🪱 черв’яки', shells:'🐚 мушлі', fish:'🐟 рибний матеріал'};
+  root.innerHTML = `
+    <div class="progress-grid">
+      <article>
+        <h3>Матеріали та крафт наживок</h3>
+        <p>${Object.entries(matNames).map(([id, label]) => `${label}: <b>${state.materials[id] || 0}</b>`).join('<br>')}</p>
+        ${craftRecipes.map(recipe => {
+          const ready = Object.entries(recipe.needs).every(([k, v]) => (state.materials[k] || 0) >= v);
+          const needsStr = Object.entries(recipe.needs).map(([k, v]) => `${matNames[k]} ×${v}`).join(' · ');
+          return `<p class="progress-row">
+            <b>${recipe.name} ×${recipe.amount}</b>
+            <small>${needsStr}</small>
+            <button onclick="craftBait('${recipe.bait}')" ${ready ? '' : 'disabled'}>Створити</button>
+          </p>`;
+        }).join('')}
+      </article>
+      <article>
+        <h3>Унікальні боси водойм</h3>
+        ${bosses.map(boss => `<p class="progress-row ${state.bossKills[boss.id] ? 'done' : ''}">
+          <b>${state.bossKills[boss.id] ? '✓' : '○'} ${boss.name}</b>
+          <small>${boss.locations.map(k => locations[k]?.name || k).join(', ')} · Переможено: ${state.bossKills[boss.id] || 0}</small>
+        </p>`).join('')}
+      </article>
+    </div>
+  `;
+}
+
+function craftBait(id) {
+  const recipe = craftRecipes.find(r => r.bait === id);
+  if (!recipe) return;
+  for (const [m, amt] of Object.entries(recipe.needs)) {
+    if ((state.materials[m] || 0) < amt) { note(`Не вистачає: ${m}`); return; }
+  }
+  for (const [m, amt] of Object.entries(recipe.needs)) state.materials[m] -= amt;
+  state.baitStock[id] = (state.baitStock[id] || 0) + recipe.amount;
+  state.bait = id;
+  sound.playCoin();
+  state.journal.unshift(`Створено наживку: ${recipe.name} ×${recipe.amount}.`);
+  note(`Створено: ${recipe.name} ×${recipe.amount}!`);
+  render();
+}
+window.craftBait = craftBait;
+
+function resetTournamentStreak() {
+  if (state.tournament) state.tournament.streak = 0;
+}
+function updateTournament(catches) {
+  if (!state.tournament) {
+    state.tournament = {heaviest:0, streak:0};
+  }
+  state.tournament.streak += catches.length;
+  catches.forEach(f => {
+    state.tournament.heaviest = Math.max(state.tournament.heaviest, f.weight);
+  });
+  if (state.tournament.heaviest > 15) unlockAchievement('dailyRecord');
+}
+
+// --------------------------------------------------------
+// Загальні вікна та клавіатура
+// --------------------------------------------------------
+function openModal(id) {
+  cancelCharge();
+  if (casting) loseFish('Снасть витягнуто перед відкриттям вікна.');
+  closeAll();
+  const el = $(id);
+  if (el) el.classList.add('open');
+  render();
+}
+window.openModal = openModal;
+
+function closeAll() {
+  document.querySelectorAll('.modal').forEach(x => x.classList.remove('open'));
+}
+window.closeAll = closeAll;
+
+function note(text) {
+  const el = $('castMessage');
+  if (el) el.textContent = text;
+}
+
+// Події миші, дотику та кнопок
+document.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('mousedown', e => {
+  if (e.button === 2 && !e.target.closest('button,input,select,.modal,.butcher-overlay')) {
+    e.preventDefault();
+    beginCharge();
+  }
+  if (e.button === 0 && !e.target.closest('button,input,select,.modal,.butcher-overlay')) {
+    beginPull();
+  }
 });
-window.addEventListener('keyup',event=>{
-  if(event.code==='Space'&&charging){event.preventDefault();cast()}
-  if(event.code==='KeyR')stopPull({button:0});
+window.addEventListener('mouseup', e => {
+  if (e.button === 2) cast();
+  if (e.button === 0) stopPull(e);
 });
-function releaseControls(){cancelCharge();stopPull({button:0})}
-window.addEventListener('blur',releaseControls);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseControls()});
-$('dailyGift').onclick=claimDailyGift;
+
+// Кнопки закиду та підтягування (підтримка тачу)
+for (const [id, start, finish] of [['castButton', beginCharge, cast], ['pullButton', beginPull, () => stopPull({button:0, force:true})]]) {
+  const btn = $(id);
+  if (!btn) continue;
+  btn.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    btn.setPointerCapture(e.pointerId);
+    start();
+  });
+  btn.addEventListener('pointerup', e => {
+    if (e.button === 0) finish();
+  });
+  btn.addEventListener('pointercancel', () => { cancelCharge(); stopPull({button:0, force:true}); });
+}
+
+// Клавіші пробіл, R, S
+window.addEventListener('keydown', e => {
+  if (e.repeat || fishingBlocked() || e.target.closest('input,textarea,select')) return;
+  if (e.code === 'Space') { e.preventDefault(); beginCharge(); }
+  if (e.code === 'KeyR') { e.preventDefault(); beginPull(); }
+  if (e.code === 'KeyS') { e.preventDefault(); releaseLine(); }
+  if (e.code === 'KeyM') {
+    const on = sound.toggle();
+    note(on ? 'Звук увімкнено 🔊' : 'Звук вимкнено 🔇');
+    updateSoundUI();
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space' && charging) { e.preventDefault(); cast(); }
+  if (e.code === 'KeyR') stopPull({button:0, force:true});
+});
+
+function updateSoundUI() {
+  const btn = $('soundToggle'), rng = $('soundVolume');
+  if (btn) btn.textContent = sound.enabled ? '🔊' : '🔇';
+  if (rng) rng.value = sound.volume;
+  const setChk = $('settingsSoundEnabled');
+  if (setChk) setChk.checked = sound.enabled;
+}
+
+// Прив'язка кнопок інтерфейсу
+$('autoClean').onclick = autoClean;
+$('sellAll').onclick = sellAll;
+$('closeButcher').onclick = closeButcherTable;
+$('butcherAutoClean').onclick = finishButcherAutoClean;
+$('dailyGift').onclick = claimDailyGift;
+$('releaseLine').onclick = releaseLine;
+
+$('butcherFish').addEventListener('pointerdown', e => {
+  butcherDragging = true;
+  butcherStart = {x: e.clientX, y: e.clientY};
+  $('butcherFish').setPointerCapture(e.pointerId);
+});
+$('butcherFish').addEventListener('pointerup', butcherCut);
+$('butcherFish').addEventListener('pointercancel', () => butcherDragging = false);
+
+document.querySelectorAll('[data-modal]').forEach(b => {
+  b.onclick = () => {
+    if (b.dataset.shop) shop = b.dataset.shop;
+    openModal(b.dataset.modal);
+  };
+});
+document.querySelectorAll('.close, .close-dialog').forEach(b => b.onclick = closeAll);
+document.querySelectorAll('.shop-tabs button').forEach(b => {
+  b.onclick = () => {
+    shop = b.dataset.shop;
+    renderShop();
+  };
+});
+
+// Швидкі верхні кнопки (звук, повноекранний режим)
+$('soundToggle').onclick = () => {
+  sound.toggle();
+  updateSoundUI();
+};
+$('soundVolume').oninput = (e) => {
+  sound.setVolume(e.target.value);
+  if (!sound.enabled) sound.toggle();
+  updateSoundUI();
+};
+$('fullscreenToggle').onclick = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+};
+
+const settingsSound = $('settingsSoundEnabled');
+if (settingsSound) settingsSound.onchange = (e) => {
+  if (sound.enabled !== e.target.checked) sound.toggle();
+  updateSoundUI();
+};
+const settingsVol = $('settingsVolumeRange');
+if (settingsVol) settingsVol.oninput = (e) => {
+  sound.setVolume(e.target.value);
+  updateSoundUI();
+};
+const settingsVib = $('settingsVibrationEnabled');
+if (settingsVib) settingsVib.onchange = (e) => {
+  state.vibrationEnabled = e.target.checked;
+  save();
+};
+
+updateSoundUI();
+showFightHud(false);
+render();
