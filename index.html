@@ -7,7 +7,7 @@
   <meta name="description" content="Українська Рибалка — атмосферна браузерна гра про риболовлю: понад 50 видів риб, десятки водойм, снасті, турніри та експедиції.">
   <title>Українська Рибалка — Морський курорт</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" type="image/svg+xml" sizes="any">
-  <link rel="stylesheet" href="styles.css?v=boat-visuals-2">
+  <link rel="stylesheet" href="styles.css?v=boat-photos-3">
 </head>
 <body>
   <aside class="save-warning" id="saveWarning" role="alert" hidden>
@@ -46,6 +46,29 @@
 
     <button class="boat-launch glass" data-modal="boats" type="button" aria-label="Плавзасіб">⚓ <span data-i18n="transport">ТРАНСПОРТ</span><small id="boatLaunchLabel" data-i18n="boatLaunchLabel">Берег</small></button>
     <div class="modal" id="boats"><section class="boat-window"><button class="close">×</button><header class="boat-header"><span>⚓ Човнова станція</span><small>ПЛАВЗАСОБИ ДЛЯ ВИХОДУ НА ГЛИБОКІ ТРОФЕЙНІ ЯМИ</small></header><p class="boat-intro">На глибині тримаються трофейні гіганти, недоступні з берега. Купіть плавзасіб, екіпіруйте його та вийдіть у відкриту воду.</p><div class="boat-status" id="boatStatus"></div><div class="boats-grid" id="boatsContent"></div></section></div>
+    <dialog id="boatDetails" class="boat-details" aria-labelledby="boatDetailTitle" aria-describedby="boatDetailDescription">
+      <div class="boat-detail-window">
+        <button type="button" class="boat-detail-close" onclick="closeBoatDetails()" aria-label="Закрити огляд човна" autofocus>×</button>
+        <figure class="boat-detail-photo">
+          <img id="boatDetailImage" alt="" width="1536" height="1024" decoding="async">
+          <figcaption>НА БОРТУ <span>Палуба та оснащення</span></figcaption>
+        </figure>
+        <div class="boat-detail-info">
+          <p class="boat-detail-status" id="boatDetailStatus"></p>
+          <h2 id="boatDetailTitle"></h2>
+          <p id="boatDetailDescription"></p>
+          <dl class="boat-detail-stats">
+            <div><dt>Глибина до</dt><dd id="boatDetailDepth"></dd></div>
+            <div><dt>До рідкості</dt><dd id="boatDetailRarity"></dd></div>
+            <div><dt>До ваги улову</dt><dd id="boatDetailWeight"></dd></div>
+          </dl>
+          <div class="boat-detail-actions">
+            <button type="button" class="boat-detail-back" onclick="closeBoatDetails()">← До човнової станції</button>
+            <button type="button" class="boat-action" id="boatDetailAction"></button>
+          </div>
+        </div>
+      </div>
+    </dialog>
 
     <div class="scene" id="scene"><canvas id="worldCanvas" aria-label="Сцена риболовлі: море, причал, вудка та риба"></canvas><div class="scene-vignette"></div></div>
     <div class="weather-fx" id="weatherFx" aria-hidden="true"></div>
@@ -368,8 +391,8 @@
     </section>
   </div>
 
-  <script src="lang.js?v=boat-visuals-2"></script>
-  <script src="script.js?v=boat-visuals-2"></script>
+  <script src="lang.js?v=boat-photos-3"></script>
+  <script src="script.js?v=boat-photos-3"></script>
   <script>
     if (window.i18n) {
       window.i18n.ensureLanguageStyles();
@@ -384,7 +407,7 @@
     }
     if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=2').then(reg => {
+        navigator.serviceWorker.register('sw.js?v=3-boat-photos').then(reg => {
           reg.update();
         }).catch(err => console.log('SW registration error:', err));
       });

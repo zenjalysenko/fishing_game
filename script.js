@@ -399,24 +399,17 @@ const boats = [
   {id:'motorboat', name:'Моторний човен', price:8500, depth:35, rarity:2, weight:1.35, icon:'🚤', desc:'Швидкий вихід до глибоких ям, де полюють хижаки.'},
   {id:'cutter', name:'Морський катер', price:36000, depth:65, rarity:3, weight:1.6, icon:'🛥️', desc:'Потужний катер для відкритого моря та великої риби.'},
   {id:'yacht', name:'Експедиційна яхта', price:110000, depth:120, rarity:4, weight:2.1, icon:'🚢', desc:'Повноцінна океанічна база для вилову найбільших морських гігантів.'}
-];
-
-const boatProfiles = {
-  rowboat: {scale:1, height:130, hull:'#8a4b27', stroke:'#3d1d0c'},
-  motorboat: {scale:1.1, height:140, hull:'#2b6f8a', stroke:'#0f3040'},
-  cutter: {scale:1.2, height:155, hull:'#e0f0f4', stroke:'#23495d'},
-  yacht: {scale:1.35, height:170, hull:'#1e3347', stroke:'#d4af37'}
-};
+].map(boat => ({
+  ...boat,
+  image: `assets/boats/${boat.id}-card.png`,
+  detailImage: `assets/boats/${boat.id}-detail.png`
+}));
 
 function drawBoatArt(item) {
-  const p = boatProfiles[item.id] || boatProfiles.rowboat;
-  return `<svg class="boat-art-svg" viewBox="0 0 220 90" aria-hidden="true" width="100%" height="${p.height}">
-    <path d="M20 55 Q70 78 190 62 L205 38 L45 38 Z" fill="${p.hull}" stroke="${p.stroke}" stroke-width="3"/>
-    <path d="M55 38 L95 18 L145 18 L155 38 Z" fill="#ffffffaa" stroke="${p.stroke}" stroke-width="2"/>
-    <circle cx="105" cy="28" r="4" fill="#082b3d"/>
-    <circle cx="125" cy="28" r="4" fill="#082b3d"/>
-    <line x1="20" y1="46" x2="200" y2="46" stroke="#ffffff44" stroke-width="2"/>
-  </svg>`;
+  return `<button type="button" class="boat-preview" data-boat-preview="${item.id}" onclick="openBoatDetails('${item.id}')" aria-label="Оглянути: ${item.name}" aria-haspopup="dialog">
+    <img src="${item.image}" alt="${item.name} на воді" width="1536" height="1024" loading="lazy" decoding="async">
+    <span>Оглянути човен <b aria-hidden="true">↗</b></span>
+  </button>`;
 }
 
 // Наживки
@@ -1079,7 +1072,8 @@ class ProceduralScene {
   }
   frame(now) {
     const dt = 0.016;
-    const t = (now - this.t0) / 1000;
+    // The first animation-frame timestamp can precede constructor initialization.
+    const t = Math.max(0, (now - this.t0) / 1000);
     const g = this.g, w = this.w, h = this.h;
     if (!g) return;
     g.clearRect(0, 0, w, h);
@@ -1640,7 +1634,7 @@ function consumeBait() {
   return true;
 }
 
-const fishingBlocked = () => !!document.querySelector('.modal.open, .butcher-overlay.open');
+const fishingBlocked = () => !!document.querySelector('.modal.open, .butcher-overlay.open, #boatDetails[open]');
 
 function updateFishingControls() {
   const castBtn = $('castButton'), pullBtn = $('pullButton');
@@ -2392,6 +2386,58 @@ function renderBank() {
 // --------------------------------------------------------
 // Човнова станція
 // --------------------------------------------------------
+let boatDetailId = null;
+
+function boatAction(item) {
+  const owned = state.ownedBoats.includes(item.id);
+  return {
+    disabled: !owned && state.coins < item.price,
+    label: !owned
+      ? `Купити · ${item.price.toLocaleString('uk-UA')} ◉`
+      : state.boat === item.id
+        ? (state.atDepth ? 'Повернутися до берега' : 'Вийти на глибину')
+        : 'Екіпірувати'
+  };
+}
+
+function openBoatDetails(id) {
+  const item = boats.find(boat => boat.id === id);
+  const dialog = $('boatDetails');
+  if (!item || !dialog) return;
+  boatDetailId = id;
+  renderBoatDetails();
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeBoatDetails() {
+  const dialog = $('boatDetails');
+  if (dialog?.open) dialog.close();
+}
+
+function renderBoatDetails() {
+  const item = boats.find(boat => boat.id === boatDetailId);
+  if (!item) return;
+  const photo = $('boatDetailImage');
+  if (photo.getAttribute('src') !== item.detailImage) photo.src = item.detailImage;
+  photo.alt = `${item.name} — окремий ракурс палуби та оснащення`;
+  $('boatDetailTitle').textContent = item.name;
+  $('boatDetailDescription').textContent = item.desc;
+  $('boatDetailDepth').textContent = `${item.depth} м`;
+  $('boatDetailRarity').textContent = `+${item.rarity} ★`;
+  $('boatDetailWeight').textContent = `×${item.weight.toFixed(2)}`;
+  const owned = state.ownedBoats.includes(item.id);
+  $('boatDetailStatus').textContent = state.boat === item.id
+    ? (state.atDepth ? 'На глибині' : 'Біля причалу · екіпіровано')
+    : owned ? 'У вашому флоті' : 'Доступний для придбання';
+  const action = boatAction(item), button = $('boatDetailAction');
+  button.textContent = action.label;
+  button.disabled = action.disabled;
+  button.onclick = () => manageBoat(item.id);
+}
+
+window.openBoatDetails = openBoatDetails;
+window.closeBoatDetails = closeBoatDetails;
+
 function renderBoats() {
   const selectedBoat = boats.find(b => b.id === state.boat);
   const status = $('boatStatus'), root = $('boatsContent'), launch = $('boatLaunchLabel');
@@ -2403,25 +2449,21 @@ function renderBoats() {
     : '<b>Берегова ловля</b><span>Придбайте човен, щоб дістатися до глибоководних трофеїв.</span>';
 
   root.innerHTML = boats.map(item => {
-    const profile = boatProfiles[item.id] || boatProfiles.rowboat;
-    const owned = state.ownedBoats.includes(item.id);
     const equipped = state.boat === item.id;
-    const canBuy = state.coins >= item.price;
-    const action = !owned
-      ? `Купити · ${item.price.toLocaleString('uk-UA')} ◉`
-      : equipped
-        ? (state.atDepth ? 'Повернутися до берега' : 'Вийти на глибину')
-        : 'Екіпірувати';
+    const action = boatAction(item);
 
-    return `<article class="boat-card ${equipped ? 'equipped' : ''}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">
+    return `<article class="boat-card ${equipped ? 'equipped' : ''}">
       ${drawBoatArt(item)}
-      <small>ГЛИБИНА ДО ${item.depth} М</small>
-      <h3>${item.name}</h3>
-      <p>${item.desc}</p>
-      <div class="boat-bonus">★ +${item.rarity} до рідкості · ×${item.weight.toFixed(2)} до ваги</div>
-      <button onclick="manageBoat('${item.id}')" ${!owned && !canBuy ? 'disabled' : ''}>${action}</button>
+      <div class="boat-card-info">
+        <small>ГЛИБИНА ДО ${item.depth} М</small>
+        <h3>${item.name}</h3>
+        <p>${item.desc}</p>
+        <div class="boat-bonus">★ +${item.rarity} до рідкості · ×${item.weight.toFixed(2)} до ваги</div>
+        <button type="button" class="boat-action" onclick="manageBoat('${item.id}')" ${action.disabled ? 'disabled' : ''}>${action.label}</button>
+      </div>
     </article>`;
   }).join('');
+  renderBoatDetails();
 }
 
 function manageBoat(id) {
@@ -3366,6 +3408,7 @@ window.openModal = openModal;
 
 function closeAll() {
   document.querySelectorAll('.modal').forEach(x => x.classList.remove('open'));
+  closeBoatDetails();
 }
 window.closeAll = closeAll;
 
@@ -3454,6 +3497,15 @@ document.querySelectorAll('[data-modal]').forEach(b => {
   };
 });
 document.querySelectorAll('.close, .close-dialog').forEach(b => b.onclick = closeAll);
+$('boatDetails').addEventListener('click', event => {
+  if (event.target === $('boatDetails')) closeBoatDetails();
+});
+$('boatDetails').addEventListener('close', () => {
+  if ($('boats').classList.contains('open')) {
+    document.querySelector(`[data-boat-preview="${boatDetailId}"]`)?.focus({preventScroll:true});
+  }
+  boatDetailId = null;
+});
 document.querySelectorAll('.shop-tabs button').forEach(b => {
   b.onclick = () => {
     shop = b.dataset.shop;

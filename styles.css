@@ -77,9 +77,89 @@ button{position:relative;border:1px solid #8be9f066;background:linear-gradient(1
 .left-menu{top:225px}@media(max-width:700px){.left-menu{top:205px}}
 .shop-items.reel-items{grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr))}
 
-/* Boat station and deep-water transport. */
-.boat-launch{position:absolute;z-index:24;right:18px;bottom:136px;display:grid;grid-template-columns:auto 1fr;column-gap:6px;align-items:center;padding:8px 11px;border-radius:11px;color:#e9ffff;text-align:left;font-weight:900}.boat-launch:first-letter{font-size:1.2rem}.boat-launch span{font-size:.58rem;letter-spacing:.12em}.boat-launch small{grid-column:2;color:#ffe083;font-size:.57rem;font-weight:750}.boat-window{max-width:900px!important;overflow:hidden;background:radial-gradient(circle at 75% -10%,#16849a66,transparent 35%),linear-gradient(145deg,#082f41,#031a2b)!important}.boat-header{margin:-24px -24px 16px;padding:22px 60px 17px;background:linear-gradient(105deg,#133e50,#0a7781,#173548);border-bottom:1px solid #8eeef077}.boat-header span,.boat-header small{display:block}.boat-header span{font-family:Georgia,serif;font-size:1.55rem;font-weight:900;color:#fff0b0}.boat-header small{margin-top:3px;color:#a9ecec;font-size:.58rem;font-weight:850;letter-spacing:.13em}.boat-intro{max-width:610px;color:#cbe8e9;font-size:.82rem}.boat-status{display:flex;justify-content:space-between;gap:14px;margin:14px 0;padding:11px 13px;border:1px solid #79e9e46b;border-radius:10px;background:#052333}.boat-status b{color:#ffe184}.boat-status span{color:#a7dfe2;font-size:.72rem;text-align:right}.boats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.boat-card{position:relative;overflow:hidden;padding:13px;border:1px solid #70d9df50;border-radius:13px;background:linear-gradient(155deg,#0c3d51,#062333);box-shadow:inset 0 1px #d9ffff16}.boat-card.equipped{border-color:#ffe17c;box-shadow:inset 0 0 24px #ffe17b24,0 0 0 1px #ffe17b33}.boat-art{height:96px;display:grid;place-items:center;margin:-13px -13px 10px;border-bottom:1px solid #79eaf044;background:radial-gradient(ellipse at 50% 0,#7ee6ee44,transparent 58%),linear-gradient(#2088a2,#06354c);font-size:calc(2.8rem * var(--boat-scale,1));text-shadow:0 10px 10px #001522aa;transform:scale(var(--boat-scale,1));transform-origin:center;transition:transform .18s ease}.boat-rowboat,.boat-inflatable,.boat-cutter{position:relative}.boat-rowboat:before,.boat-inflatable:before,.boat-cutter:before{content:"";position:absolute;left:50%;bottom:18px;width:62%;height:17%;border-radius:50% 40% 52% 48%;transform:translateX(-50%) rotate(-4deg);background:rgba(4,15,26,.55);filter:blur(8px)}.boat-rowboat:after,.boat-inflatable:after,.boat-cutter:after{content:"";position:absolute;left:50%;bottom:20%;width:54%;height:42%;transform:translateX(-50%);border:2px solid rgba(214,251,255,.8);border-top-width:4px;border-bottom-width:3px;border-radius:42% 40% 32% 32% / 63% 60% 38% 38%;background:rgba(255,255,255,.08)}.boat-rowboat:after{width:42%;height:34%;border-radius:38% 44% 42% 39% / 60% 62% 42% 40%;border-color:rgba(251,255,221,.85)}.boat-inflatable{background:radial-gradient(ellipse at 50% 0,#ffe99d55,transparent 58%),linear-gradient(#247d94,#06354c)}.boat-cutter{background:radial-gradient(ellipse at 50% 0,#d9f8ff66,transparent 58%),linear-gradient(#1b567c,#051d39)}.boat-card small{color:#80dfe0;font-size:.56rem;font-weight:850;letter-spacing:.1em}.boat-card h3{margin:5px 0;color:#fff0ad;font-size:1rem}.boat-card p{min-height:3.6em;margin:0;color:#cae6e8;font-size:.71rem}.boat-bonus{margin:9px 0;color:#71ebd7;font-size:.65rem;font-weight:800}.boat-card button{width:100%;padding:8px;border-radius:8px;background:linear-gradient(135deg,#76e4d2,#f7d478);color:#062532;font-size:.72rem;font-weight:900}.deep-water .scene:after{content:'ГЛУБОКАЯ ЯМА';position:absolute;right:5%;bottom:25%;z-index:3;padding:6px 10px;border:1px solid #8df3ef88;border-radius:99px;background:#031e32c9;color:#a8ffff;font-size:.58rem;font-weight:900;letter-spacing:.13em;box-shadow:0 0 22px #3fe7e544}.deep-water .scene{filter:saturate(1.18) contrast(1.06)}
-@media(max-width:700px){.boat-launch{right:9px;bottom:118px}.boat-launch span{display:none}.boat-launch small{grid-column:1;font-size:.5rem}.boats-grid{grid-template-columns:1fr}.boat-card{display:grid;grid-template-columns:92px 1fr;gap:0 11px}.boat-art{grid-row:span 4;height:100%;margin:-13px 0 -13px -13px;border-right:1px solid #79eaf044;border-bottom:0;font-size:calc(2.3rem * var(--boat-scale,1))}.boat-card button{grid-column:2}.boat-status{display:grid}.boat-status span{text-align:left}.boat-header{margin:-24px -24px 13px;padding:20px 46px 15px}.boat-header span{font-size:1.25rem}}
+/* Boat station, generated boat photography and the onboard detail view. */
+.boat-launch{position:absolute;z-index:24;right:18px;bottom:136px;display:grid;grid-template-columns:auto 1fr;column-gap:6px;align-items:center;padding:8px 11px;border-radius:11px;color:#e9ffff;text-align:left;font-weight:900}
+.boat-launch:first-letter{font-size:1.2rem}
+.boat-launch span{font-size:.58rem;letter-spacing:.12em}
+.boat-launch small{grid-column:2;color:#ffe083;font-size:.57rem;font-weight:750}
+.boat-window{max-width:1000px!important;overflow:hidden;background:radial-gradient(circle at 75% -10%,#16849a44,transparent 35%),linear-gradient(145deg,#082f41,#031a2b)!important}
+.boat-header{margin:-24px -24px 16px;padding:22px 60px 17px;background:linear-gradient(105deg,#133e50,#0a7781,#173548);border-bottom:1px solid #8eeef077}
+.boat-header span,.boat-header small{display:block}
+.boat-header span{font-family:Georgia,serif;font-size:1.55rem;font-weight:900;color:#fff0b0}
+.boat-header small{margin-top:3px;color:#a9ecec;font-size:.58rem;font-weight:850;letter-spacing:.13em}
+.boat-intro{max-width:680px;color:#cbe8e9;font-size:.82rem}
+.boat-status{display:flex;justify-content:space-between;gap:14px;margin:14px 0;padding:11px 13px;border:1px solid #79e9e46b;border-radius:10px;background:#052333}
+.boat-status b{color:#ffe184}
+.boat-status span{color:#a7dfe2;font-size:.72rem;text-align:right}
+.boats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.boat-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid #70d9df50;border-radius:13px;background:linear-gradient(155deg,#0c3d51,#062333);box-shadow:inset 0 1px #d9ffff16}
+.boat-card.equipped{border-color:#ffe17c;box-shadow:0 0 0 1px #ffe17b33}
+.boat-card-info{display:flex;flex:1;flex-direction:column;align-items:flex-start;padding:15px}
+.boat-card small{color:#80dfe0;font-size:.6rem;font-weight:850;letter-spacing:.1em}
+.boat-card h3{margin:6px 0;color:#fff0ad;font-size:1.12rem}
+.boat-card p{margin:0;color:#cae6e8;font-size:.78rem;line-height:1.5}
+.boat-bonus{margin:12px 0;color:#71ebd7;font-size:.7rem;font-weight:800}
+.boat-preview{position:relative;display:block;flex-shrink:0;width:100%;padding:0;overflow:hidden;border-bottom:1px solid #79eaf044;border-radius:0;background:#082b3d;text-align:left}
+.boat-preview img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;transition:transform .3s ease}
+.boat-preview span{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:16px;padding:7px 10px;border:1px solid #ffffff50;border-radius:7px;background:#041c2de8;color:#fff;font-size:.72rem;font-weight:750;backdrop-filter:blur(8px)}
+.boat-preview span b{color:#ffe184;font-size:1rem}
+.boat-preview:hover:not(:disabled){transform:none;filter:none}
+.boat-preview:hover img{transform:scale(1.025)}
+.boat-preview:focus-visible{outline:3px solid #ffe184;outline-offset:-4px}
+.boat-action{width:100%;padding:11px 14px;border-radius:8px;background:linear-gradient(135deg,#76e4d2,#f7d478);color:#062532;font-size:.8rem;font-weight:900;text-shadow:none}
+.boat-card .boat-action{margin-top:auto}
+.boat-details{width:min(960px,calc(100% - 32px));max-width:none;max-height:calc(100dvh - 32px);margin:auto;padding:0;overflow:auto;border:1px solid #a5f6ff72;border-radius:18px;background:#082638;color:#ecfbff;box-shadow:0 25px 90px #000b;overscroll-behavior:contain}
+.boat-details::backdrop{background:#001422da;backdrop-filter:blur(12px)}
+.boat-detail-window{position:relative}
+.boat-detail-close{position:absolute;z-index:2;top:14px;right:14px;display:grid;place-items:center;width:40px;height:40px;border:1px solid #ffffff70;border-radius:50%;background:#041c2de8;color:#fff;font-size:1.8rem;line-height:1}
+.boat-detail-photo{position:relative;margin:0;background:#041c2d}
+.boat-detail-photo img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:contain}
+.boat-detail-photo figcaption{position:absolute;left:0;right:0;bottom:0;padding:30px 24px 15px;background:linear-gradient(transparent,#031a2be8);color:#fff0ad;font-size:.68rem;font-weight:850;letter-spacing:.16em;pointer-events:none}
+.boat-detail-photo figcaption span{margin-left:12px;color:#edf8fa;font-size:.72rem;font-weight:500;letter-spacing:normal}
+.boat-detail-info{padding:20px 24px 24px}
+.boat-detail-status{margin:0;color:#80dfe0;font-size:.7rem;font-weight:800}
+.boat-detail-info h2{margin:6px 0 9px;color:#fff0ad;font-family:Georgia,serif;font-size:1.7rem}
+.boat-detail-info>p:not(.boat-detail-status){margin:0;color:#cae6e8;line-height:1.5}
+.boat-detail-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0}
+.boat-detail-stats div{padding:12px;border:1px solid #70d9df40;border-radius:9px;background:#041e2e}
+.boat-detail-stats dt{color:#a7dfe2;font-size:.7rem}
+.boat-detail-stats dd{margin:5px 0 0;color:#ffe184;font-size:1.2rem;font-weight:850}
+.boat-detail-actions{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.boat-detail-actions .boat-action{width:auto;min-width:220px}
+.boat-detail-back{padding:11px 0;border:0;background:transparent;box-shadow:none;color:#b9e7e8;font-size:.78rem;text-align:left;text-shadow:none}
+.boat-detail-close:focus-visible,.boat-detail-back:focus-visible,.boat-action:focus-visible{outline:3px solid #ffe184;outline-offset:3px}
+.deep-water .scene:after{content:'ГЛУБОКАЯ ЯМА';position:absolute;right:5%;bottom:25%;z-index:3;padding:6px 10px;border:1px solid #8df3ef88;border-radius:99px;background:#031e32c9;color:#a8ffff;font-size:.58rem;font-weight:900;letter-spacing:.13em;box-shadow:0 0 22px #3fe7e544}
+.deep-water .scene{filter:saturate(1.18) contrast(1.06)}
+@media(min-width:900px) and (max-height:850px){
+  .boat-detail-window{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);min-height:430px}
+  .boat-detail-photo{display:flex;align-items:center}
+  .boat-detail-info{align-self:center;padding-top:60px}
+  .boat-detail-actions{flex-direction:column-reverse;align-items:stretch;gap:6px}
+  .boat-detail-actions .boat-action{width:100%;min-width:0}
+}
+@media(max-width:700px){
+  .boat-launch{right:9px;bottom:118px}
+  .boat-launch span{display:none}
+  .boat-launch small{grid-column:1;font-size:.5rem}
+  .boats-grid{grid-template-columns:1fr;gap:16px}
+  .boat-status{display:grid;gap:6px}
+  .boat-status span{text-align:left}
+  .boat-header{margin:-24px -24px 13px;padding:20px 46px 15px 24px}
+  .boat-header span{font-size:1.25rem}
+  .boat-header small{font-size:.53rem;line-height:1.6}
+  .boat-details{width:calc(100% - 20px);max-height:calc(100dvh - 20px);border-radius:14px}
+  .boat-detail-close{top:10px;right:10px}
+  .boat-detail-info{padding:18px}
+  .boat-detail-info h2{font-size:1.4rem}
+  .boat-detail-photo figcaption{padding:26px 18px 12px}
+  .boat-detail-stats{gap:6px}
+  .boat-detail-stats div{padding:10px 7px}
+  .boat-detail-stats dt{font-size:.6rem}
+  .boat-detail-stats dd{font-size:1.05rem}
+  .boat-detail-actions{flex-direction:column-reverse;align-items:stretch;gap:4px}
+  .boat-detail-actions .boat-action{width:100%;min-width:0}
+}
+@media(prefers-reduced-motion:reduce){.boat-preview img{transition:none}.boat-preview:hover img{transform:none}}
 .shop-card.reels{display:grid;grid-template-columns:minmax(112px,.7fr) minmax(0,1.3fr);gap:14px;align-items:center;padding:14px;background:linear-gradient(135deg,#071f31,#0d4e68 58%,#123044);box-shadow:inset 0 1px #d5ffff1c,0 10px 20px #00172566}.shop-card.reels.current{border-color:#ffe07e;background:linear-gradient(135deg,#123c4c,#14716d 56%,#284827)}.reel-title small{color:#9feef1;font-size:.62rem;font-weight:850;letter-spacing:.11em}.reel-title h3{margin:5px 0 7px;color:#f2fbfb;font-size:1.02rem;line-height:1.08}.reel-title>b{display:block;color:#ffe188;font-size:.77rem}.reel-showcase{display:grid;grid-template-columns:minmax(112px,.92fr) minmax(105px,1fr);gap:10px;align-items:center}.reel-photo{display:block;width:100%;aspect-ratio:1/1;min-height:108px;border:1px solid #8aeaf073;border-radius:10px;background:#051a29;box-shadow:inset 0 0 20px #001827,0 7px 16px #00172588;object-fit:cover;object-position:center}.shop-card.reels p{min-height:0;margin:0 0 9px;color:#d7eef0;font-size:.72rem;line-height:1.35}.shop-card.reels p small{display:inline-block;margin-top:5px;color:#87ece4;font-size:.67rem;font-weight:800}.shop-card.reels button{padding:7px 6px;font-size:.7rem}@media(max-width:650px){.shop-card.reels{grid-template-columns:1fr;gap:10px}.reel-showcase{grid-template-columns:minmax(118px,.8fr) 1fr}.reel-photo{min-height:0;aspect-ratio:4/3}}@media(max-width:390px){.reel-showcase{grid-template-columns:1fr}.reel-photo{aspect-ratio:16/9}}
 
 /* Active tackle and fishing controls. */
@@ -239,4 +319,3 @@ button.market-note:hover:not(:disabled),button.market-note:focus-visible{transfo
 .lang-select-wrapper{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:6px;padding-top:10px;border-top:1px dashed #ffffff18;font-size:.8rem;color:#b2dce4}
 .settings-lang-select{padding:6px 12px;border:1px solid #8beff055;border-radius:8px;background:#021522;color:#d8f4f6;font-size:.82rem;font-weight:600;outline:none;cursor:pointer}
 .settings-lang-select:focus{border-color:#5ce4d0;box-shadow:0 0 8px #5ce4d055}
-
