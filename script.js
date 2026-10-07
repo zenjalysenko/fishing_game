@@ -209,11 +209,12 @@ const seasons = {
 };
 
 const weatherData = {
-  clear: {name:'Ясно', icon:'☀', bite:1, visibility:'висока'},
-  rain: {name:'Дощ', icon:'🌧', bite:1.25, visibility:'середня'},
-  fog: {name:'Туман', icon:'🌫', bite:1.1, visibility:'низька'},
-  wind: {name:'Вітер', icon:'💨', bite:0.8, visibility:'середня'},
-  snow: {name:'Сніг', icon:'❄️', bite:0.7, visibility:'помірна'}
+  clear: {name:'Ясно', icon:'☀', bite:1, visibility:'висока', danger:0},
+  rain: {name:'Дощ', icon:'🌧', bite:1.25, visibility:'середня', danger:0.12},
+  fog: {name:'Туман', icon:'🌫', bite:1.1, visibility:'низька', danger:0.14},
+  wind: {name:'Вітер', icon:'💨', bite:0.8, visibility:'середня', danger:0.38},
+  storm: {name:'Шторм', icon:'⛈', bite:0.62, visibility:'низька', danger:0.72},
+  snow: {name:'Сніг', icon:'❄️', bite:0.7, visibility:'помірна', danger:0.2}
 };
 
 const timeData = {
@@ -877,6 +878,7 @@ function fightLoad(fish, reelProgress = 0) {
   const hookSkill = 1 - (state.skills.hook || 0) * 0.05;
   const baseTension = fish.weight * (1.02 + fish.rarity * 0.1) * hookSkill;
   const brakeRelief = tackleLimits().brake * 0.04;
+  const risk = environmentRisk();
   
   // Додаткове навантаження залежно від фази
   let dynamicFactor = 1.0;
@@ -888,7 +890,8 @@ function fightLoad(fish, reelProgress = 0) {
     dynamicFactor = 0.65;
   }
 
-  const load = Math.max(0.1, (baseTension * dynamicFactor - brakeRelief + reelProgress * 0.005));
+  const weatherPressure = risk * (1 + fish.weight * 0.7) * 0.8;
+  const load = Math.max(0.1, (baseTension * dynamicFactor - brakeRelief + reelProgress * 0.005 + weatherPressure));
   return load;
 }
 
@@ -940,6 +943,16 @@ function assignQuality(fish) {
   return fish;
 }
 
+function environmentRisk() {
+  const weather = weatherData[world.weather] || weatherData.clear;
+  const event = eventData[world.event] || eventData.calm;
+  const isStorm = world.weather === 'storm' || world.event === 'storm';
+  const weatherRisk = Number(weather.danger || 0) + (isStorm ? 0.18 : 0);
+  const eventRisk = event.name === 'Штормовий фронт' || event.weather === 'wind' ? 0.28 : 0;
+  const nightRisk = world.time === 'night' ? 0.08 : 0;
+  return Number(Math.min(1, weatherRisk + eventRisk + nightRisk).toFixed(2));
+}
+
 const worldActivity = () => {
   const weather = weatherData[world.weather] || weatherData.clear;
   const time = timeData[world.time] || timeData.day;
@@ -947,7 +960,8 @@ const worldActivity = () => {
   const event = eventData[world.event] || eventData.calm;
   const pierBonus = 1 + (state.base.pier || 0) * 0.08;
   const buffSpeed = hasBuff('bite_boost') ? 1.3 : 1;
-  return weather.bite * time.bite * season.bite * event.bite * activeTechnique().bite * pierBonus * buffSpeed;
+  const riskFactor = 1 - environmentRisk() * 0.2;
+  return weather.bite * time.bite * season.bite * event.bite * activeTechnique().bite * pierBonus * buffSpeed * riskFactor;
 };
 
 // Розрахунок вартості риби
@@ -1638,12 +1652,18 @@ function beginPull() {
     }
 
     if (ratio > 0.82 && !$('fightHud').classList.contains('active')) {
-      showFightHud(true, 'КРИТИЧНИЙ НАТЯГ ВОЛОСІНІ!', 'Загроза обриву! Послабте (S)');
+      const risk = environmentRisk();
+      const dangerMessage = risk > 0.45 ? 'Шторм і вітер збільшують ризик! Послабте волосінь (S) або завершите боротьбу.' : 'Загроза обриву! Послабте (S)';
+      showFightHud(true, 'КРИТИЧНИЙ НАТЯГ ВОЛОСІНІ!', dangerMessage);
     }
 
     if (ratio >= 1.0) {
       sound.playSnap();
-      loseFish(load > limits.line ? 'Волосінь обірвалася від сильного натягу!' : 'Вудилище зламалося під вагою улову.');
+      const risk = environmentRisk();
+      const breakReason = risk > 0.45
+        ? (load > limits.line ? 'Шторм розірвав волосінь — снасть втрачена через стихію!' : 'Порыв вітру зламав вудилище під сильним натягом!')
+        : (load > limits.line ? 'Волосінь обірвалася від сильного натягу!' : 'Вудилище зламалося під вагою улову.');
+      loseFish(breakReason);
       return;
     }
 
@@ -2856,12 +2876,15 @@ function renderWorld() {
   const available = activePool().map(f => f.name);
   const workshop = state.base.workshop || 0;
 
+  const risk = environmentRisk();
+  const riskLabel = risk > 0.6 ? 'Високий' : risk > 0.25 ? 'Середній' : 'Низький';
+
   $('weatherStatus').textContent = `${weather.icon} ${weather.name}`;
   $('timeStatus').textContent = `${season.icon} ${season.name} · ${timeOfDay.name}`;
   $('eventStatus').textContent = event.name;
 
   $('worldSummary').innerHTML = `
-    <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name}</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility}.</small></article>
+    <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name}</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility} · ризик: ${riskLabel}.</small></article>
     <article><b>${event.name}</b><small>${event.desc} Зараз клює: ${available.slice(0, 4).join(' · ')}...</small></article>
     <article><b>★ Репутація: ${state.reputation} · місцева: ${localRep(state.location)}</b><small>Нові локації відкриваються з рівнем та репутацією.</small></article>
     <article class="dock-npc"><b>🔧 Майстер Гліб</b><small>Майстерня ${workshop}/3 · додає швидкості котушці.</small><button onclick="openModal('baseUpgrades')">Покращити базу</button></article>
