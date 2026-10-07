@@ -14,10 +14,10 @@ test('equipped rod is visible in deep-water mode on boats in styles.css', () => 
   assert.match(css, /\.deep-water\s+\.equipped-rod\s*\{[^}]*display:\s*block/i, 'Rod should be visible in deep water');
 });
 
-test('equipped bobber (float) is visible by default in index.html', () => {
+test('equipped bobber (float) element exists and starts hidden before cast', () => {
   const html = fs.readFileSync(htmlFile, 'utf8');
   assert.match(html, /id="equippedFloat"[^>]*class="equipped-float"/i, 'Float element exists in HTML');
-  assert.doesNotMatch(html, /<img\s+id="equippedFloat"[^>]*\s+hidden\b/i, 'Float element should not have hidden attribute');
+  assert.match(html, /<img\s+id="equippedFloat"[^>]*\s+hidden\b/i, 'Float element should start hidden before casting');
 });
 
 test('ProceduralScene keeps the fish, line, and bobber animated over the boat photograph', () => {

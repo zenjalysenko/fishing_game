@@ -68,6 +68,7 @@ const I18N_MESSAGES = {
     autoCleanBtn: 'РОЗБИРАННЯ',
 
     tabFishing: 'Риболовля',
+    tabBase: '🏡 База',
     tabLocation: 'Локація',
     tabShops: 'Магазини',
     tabPets: 'Улюбленці',
@@ -150,6 +151,7 @@ const I18N_MESSAGES = {
     autoCleanBtn: 'САМООЧИСТКА',
 
     tabFishing: 'Рыбалка',
+    tabBase: '🏡 База',
     tabLocation: 'Локация',
     tabShops: 'Магазины',
     tabPets: 'Питомцы',
@@ -232,6 +234,7 @@ const I18N_MESSAGES = {
     autoCleanBtn: 'CLEAN FISH',
 
     tabFishing: 'Fishing',
+    tabBase: '🏡 Lodge',
     tabLocation: 'Location',
     tabShops: 'Shops',
     tabPets: 'Pets',

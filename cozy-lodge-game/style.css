@@ -1,0 +1,1421 @@
+/* ==========================================================================
+   УЮТНАЯ РЫБАЛКА НА БАЗАХ — STYLE.CSS
+   Теплая цветовая палитра: дерево, текстиль, камин, вечерний свет
+   ========================================================================== */
+
+:root {
+  --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+  
+  /* Базовая палитра интерьера */
+  --c-wood-dark: #24140b;
+  --c-wood-mid: #4a2916;
+  --c-wood-light: #7b4926;
+  --c-amber: #e69138;
+  --c-fire-glow: #ff7b25;
+  --c-gold: #f1c40f;
+  --c-text-cream: #faedd7;
+  --c-text-muted: #d0b89b;
+  --c-fabric: #d8c29d;
+  --c-blanket: #c0392b;
+  
+  /* Размеры и радиусы */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --shadow-warm: 0 10px 30px rgba(28, 12, 3, 0.45);
+  --shadow-glow: 0 0 25px rgba(255, 125, 40, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #160c07;
+  font-family: var(--font-main);
+  color: var(--c-text-cream);
+}
+
+/* ==================== ОСНОВНОЙ КОНТЕЙНЕР ==================== */
+.game-container {
+  position: relative;
+  width: 100%;
+  max-width: 1040px;
+  height: 100%;
+  max-height: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at 50% 40%, #3a2215 0%, #1c0e07 100%);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 180, 100, 0.1);
+  overflow: hidden;
+}
+
+@media (min-height: 721px) {
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, #24140b 0%, #0c0603 100%);
+  }
+  .game-container {
+    height: 94vh;
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* ==================== ВЕРХНЯЯ ПАНЕЛЬ ==================== */
+.game-topbar {
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(26, 13, 7, 0.95) 0%, rgba(36, 18, 9, 0.85) 100%);
+  border-bottom: 1px solid rgba(230, 145, 56, 0.25);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.topbar-left, .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.current-base-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(74, 41, 22, 0.6);
+  border: 1px solid rgba(241, 196, 15, 0.25);
+  border-radius: 20px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #fff2db;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.score-card {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 16px;
+  background: radial-gradient(circle, rgba(230, 145, 56, 0.18) 0%, rgba(36, 18, 9, 0.7) 100%);
+  border: 1px solid rgba(241, 196, 15, 0.4);
+  border-radius: 25px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 15px rgba(230, 145, 56, 0.2);
+}
+
+.score-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-text-muted);
+}
+
+.score-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #ffe6a6;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+}
+
+.streak-pill {
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #c0392b, #e67e22);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(192, 57, 43, 0.4);
+}
+
+/* ==================== КНОПКИ ==================== */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  outline: none;
+  transition: transform 0.15s ease, filter 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+.btn-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  background: rgba(74, 41, 22, 0.8);
+  border: 1px solid rgba(230, 145, 56, 0.3);
+  color: #ffe8cf;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+.btn-icon:hover {
+  background: rgba(110, 60, 32, 0.9);
+  border-color: rgba(241, 196, 15, 0.6);
+}
+
+.btn-secondary {
+  padding: 6px 13px;
+  border-radius: 18px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(60, 32, 17, 0.85);
+  border: 1px solid rgba(230, 145, 56, 0.35);
+  color: #f7e2c9;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.btn-secondary:hover {
+  background: rgba(90, 48, 25, 0.95);
+  border-color: var(--c-amber);
+}
+
+.btn-primary {
+  padding: 10px 22px;
+  border-radius: 24px;
+  font-size: 0.96rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #d35400 0%, #e67e22 50%, #f39c12 100%);
+  color: #fff8e7;
+  border: 1px solid #ffd166;
+  box-shadow: 0 4px 15px rgba(211, 84, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 20px rgba(230, 126, 34, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn-large {
+  padding: 13px 30px;
+  font-size: 1.08rem;
+}
+
+.pulse-btn {
+  animation: pulse-glow 2.4s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 4px 15px rgba(211, 84, 0, 0.5); }
+  50% { box-shadow: 0 4px 25px rgba(243, 156, 18, 0.8), 0 0 10px rgba(255, 209, 102, 0.6); }
+}
+
+/* ==================== РАБОЧАЯ ОБЛАСТЬ (VIEWPORT) ==================== */
+.game-viewport {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   ЭКРАН 1: ВНУТРИ БАЗЫ (LODGE)
+   ========================================================================== */
+.screen-lodge {
+  background: #2a160d;
+}
+
+/* Фон стен из бруса/камня */
+.lodge-backdrop {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    repeating-linear-gradient(0deg, rgba(20, 10, 5, 0.6) 0px, transparent 2px, transparent 28px, rgba(15, 8, 4, 0.8) 30px),
+    linear-gradient(180deg, #2c160c 0%, #3e2213 50%, #200f07 100%);
+  z-index: 1;
+}
+
+/* База: стили для разных баз */
+.base-forest .lodge-backdrop {
+  background: 
+    repeating-linear-gradient(0deg, rgba(25, 12, 6, 0.6) 0px, transparent 2px, transparent 26px, rgba(10, 5, 2, 0.8) 28px),
+    linear-gradient(180deg, #32180c 0%, #462512 60%, #1e0d05 100%);
+}
+.base-sea .lodge-backdrop {
+  background: 
+    repeating-linear-gradient(90deg, rgba(230, 220, 205, 0.04) 0px, transparent 2px, transparent 40px),
+    linear-gradient(180deg, #3d3128 0%, #524236 60%, #291e17 100%);
+}
+.base-mountain .lodge-backdrop {
+  background: 
+    repeating-linear-gradient(45deg, rgba(40, 40, 45, 0.15) 0px, transparent 4px, transparent 30px),
+    linear-gradient(180deg, #271f25 0%, #382d33 60%, #1a1418 100%);
+}
+
+/* Окно с видом на природу */
+.lodge-window {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 140px;
+  border-radius: 140px 140px 6px 6px;
+  border: 8px solid #4a2916;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.7), 0 5px 25px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  z-index: 2;
+  background: #112;
+}
+
+.window-glass {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.window-sky {
+  position: absolute;
+  inset: 0 0 35% 0;
+  background: linear-gradient(180deg, #c46237 0%, #f39c12 55%, #f1c40f 100%);
+  transition: background 0.6s ease;
+}
+
+.window-landscape {
+  position: absolute;
+  bottom: 30%;
+  left: 0;
+  width: 100%;
+  height: 45px;
+  background: #193116;
+  clip-path: polygon(0% 100%, 15% 40%, 35% 75%, 50% 25%, 70% 65%, 85% 30%, 100% 100%);
+  transition: clip-path 0.5s ease, background 0.5s ease;
+}
+
+.window-water {
+  position: absolute;
+  inset: 65% 0 0 0;
+  background: linear-gradient(180deg, #1b4965 0%, #0d2838 100%);
+}
+
+.window-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: 
+    linear-gradient(90deg, transparent calc(50% - 3px), #4a2916 calc(50% - 3px), #4a2916 calc(50% + 3px), transparent calc(50% + 3px)),
+    linear-gradient(0deg, transparent calc(55% - 3px), #4a2916 calc(55% - 3px), #4a2916 calc(55% + 3px), transparent calc(55% + 3px));
+}
+
+/* Декор на стенах */
+.wall-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.wall-rod-rack {
+  position: absolute;
+  top: 30px;
+  left: 28px;
+  width: 130px;
+  height: 60px;
+}
+.rod {
+  position: absolute;
+  height: 4px;
+  background: linear-gradient(90deg, #8b4513 0%, #d2691e 80%, #ffd700 100%);
+  border-radius: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.rod-1 { width: 120px; top: 18px; transform: rotate(-5deg); }
+.rod-2 { width: 110px; top: 38px; transform: rotate(-3deg); }
+
+.wall-painting {
+  position: absolute;
+  top: 30px;
+  right: 28px;
+  width: 90px;
+  height: 65px;
+  border: 5px solid #5d361c;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  background: #1f3a2c;
+  overflow: hidden;
+}
+.painting-canvas {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 60% 40%, #ffc04d 0%, #d35400 30%, #1e4a38 70%);
+}
+
+.wall-lamp {
+  position: absolute;
+  top: 60px;
+  width: 22px;
+  height: 36px;
+  background: #73401d;
+  border-radius: 12px 12px 4px 4px;
+  box-shadow: 0 0 12px rgba(255, 170, 70, 0.5);
+}
+.lamp-left { left: 190px; }
+.lamp-right { right: 190px; }
+.lamp-glow {
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 180, 80, 0.45) 0%, transparent 70%);
+  animation: flicker 4s infinite ease-in-out;
+}
+
+/* ==================== КАМИН (НАПРОТИВ ИГРОКА) ==================== */
+.fireplace-zone {
+  position: absolute;
+  top: 170px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 230px;
+  height: 185px;
+  z-index: 5;
+}
+
+.fireplace-mantel {
+  position: absolute;
+  top: 0;
+  left: -15px;
+  right: -15px;
+  height: 24px;
+  background: linear-gradient(180deg, #6b3917 0%, #46230c 100%);
+  border-radius: 5px;
+  border: 1px solid #8e4f24;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 10px;
+  z-index: 6;
+}
+
+.mantel-item {
+  font-size: 0.95rem;
+  position: relative;
+}
+
+.candle-flame {
+  display: inline-block;
+  width: 6px;
+  height: 10px;
+  background: #ffa500;
+  border-radius: 50% 50% 35% 35%;
+  box-shadow: 0 0 8px #ff7b00;
+  animation: flicker 1.8s infinite ease-in-out;
+}
+
+.mug {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.mug:hover {
+  transform: scale(1.25) rotate(-5deg);
+}
+
+.steam {
+  position: absolute;
+  top: -8px;
+  left: 4px;
+  width: 5px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  filter: blur(2px);
+  animation: steam-rise 2.2s infinite ease-out;
+}
+
+@keyframes steam-rise {
+  0% { transform: translateY(0) scale(0.8); opacity: 0.7; }
+  100% { transform: translateY(-14px) scale(1.6); opacity: 0; }
+}
+
+.fireplace-hearth {
+  position: absolute;
+  top: 24px;
+  inset-inline: 0;
+  bottom: 0;
+  background: #140803;
+  border: 10px solid #5a3118;
+  border-bottom: 14px solid #361b0c;
+  border-radius: 8px 8px 0 0;
+  box-shadow: inset 0 0 35px #000, 0 10px 25px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.chimney-arch {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 25px;
+  background: radial-gradient(ellipse at 50% 0%, #2a150a 60%, transparent 65%);
+}
+
+.logs {
+  position: absolute;
+  bottom: 6px;
+  width: 110px;
+  height: 22px;
+  background: repeating-linear-gradient(45deg, #2b1406 0px, #1a0a03 10px);
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(255, 80, 0, 0.4);
+}
+
+.fire-canvas {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 2px;
+  filter: drop-shadow(0 0 10px #ff6600);
+}
+
+.hearth-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 85%, rgba(255, 120, 20, 0.5) 0%, transparent 65%);
+  pointer-events: none;
+  animation: hearth-pulse 3.5s infinite ease-in-out;
+}
+
+@keyframes hearth-pulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+
+@keyframes flicker {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  25% { transform: scale(0.92) skewX(2deg); opacity: 0.75; }
+  70% { transform: scale(1.08) skewX(-2deg); opacity: 1; }
+}
+
+/* ==================== УЮТНОЕ КРЕСЛО С ПЛЕДОМ (СПРАВА ОТ КАМИНА) ==================== */
+.chair-zone {
+  position: absolute;
+  top: 185px;
+  right: 14%;
+  width: 135px;
+  height: 165px;
+  z-index: 6;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.chair-zone:hover {
+  transform: translateY(-3px);
+}
+
+.armchair {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.chair-back {
+  position: absolute;
+  top: 10px;
+  left: 15px;
+  right: 15px;
+  height: 85px;
+  background: linear-gradient(180deg, #783823 0%, #522416 100%);
+  border-radius: 20px 20px 10px 10px;
+  border: 3px solid #9c4c32;
+  box-shadow: inset 0 3px 10px rgba(255, 255, 255, 0.15), 0 5px 15px rgba(0,0,0,0.4);
+}
+
+.chair-seat {
+  position: absolute;
+  bottom: 25px;
+  left: 8px;
+  right: 8px;
+  height: 48px;
+  background: linear-gradient(180deg, #8c422a 0%, #5d2818 100%);
+  border-radius: 14px;
+  border: 3px solid #a85237;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* Плед */
+.blanket {
+  position: absolute;
+  bottom: 30px;
+  right: 10px;
+  width: 60px;
+  height: 46px;
+  background: repeating-linear-gradient(
+    45deg,
+    #a93226 0px,
+    #a93226 8px,
+    #2e4053 8px,
+    #2e4053 16px,
+    #f39c12 16px,
+    #f39c12 18px
+  );
+  border-radius: 12px 14px 18px 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 7;
+}
+
+/* Состояние: персонаж сидит под пледом */
+.chair-zone.is-cozy-resting .blanket {
+  width: 95px;
+  height: 75px;
+  bottom: 25px;
+  left: 20px;
+  right: auto;
+  border-radius: 22px 22px 14px 14px;
+  transform: scale(1.05);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 15px rgba(255, 140, 50, 0.3);
+}
+
+.character-resting {
+  position: absolute;
+  top: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  text-align: center;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.chair-zone.is-cozy-resting .character-resting {
+  opacity: 1;
+}
+
+.char-mug {
+  font-size: 1.4rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+.char-zzz {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #ffeaa7;
+  text-shadow: 0 0 8px #ff7675;
+  animation: float-up 2.5s infinite ease-in-out;
+}
+
+@keyframes float-up {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.chair-tooltip {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(30, 14, 7, 0.9);
+  border: 1px solid rgba(241, 196, 15, 0.4);
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ffe6a6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ==================== БОЛЬШОЙ ДИВАН И КОВЕР (ПЕРЕДНИЙ ПЛАН) ==================== */
+.sofa-zone {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 580px;
+  height: 140px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cozy-rug {
+  position: absolute;
+  bottom: -15px;
+  width: 100%;
+  max-width: 540px;
+  height: 48px;
+  background: radial-gradient(ellipse at 50% 50%, #9e5b32 0%, #68391b 70%, #3e1f0e 100%);
+  border-radius: 50%;
+  border: 3px dashed rgba(241, 196, 15, 0.25);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+  z-index: 1;
+}
+
+.cozy-sofa {
+  position: relative;
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(180deg, #6c371d 0%, #4a2412 100%);
+  border-radius: 25px 25px 15px 15px;
+  border: 4px solid #8e4c29;
+  box-shadow: inset 0 4px 15px rgba(255, 255, 255, 0.12), 0 12px 30px rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: space-evenly;
+  align-items: flex-end;
+  padding: 0 15px 12px;
+  z-index: 2;
+}
+
+.sofa-cushion {
+  flex: 1;
+  height: 60px;
+  margin: 0 4px;
+  background: linear-gradient(180deg, #844525 0%, #572b15 100%);
+  border-radius: 14px;
+  border: 2px solid #9e552f;
+  box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.15), 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.sofa-pillow {
+  position: absolute;
+  top: 15px;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+}
+.pillow-1 {
+  left: 20px;
+  background: #c0392b;
+  transform: rotate(-12deg);
+  border: 2px solid #e74c3c;
+}
+.pillow-2 {
+  right: 20px;
+  background: #d35400;
+  transform: rotate(15deg);
+  border: 2px solid #e67e22;
+}
+
+/* Нижняя панель действий на базе */
+.lodge-actions {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 20;
+}
+
+.btn-action {
+  padding: 10px 22px;
+  border-radius: 22px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-cozy {
+  background: linear-gradient(135deg, #7b3820 0%, #9e4b2d 100%);
+  color: #fff2db;
+  border: 1px solid #c9724b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.btn-cozy:hover {
+  background: linear-gradient(135deg, #8e4226 0%, #b35534 100%);
+}
+
+.cozy-banner {
+  position: absolute;
+  top: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(36, 17, 8, 0.92);
+  border: 1px solid #f39c12;
+  color: #ffeaa7;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(243, 156, 18, 0.4);
+  z-index: 25;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.cozy-banner.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(5px);
+}
+
+/* ==========================================================================
+   ЭКРАН 2: НА ПИРСЕ (PIER)
+   ========================================================================== */
+.screen-pier {
+  background: #091724;
+}
+
+.pier-environment {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.env-sky {
+  position: relative;
+  flex: 0 0 46%;
+  width: 100%;
+  background: linear-gradient(180deg, #1b263b 0%, #415a77 55%, #e0a96d 100%);
+  overflow: hidden;
+  transition: background 0.8s ease;
+}
+
+.env-sun-moon {
+  position: absolute;
+  top: 25px;
+  right: 15%;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffeaa7 0%, #fdcb6e 70%, rgba(253, 203, 110, 0) 100%);
+  box-shadow: 0 0 35px rgba(254, 202, 87, 0.7);
+}
+
+.env-mountains {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 60px;
+  background: #192738;
+  clip-path: polygon(0% 100%, 12% 40%, 28% 70%, 42% 30%, 58% 65%, 74% 20%, 88% 50%, 100% 100%);
+}
+
+.env-water {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  background: linear-gradient(180deg, #1d3557 0%, #102033 60%, #060d16 100%);
+  overflow: hidden;
+}
+
+.water-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Сам пирс (доски, сваи, фонарь) */
+.pier-dock {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 280px;
+  height: 190px;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.dock-planks {
+  position: absolute;
+  top: 40px;
+  left: -20px;
+  width: 300px;
+  height: 75px;
+  background: repeating-linear-gradient(
+    115deg,
+    #5a341b 0px,
+    #5a341b 20px,
+    #3b2110 21px,
+    #3b2110 24px
+  );
+  transform: rotate(-14deg);
+  border-top: 5px solid #7c4826;
+  border-bottom: 5px solid #2b170b;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.7);
+}
+
+.dock-pillar {
+  position: absolute;
+  width: 22px;
+  height: 110px;
+  background: linear-gradient(90deg, #422613 0%, #29170b 100%);
+  border-radius: 4px;
+}
+.pillar-1 { bottom: 0; left: 60px; }
+.pillar-2 { bottom: 0; left: 190px; }
+
+.dock-lantern {
+  position: absolute;
+  top: 10px;
+  left: 170px;
+  width: 18px;
+  height: 28px;
+  background: #111;
+  border: 2px solid #5a341b;
+  border-radius: 4px;
+}
+
+.lantern-light {
+  position: absolute;
+  inset: 2px;
+  background: #ffcc00;
+  box-shadow: 0 0 25px 8px rgba(255, 204, 0, 0.6);
+  border-radius: 2px;
+  animation: flicker 3s infinite ease-in-out;
+}
+
+.fisherman-box {
+  position: absolute;
+  top: 42px;
+  left: 105px;
+  font-size: 1.6rem;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.7));
+}
+
+/* ==================== РЫБАЛКА: УДОЧКА, ЛЕСКА, ПОПЛАВОК ==================== */
+.fishing-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.rod-line-svg-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+.line-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+#fishing-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+
+.rod-element {
+  position: absolute;
+  bottom: 60px;
+  left: 130px;
+  width: 220px;
+  height: 120px;
+  transform-origin: bottom left;
+  transform: rotate(-35deg);
+  transition: transform 0.25s ease;
+}
+
+.rod-element.bending {
+  transform: rotate(-22deg) scaleY(0.92);
+}
+
+.rod-stick {
+  width: 100%;
+  height: 5px;
+  background: linear-gradient(90deg, #5c2d12 0%, #b85d19 70%, #f1c40f 100%);
+  border-radius: 3px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Поплавок */
+.bobber-element {
+  position: absolute;
+  top: 65%;
+  left: 65%;
+  width: 16px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  transition: top 0.4s ease, left 0.4s ease;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+}
+
+.bobber-top {
+  width: 4px;
+  height: 10px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 2px;
+}
+
+.bobber-body {
+  width: 16px;
+  height: 20px;
+  background: linear-gradient(180deg, #e74c3c 0%, #e74c3c 50%, #ffffff 50%, #ffffff 100%);
+  border-radius: 50% 50% 40% 40%;
+  border: 1px solid rgba(0,0,0,0.25);
+  animation: bobber-float 2.4s infinite ease-in-out;
+}
+
+@keyframes bobber-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(4px) rotate(4deg); }
+}
+
+.bobber-element.biting .bobber-body {
+  animation: bobber-bite 0.2s infinite alternate ease-in-out;
+}
+
+@keyframes bobber-bite {
+  0% { transform: translateY(-4px) rotate(-8deg); }
+  100% { transform: translateY(9px) rotate(10deg); }
+}
+
+.bobber-splash {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  opacity: 0;
+}
+
+.bobber-element.biting .bobber-splash {
+  animation: splash-ripple 0.8s infinite ease-out;
+}
+
+@keyframes splash-ripple {
+  0% { transform: translateX(-50%) scale(0.4); opacity: 0.9; }
+  100% { transform: translateX(-50%) scale(1.6); opacity: 0; }
+}
+
+/* ==================== ИНТЕРФЕЙС РЫБАЛКИ ==================== */
+.fishing-hud {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 15px 20px 18px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(180deg, transparent 0%, rgba(6, 13, 22, 0.85) 50%, rgba(3, 7, 12, 0.96) 100%);
+}
+
+.fishing-status-pill {
+  padding: 6px 18px;
+  background: rgba(16, 32, 51, 0.85);
+  border: 1px solid rgba(241, 196, 15, 0.35);
+  border-radius: 20px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffeaa7;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.strike-meter-wrap {
+  width: 90%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  animation: bounce-in 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.strike-bar-label {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: #ff7675;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 10px #d63031;
+}
+
+.strike-bar {
+  width: 100%;
+  height: 16px;
+  background: #2d3436;
+  border-radius: 10px;
+  border: 2px solid #fab1a0;
+  overflow: hidden;
+  box-shadow: 0 0 15px rgba(231, 76, 60, 0.4);
+}
+
+.strike-progress {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #e74c3c 0%, #f39c12 50%, #2ecc71 100%);
+  transform-origin: left;
+  transition: width 0.05s linear;
+}
+
+.pier-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ==========================================================================
+   МОДАЛЬНЫЕ ОКНА: БАЗЫ, РЕКОРДЫ, КАРТОЧКА УЛОВА
+   ========================================================================== */
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: rgba(10, 5, 2, 0.78);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fade-in 0.25s ease;
+}
+
+.modal-backdrop[hidden] {
+  display: none !important;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 580px;
+  max-height: 90%;
+  overflow-y: auto;
+  background: linear-gradient(160deg, #321c11 0%, #201008 100%);
+  border: 2px solid #9e5b32;
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(230, 145, 56, 0.2);
+  color: var(--c-text-cream);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(230, 145, 56, 0.25);
+}
+
+.modal-header h2 {
+  font-size: 1.25rem;
+  font-family: var(--font-serif);
+  color: #ffe6a6;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(80, 40, 20, 0.8);
+  border: 1px solid rgba(241, 196, 15, 0.3);
+  color: #ffeaa7;
+  font-size: 1.1rem;
+}
+
+/* Сетка баз */
+.bases-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.base-card {
+  background: rgba(58, 30, 16, 0.7);
+  border: 2px solid rgba(230, 145, 56, 0.35);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.base-card:hover {
+  transform: translateY(-3px);
+  border-color: #f39c12;
+  background: rgba(78, 40, 22, 0.85);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(243, 156, 18, 0.3);
+}
+
+.base-card.active-base {
+  border-color: #2ecc71;
+  box-shadow: 0 0 15px rgba(46, 204, 113, 0.4);
+}
+
+.base-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.base-name {
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #fff2db;
+}
+
+.base-capacity-pill {
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: rgba(241, 196, 15, 0.2);
+  border: 1px solid rgba(241, 196, 15, 0.4);
+  color: #ffe6a6;
+}
+
+.base-desc {
+  font-size: 0.82rem;
+  color: var(--c-text-muted);
+  line-height: 1.4;
+}
+
+.base-fish-preview {
+  margin-top: 4px;
+  font-size: 0.76rem;
+  color: #f1c40f;
+}
+
+/* Статистика и таблица рекордов */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stat-box {
+  background: rgba(50, 25, 13, 0.8);
+  border: 1px solid rgba(230, 145, 56, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  text-align: center;
+}
+.stat-box small {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--c-text-muted);
+  margin-bottom: 4px;
+}
+.stat-box b {
+  font-size: 1.05rem;
+  color: #ffe6a6;
+}
+
+.records-content h3 {
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  color: #ffe6a6;
+}
+
+.catch-history-list {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: rgba(45, 22, 12, 0.6);
+  border-radius: 8px;
+  font-size: 0.84rem;
+}
+.history-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.history-item-pts {
+  font-weight: 700;
+  color: #f39c12;
+}
+
+.server-sync-hint {
+  padding-top: 8px;
+  border-top: 1px dashed rgba(230, 145, 56, 0.25);
+  color: #d0b89b;
+}
+
+.empty-hint {
+  text-align: center;
+  padding: 20px;
+  font-size: 0.85rem;
+  color: var(--c-text-muted);
+}
+
+/* ==================== КАРТОЧКА ПОЙМАННОЙ РЫБЫ ==================== */
+.catch-card {
+  text-align: center;
+  max-width: 440px;
+  padding: 26px 22px;
+}
+
+.catch-rarity-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 14px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.rarity-common { background: #7f8c8d; color: #fff; }
+.rarity-uncommon { background: #27ae60; color: #fff; }
+.rarity-rare { background: #2980b9; color: #fff; }
+.rarity-trophy { background: #8e44ad; color: #fff; }
+.rarity-legendary { background: linear-gradient(135deg, #f39c12, #e74c3c); color: #fff; }
+
+.catch-art {
+  font-size: 4rem;
+  margin-bottom: 8px;
+  animation: float-up 2s infinite ease-in-out;
+}
+
+.catch-title {
+  font-size: 1.4rem;
+  font-family: var(--font-serif);
+  color: #fff2db;
+  margin-bottom: 4px;
+}
+
+.catch-meta {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  font-size: 0.82rem;
+  color: var(--c-text-muted);
+  margin-bottom: 16px;
+}
+
+.catch-points-breakdown {
+  background: rgba(40, 18, 9, 0.75);
+  border: 1px solid rgba(241, 196, 15, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.points-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--c-text-muted);
+  margin-bottom: 4px;
+}
+
+.points-total-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(241, 196, 15, 0.2);
+  font-size: 1rem;
+  color: #fff;
+}
+.points-total-line b {
+  color: #ffe6a6;
+  font-size: 1.25rem;
+}
+
+/* ==================== АДАПТИВНОСТЬ ПОД МОБИЛЬНЫЕ ==================== */
+@media (max-width: 640px) {
+  .game-topbar {
+    padding: 8px 10px;
+  }
+  .base-badge-name {
+    display: none;
+  }
+  .score-val {
+    font-size: 1.15rem;
+  }
+  .fireplace-zone {
+    width: 190px;
+    height: 160px;
+    top: 140px;
+  }
+  .lodge-window {
+    width: 220px;
+    height: 110px;
+  }
+  .chair-zone {
+    right: 4%;
+    top: 155px;
+    width: 115px;
+    height: 140px;
+  }
+  .sofa-zone {
+    bottom: 50px;
+    height: 115px;
+  }
+  .pier-dock {
+    width: 220px;
+    height: 150px;
+  }
+  .rod-element {
+    left: 80px;
+    width: 180px;
+  }
+  .pier-controls {
+    width: 100%;
+    justify-content: center;
+  }
+  .btn-large {
+    padding: 10px 18px;
+    font-size: 0.95rem;
+  }
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+}

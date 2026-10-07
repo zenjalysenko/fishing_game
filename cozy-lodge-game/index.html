@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Уютная рыбалка на базах</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Контейнер игры: готов к встраиванию в iframe или блок на сайте -->
+  <div id="game-app" class="game-container">
+    
+    <!-- Верхняя панель: статус, счёт, звук, навигация -->
+    <header class="game-topbar">
+      <div class="topbar-left">
+        <button id="btn-sound" class="btn-icon" title="Звук вкл/выкл" aria-label="Переключить звук">
+          <span class="icon-sound">🔊</span>
+        </button>
+        <div class="current-base-badge" id="base-badge">
+          <span class="base-badge-icon">🏡</span>
+          <span class="base-badge-name">Лесная хижина</span>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <div class="score-card">
+          <span class="score-label">Очки</span>
+          <span class="score-val" id="total-score">0</span>
+          <span class="streak-pill" id="streak-pill" title="Серия удачных уловов">Комбо: x1.0</span>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <button id="btn-select-base" class="btn-secondary" title="Сменить рыболовную базу">
+          🗺️ Базы
+        </button>
+        <button id="btn-leaderboard" class="btn-secondary" title="Таблица рекордов">
+          🏆 Трофеи
+        </button>
+      </div>
+    </header>
+
+    <!-- ОСНОВНАЯ ОБЛАСТЬ ЭКРАНОВ -->
+    <main class="game-viewport" id="viewport">
+
+      <!-- ==================== ЭКРАН 1: ВНУТРИ БАЗЫ ==================== -->
+      <section id="screen-lodge" class="screen screen-lodge active">
+        <!-- Фон интерьера базы (генерируется стилем или динамически) -->
+        <div class="lodge-backdrop" id="lodge-backdrop"></div>
+
+        <!-- Верхнее окно с видом наружу -->
+        <div class="lodge-window" id="lodge-window">
+          <div class="window-glass">
+            <div class="window-sky"></div>
+            <div class="window-landscape" id="window-landscape"></div>
+            <div class="window-water"></div>
+          </div>
+          <div class="window-frame"></div>
+        </div>
+
+        <!-- Настенный декор -->
+        <div class="wall-decor">
+          <div class="wall-rod-rack" title="Коллекция удилищ">
+            <div class="rod rod-1"></div>
+            <div class="rod rod-2"></div>
+          </div>
+          <div class="wall-painting" id="lodge-painting" title="Памятная картина">
+            <div class="painting-canvas"></div>
+          </div>
+          <div class="wall-lamp lamp-left">
+            <div class="lamp-glow"></div>
+          </div>
+          <div class="wall-lamp lamp-right">
+            <div class="lamp-glow"></div>
+          </div>
+        </div>
+
+        <!-- Комната: Камин напротив игрока -->
+        <div class="fireplace-zone" id="fireplace-zone">
+          <div class="fireplace-mantel">
+            <div class="mantel-item candle" title="Ароматическая свеча">
+              <span class="candle-flame"></span>
+            </div>
+            <div class="mantel-item clock">🕰️</div>
+            <div class="mantel-item mug" id="interactive-mug" title="Кликни, чтобы сделать глоток горячего чая">
+              ☕
+              <span class="steam"></span>
+            </div>
+          </div>
+          <div class="fireplace-hearth">
+            <div class="chimney-arch"></div>
+            <div class="logs"></div>
+            <canvas id="fire-canvas" class="fire-canvas" width="160" height="120"></canvas>
+            <div class="hearth-glow"></div>
+          </div>
+        </div>
+
+        <!-- Уютное кресло с пледом рядом с камином -->
+        <div class="chair-zone" id="chair-zone" title="Кликните, чтобы укутаться в плед и согреться">
+          <div class="armchair" id="armchair">
+            <div class="chair-back"></div>
+            <div class="chair-seat"></div>
+            <!-- Плед: состояние снят / надет -->
+            <div class="blanket" id="cozy-blanket">
+              <span class="blanket-pattern"></span>
+            </div>
+            <!-- Сидящий персонаж -->
+            <div class="character-resting" id="character-resting">
+              <div class="char-mug">🍵</div>
+              <div class="char-zzz">✨ Уют</div>
+            </div>
+          </div>
+          <div class="chair-tooltip">🛋️ Сесть под плед</div>
+        </div>
+
+        <!-- Большой удобный диван на переднем плане -->
+        <div class="sofa-zone" id="sofa-zone">
+          <div class="cozy-sofa" id="cozy-sofa">
+            <div class="sofa-cushion cushion-left"></div>
+            <div class="sofa-cushion cushion-center"></div>
+            <div class="sofa-cushion cushion-right"></div>
+            <div class="sofa-pillow pillow-1"></div>
+            <div class="sofa-pillow pillow-2"></div>
+          </div>
+          <div class="cozy-rug"></div>
+        </div>
+
+        <!-- Нижняя панель действий на базе -->
+        <div class="lodge-actions">
+          <button id="btn-sit-blanket" class="btn-action btn-cozy">
+            🧣 Укутаться в плед (+комбо)
+          </button>
+          <button id="btn-go-pier" class="btn-action btn-primary pulse-btn">
+            🎣 Выйти на пирс
+          </button>
+        </div>
+
+        <!-- Уведомление о состоянии уюта -->
+        <div id="cozy-banner" class="cozy-banner"></div>
+      </section>
+
+
+      <!-- ==================== ЭКРАН 2: НА ПИРСЕ (РЫБАЛКА) ==================== -->
+      <section id="screen-pier" class="screen screen-pier">
+        <!-- Пейзаж вокруг пирса -->
+        <div class="pier-environment" id="pier-environment">
+          <div class="env-sky" id="env-sky">
+            <div class="env-sun-moon"></div>
+            <div class="env-clouds"></div>
+            <div class="env-mountains" id="env-mountains"></div>
+          </div>
+          <div class="env-water" id="env-water">
+            <canvas id="water-canvas" class="water-canvas"></canvas>
+            <div class="water-ripples"></div>
+          </div>
+        </div>
+
+        <!-- Сам деревянный пирс -->
+        <div class="pier-dock" id="pier-dock">
+          <div class="dock-planks"></div>
+          <div class="dock-pillar pillar-1"></div>
+          <div class="dock-pillar pillar-2"></div>
+          <div class="dock-lantern" id="dock-lantern">
+            <div class="lantern-light"></div>
+          </div>
+          <div class="fisherman-box">🪣</div>
+        </div>
+
+        <!-- Рыболовная сцена: удочка, леска, поплавок -->
+        <div class="fishing-scene" id="fishing-scene">
+          <div class="rod-line-svg-wrap">
+            <svg id="line-svg" class="line-svg">
+              <path id="fishing-line" d="M 0 0 Q 0 0 0 0" />
+            </svg>
+          </div>
+          <div class="rod-element" id="rod-element">
+            <div class="rod-stick"></div>
+          </div>
+          <div class="bobber-element" id="bobber-element">
+            <div class="bobber-top"></div>
+            <div class="bobber-body"></div>
+            <div class="bobber-splash" id="bobber-splash"></div>
+          </div>
+        </div>
+
+        <!-- Интерфейс мини-игры рыбалки -->
+        <div class="fishing-hud">
+          <div class="fishing-status-pill" id="fishing-status">
+            Готовьтесь к забросу
+          </div>
+
+          <!-- Шкала тайминга подсечки -->
+          <div class="strike-meter-wrap" id="strike-meter-wrap" hidden>
+            <div class="strike-bar-label">ПОДСЕКАЙТЕ СЕЙЧАС!</div>
+            <div class="strike-bar">
+              <div class="strike-progress" id="strike-progress"></div>
+            </div>
+          </div>
+
+          <!-- Кнопка управления удочкой -->
+          <div class="pier-controls">
+            <button id="btn-back-lodge" class="btn-secondary">
+              🚪 В дом к камину
+            </button>
+            <button id="btn-fish-action" class="btn-primary btn-large">
+              🎣 Забросить удочку
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- МОДАЛЬНОЕ ОКНО 1: ВЫБОР БАЗЫ -->
+    <div id="modal-bases" class="modal-backdrop" hidden>
+      <div class="modal-card">
+        <header class="modal-header">
+          <h2>🏡 Выберите рыболовную базу</h2>
+          <button class="modal-close" data-close="modal-bases">✕</button>
+        </header>
+        <div class="bases-grid" id="bases-grid">
+          <!-- Генерируется из JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО 2: РЕКОРДЫ И УЛОВЫ -->
+    <div id="modal-records" class="modal-backdrop" hidden>
+      <div class="modal-card">
+        <header class="modal-header">
+          <h2>🏆 Журнал рекордов и трофеев</h2>
+          <button class="modal-close" data-close="modal-records">✕</button>
+        </header>
+        <div class="records-content">
+          <div class="stats-row">
+            <div class="stat-box">
+              <small>Всего поймано</small>
+              <b id="stat-total-caught">0 шт.</b>
+            </div>
+            <div class="stat-box">
+              <small>Рекорд за одну рыбу</small>
+              <b id="stat-max-single">0 очков</b>
+            </div>
+            <div class="stat-box">
+              <small>Лучшая серия</small>
+              <b id="stat-best-streak">x1.0</b>
+            </div>
+          </div>
+          <h3>Последние трофеи</h3>
+          <div class="catch-history-list" id="catch-history-list">
+            <div class="empty-hint">Рыба ещё не поймана. Самое время выйти на пирс!</div>
+          </div>
+          <div class="server-sync-hint">
+            <small>💡 Сохранено в браузере (localStorage). Готово к синхронизации с аккаунтом на сервере.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО 3: КАРТОЧКА ПОЙМАННОЙ РЫБЫ -->
+    <div id="modal-catch" class="modal-backdrop catch-modal" hidden>
+      <div class="modal-card catch-card" id="catch-card">
+        <div class="catch-confetti"></div>
+        <div class="catch-rarity-badge" id="catch-rarity">РЕДКАЯ РЫБА</div>
+        <div class="catch-art" id="catch-icon">🐟</div>
+        <h2 class="catch-title" id="catch-name">Радужная форель</h2>
+        <div class="catch-meta">
+          <span class="catch-weight" id="catch-weight">Вес: 1.84 кг</span>
+          <span class="catch-base-origin" id="catch-base-origin">База: Лесная хижина</span>
+        </div>
+        
+        <!-- Расчёт очков -->
+        <div class="catch-points-breakdown">
+          <div class="points-line">
+            <span>Базовая стоимость:</span>
+            <span id="pts-base">100</span>
+          </div>
+          <div class="points-line">
+            <span>Бонус за вес и редкость:</span>
+            <span id="pts-weight">+45</span>
+          </div>
+          <div class="points-line">
+            <span>Множитель серии (<span id="pts-streak-multiplier">x1.3</span>):</span>
+            <span id="pts-streak-bonus">+44</span>
+          </div>
+          <div class="points-total-line">
+            <span>Итого начислено:</span>
+            <b id="pts-awarded">+189 очков</b>
+          </div>
+        </div>
+
+        <button id="btn-collect-catch" class="btn-primary btn-large">
+          ✨ Забрать улов и продолжить
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

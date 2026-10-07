@@ -7,7 +7,7 @@
   <meta name="description" content="Українська Рибалка — атмосферна браузерна гра про риболовлю: понад 50 видів риб, десятки водойм, снасті, турніри та експедиції.">
   <title>Українська Рибалка — Морський курорт</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" type="image/svg+xml" sizes="any">
-  <link rel="stylesheet" href="styles.css?v=boat-scenes-4">
+  <link rel="stylesheet" href="styles.css?v=fish-swim-1">
 </head>
 <body>
   <aside class="save-warning" id="saveWarning" role="alert" hidden>
@@ -18,6 +18,7 @@
   <main class="game location-pier" id="game">
     <!-- Верхня панель швидких налаштувань (звук, повноекранний режим) -->
     <header class="top-quick-bar" aria-label="Швидкі налаштування">
+      <button type="button" data-modal="base" id="topBaseQuickBtn" class="quick-btn quick-base-btn" title="Повернутися на базу до каміна" aria-label="База">🏡 <span class="quick-base-text">База</span></button>
       <button type="button" id="soundToggle" class="quick-btn" title="Увімкнути/вимкнути звук (M)" data-i18n-title="soundToggleTitle" aria-label="Звук">🔊</button>
       <input type="range" id="soundVolume" class="volume-slider" min="0" max="1" step="0.05" value="0.7" title="Гучність звуку" data-i18n-title="soundVolumeTitle" aria-label="Гучність">
       <button type="button" id="fullscreenToggle" class="quick-btn" title="Повноекранний режим" data-i18n-title="fullscreenTitle" aria-label="Повноекранний режим">⛶</button>
@@ -73,7 +74,7 @@
     <div class="scene" id="scene"><canvas id="worldCanvas" aria-label="Сцена риболовлі: море, причал, вудка та риба"></canvas><div class="scene-vignette"></div></div>
     <div class="weather-fx" id="weatherFx" aria-hidden="true"></div>
     <div class="equipped-rod" id="equippedRod" aria-hidden="true"><img id="equippedRodImage" src="assets/rods/rod-01.png" alt="Вудка"></div>
-    <img id="equippedFloat" class="equipped-float" src="assets/floats/float-01.png" alt="Поплавок" aria-hidden="true">
+    <img id="equippedFloat" class="equipped-float" src="assets/floats/float-01.png" alt="Поплавок" aria-hidden="true" hidden>
 
     <section class="depth-panel glass" id="depthPanel" aria-label="Ехолот">
       <header class="sonar-header"><span class="sonar-brand"><i aria-hidden="true">⌁</i> <span data-i18n="sonarBrand">ЕХОЛОТ</span></span><span class="sonar-status"><i></i> <span data-i18n="sonarStatus">СКАНУВАННЯ</span></span></header>
@@ -103,6 +104,7 @@
       <div class="fishing-buttons">
         <button id="castButton" type="button" aria-keyshortcuts="Space"><span data-i18n="castBtn">Закинути</span> <small data-i18n="castBtnSub">утримуй · пробіл</small></button>
         <button id="pullButton" type="button" aria-keyshortcuts="R"><span data-i18n="pullBtn">Підтягнути</span> <small data-i18n="pullBtnSub">утримуй · R</small></button>
+        <button id="returnBaseBtn" type="button" class="return-base-btn" data-modal="base" title="Повернутися у вітальню бази до каміна">🏡 <span data-i18n="tabBase">База</span></button>
       </div>
     </section>
 
@@ -119,6 +121,7 @@
       <div class="bottom-center">
         <nav class="tabs">
           <button class="active" data-i18n="tabFishing">Риболовля</button>
+          <button type="button" data-modal="base" class="tab-base-btn" data-i18n="tabBase" title="Повернутися на затишну базу до каміна">🏡 База</button>
           <button data-modal="map" data-i18n="tabLocation">Локація</button>
           <button data-modal="shops" data-i18n="tabShops">Магазини</button>
           <button data-modal="pets" data-i18n="tabPets">Улюбленці</button>
@@ -138,31 +141,153 @@
   <div class="modal base-modal open" id="base" aria-label="Рибальська база">
     <section class="base-hub">
       <button class="close" aria-label="Почати риболовлю">×</button>
-      <header class="base-title"><span>Рибальська база</span><small>Курортна пристань · головний штаб</small></header>
-      <div class="base-book">
-        <section class="base-page">
-          <h2>Спорядження та послуги</h2>
-          <button class="base-link" data-modal="shops" data-shop="rods"><i>🎣</i><span><b>Рибальський магазин</b><small>Вудки, волосіні, котушки та гачки</small></span></button>
-          <button class="base-link" data-modal="bag"><i>🎒</i><span><b>Рюкзак</b><small>Наживки та активне спорядження</small></span></button>
-          <button class="base-link" data-modal="bank"><i>💳</i><span><b>Рибальський Банк</b><small>Безвідсотковий кредит та позики</small></span></button>
-          <button class="base-link" data-modal="kitchen"><i>🍳</i><span><b>Кухня рибалки</b><small>Приготування юшки та рибних страв із бафами</small></span></button>
-          <button class="base-link" data-modal="index"><i>🐟</i><span><b>Альбом улову</b><small>Вивчені види, описи та рекорди</small></span></button>
-          <button class="base-link" data-modal="pets"><i>🦦</i><span><b>Дикі улюбленці</b><small>Талісмани та вірні помічники рибалки</small></span></button>
-        </section>
-        <section class="base-page">
-          <h2>Пригоди та рекорди</h2>
-          <button class="base-link" data-modal="map"><i>🗺️</i><span><b>Подорожі</b><small>Відкриті водойми, річки та експедиції</small></span></button>
-          <button class="base-link" data-modal="world"><i>🌦️</i><span><b>Умови ловлі</b><small>Сезон, погода, час доби та завдання</small></span></button>
-          <button class="base-link" data-modal="auction"><i>🔨</i><span><b>Аукціон улову</b><small>Продаж рідкісних трофеїв покупцям</small></span></button>
-          <button class="base-link" data-modal="trophy"><i>🏆</i><span><b>Зала трофеїв</b><small>Рекорди, стенди та 20+ досягнень</small></span></button>
-          <button class="base-link" data-modal="progress"><i>📊</i><span><b>Прогрес та крафт</b><small>Навички, турнір дня та матеріали</small></span></button>
-          <button class="base-link" data-modal="settings"><i>⚙️</i><span><b>Налаштування</b><small>Експорт, імпорт сейвів та звук</small></span></button>
-        </section>
+      
+      <!-- Верхня шапка бази -->
+      <header class="base-title">
+        <div class="base-title-main">
+          <span id="lodgeActiveName">🏡 Ведмежий кут — Лісова хатина</span>
+          <span class="lodge-capacity-badge" id="lodgeCapacityBadge">👥 4 місця</span>
+        </div>
+        <small id="lodgeActiveDesc">Затишний зруб із вікової сосни · тихе лісове озеро</small>
+      </header>
+
+      <!-- Навігація вкладками бази -->
+      <nav class="lodge-nav-tabs">
+        <button type="button" class="lodge-tab-btn active" id="tabBtnLodgeRoom" onclick="switchLodgeTab('room')">🛋️ Затишна вітальня</button>
+        <button type="button" class="lodge-tab-btn" id="tabBtnLodgeSelect" onclick="switchLodgeTab('select')">🗺️ Вибір бази (4 бази)</button>
+        <button type="button" class="lodge-tab-btn" id="tabBtnLodgeServices" onclick="switchLodgeTab('services')">📋 Послуги та крамниця</button>
+      </nav>
+
+      <!-- 1. ВКЛАДКА: ЗАТИШНА ВІТАЛЬНЯ БАЗИ -->
+      <div class="lodge-view lodge-room-view active" id="lodgeViewRoom">
+        <div class="lodge-room-backdrop" id="lodgeRoomBackdrop">
+          <!-- Панорамне вікно на водойму бази -->
+          <div class="lodge-panoramic-window" id="lodgePanoramicWindow">
+            <div class="lodge-win-glass">
+              <div class="lodge-win-sky" id="lodgeWinSky"></div>
+              <div class="lodge-win-landscape" id="lodgeWinLandscape"></div>
+              <div class="lodge-win-water" id="lodgeWinWater"></div>
+            </div>
+            <div class="lodge-win-frame"></div>
+          </div>
+
+          <!-- Настінний декор -->
+          <div class="lodge-wall-decor">
+            <div class="lodge-rod-rack" title="Стійка для вудилищ">
+              <div class="lodge-rod rod-1"></div>
+              <div class="lodge-rod rod-2"></div>
+            </div>
+            <div class="lodge-painting" title="Пам'ятна картина">
+              <div class="lodge-painting-canvas" id="lodgePaintingCanvas"></div>
+            </div>
+            <div class="lodge-wall-sconce sconce-left"><div class="sconce-glow"></div></div>
+            <div class="lodge-wall-sconce sconce-right"><div class="sconce-glow"></div></div>
+          </div>
+
+          <!-- КАМІН НАВПРОТИ ГРАВЦЯ -->
+          <div class="lodge-fireplace-zone" id="lodgeFireplaceZone">
+            <div class="lodge-mantel">
+              <div class="mantel-item candle" title="Ароматична свічка"><span class="candle-flame"></span></div>
+              <div class="mantel-item clock">🕰️</div>
+              <div class="mantel-item mug" id="lodgeMug" title="Зробити ковток гарячого чаю" onclick="sipLodgeTea()">
+                ☕<span class="steam"></span>
+              </div>
+            </div>
+            <div class="lodge-hearth">
+              <div class="hearth-arch"></div>
+              <div class="hearth-logs"></div>
+              <canvas id="lodgeFireCanvas" class="lodge-fire-canvas" width="180" height="120"></canvas>
+              <div class="hearth-ember-glow"></div>
+            </div>
+          </div>
+
+          <!-- КРІСЛО З ПЛЕДОМ ПОРУЧ ІЗ КАМІНОМ -->
+          <div class="lodge-chair-zone" id="lodgeChairZone" title="Клікніть, щоб укутатися в плед біля каміна" onclick="toggleLodgeBlanket()">
+            <div class="lodge-armchair">
+              <div class="chair-back"></div>
+              <div class="chair-seat"></div>
+              <div class="lodge-blanket" id="lodgeBlanket"></div>
+              <div class="lodge-resting-char" id="lodgeRestingChar">
+                <div class="char-mug">🍵</div>
+                <div class="char-cozy-label">✨ У затишку</div>
+              </div>
+            </div>
+            <div class="chair-tooltip-btn">🛋️ Сісти під плед</div>
+          </div>
+
+          <!-- ВЕЛИКИЙ ЗРУЧНИЙ ДИВАН НА ПЕРЕДНЬОМУ ПЛАНІ -->
+          <div class="lodge-sofa-zone">
+            <div class="lodge-sofa" id="lodgeSofa">
+              <div class="sofa-cushion cushion-l"></div>
+              <div class="sofa-cushion cushion-c"></div>
+              <div class="sofa-cushion cushion-r"></div>
+              <div class="sofa-pillow pillow-l"></div>
+              <div class="sofa-pillow pillow-r"></div>
+            </div>
+            <div class="lodge-carpet"></div>
+          </div>
+        </div>
+
+        <!-- Повідомлення про затишок -->
+        <div id="lodgeCozyNotice" class="lodge-cozy-notice"></div>
+
+        <!-- Нижні кнопки дій у вітальні -->
+        <div class="lodge-room-actions">
+          <button type="button" class="lodge-action-btn btn-warm" onclick="toggleLodgeBlanket()">
+            🧣 Укутатися в плед (+бонус до кльову)
+          </button>
+          <button type="button" class="lodge-action-btn btn-go-dock" onclick="goToLodgePier()">
+            🎣 Вийти на пірс бази <span>→</span>
+          </button>
+          <button type="button" class="lodge-action-btn btn-other-lodge" onclick="switchLodgeTab('select')">
+            🗺️ Інші бази
+          </button>
+        </div>
       </div>
-      <footer class="base-status" id="baseStatus"></footer>
-      <button class="base-start close-dialog">Вийти на риболовлю <span>→</span></button>
+
+      <!-- 2. ВКЛАДКА: ВИБІР БАЗИ (4 БАЗИ: 2, 4, 6, 8 МІСЦЬ) -->
+      <div class="lodge-view lodge-select-view" id="lodgeViewSelect" hidden>
+        <div class="lodge-select-intro">
+          <h3>Виберіть рибальську базу</h3>
+          <p>Кожна база має власну кількість місць для рибалок, унікальне планування, інтер'єр та вихід до власного пірса.</p>
+        </div>
+        <div class="lodge-cards-grid" id="lodgeCardsGrid">
+          <!-- Генерується із JavaScript -->
+        </div>
+      </div>
+
+      <!-- 3. ВКЛАДКА: ПОСЛУГИ ТА КРАМНИЦЯ -->
+      <div class="lodge-view lodge-services-view" id="lodgeViewServices" hidden>
+        <div class="base-book">
+          <section class="base-page">
+            <h2>Спорядження та послуги</h2>
+            <button class="base-link" data-modal="shops" data-shop="rods"><i>🎣</i><span><b>Рибальський магазин</b><small>Вудки, волосіні, котушки та гачки</small></span></button>
+            <button class="base-link" data-modal="bag"><i>🎒</i><span><b>Рюкзак</b><small>Наживки та активне спорядження</small></span></button>
+            <button class="base-link" data-modal="bank"><i>💳</i><span><b>Рибальський Банк</b><small>Безвідсотковий кредит та позики</small></span></button>
+            <button class="base-link" data-modal="kitchen"><i>🍳</i><span><b>Кухня рибалки</b><small>Приготування юшки та рибних страв із бафами</small></span></button>
+            <button class="base-link" data-modal="index"><i>🐟</i><span><b>Альбом улову</b><small>Вивчені види, описи та рекорди</small></span></button>
+            <button class="base-link" data-modal="pets"><i>🦦</i><span><b>Дикі улюбленці</b><small>Талісмани та вірні помічники рибалки</small></span></button>
+          </section>
+          <section class="base-page">
+            <h2>Пригоди та рекорди</h2>
+            <button class="base-link" data-modal="map"><i>🗺️</i><span><b>Подорожі</b><small>Відкриті водойми, річки та експедиції</small></span></button>
+            <button class="base-link" data-modal="world"><i>🌦️</i><span><b>Умови ловлі</b><small>Сезон, погода, час доби та завдання</small></span></button>
+            <button class="base-link" data-modal="auction"><i>🔨</i><span><b>Аукціон улову</b><small>Продаж рідкісних трофеїв покупцям</small></span></button>
+            <button class="base-link" data-modal="trophy"><i>🏆</i><span><b>Зала трофеїв</b><small>Рекорди, стенди та 20+ досягнень</small></span></button>
+            <button class="base-link" data-modal="progress"><i>📊</i><span><b>Прогрес та крафт</b><small>Навички, турнір дня та матеріали</small></span></button>
+            <button class="base-link" data-modal="settings"><i>⚙️</i><span><b>Налаштування</b><small>Експорт, імпорт сейвів та звук</small></span></button>
+          </section>
+        </div>
+        <footer class="base-status" id="baseStatus"></footer>
+        <div class="lodge-services-footer-nav">
+          <button type="button" class="lodge-action-btn" onclick="switchLodgeTab('room')">🛋️ Повернутися у вітальню</button>
+          <button type="button" class="base-start close-dialog">Вийти на риболовлю <span>→</span></button>
+        </div>
+      </div>
+
     </section>
   </div>
+
 
   <div class="modal fish-market-modal" id="keepnet">
     <section class="fish-market">
@@ -392,7 +517,7 @@
   </div>
 
   <script src="lang.js?v=boat-scenes-4"></script>
-  <script src="script.js?v=boat-scenes-4"></script>
+  <script src="script.js?v=fish-swim-1"></script>
   <script>
     if (window.i18n) {
       window.i18n.ensureLanguageStyles();
