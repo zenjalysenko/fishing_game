@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ukr-fishing-v3';
+const CACHE_NAME = 'ukr-fishing-v5-merged';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -15,7 +15,19 @@ const ASSETS_TO_CACHE = [
   './assets/ui/base-icon.png',
   './assets/ui/profile-icon.png',
   './assets/ui/journal-icon.png',
-  './assets/ui/fishing-base-hub-realistic.png'
+  './assets/ui/fishing-base-hub-realistic.png',
+  './assets/boats/rowboat-card.png',
+  './assets/boats/rowboat-detail.png',
+  './assets/boats/motorboat-card.png',
+  './assets/boats/motorboat-detail.png',
+  './assets/boats/cutter-card.png',
+  './assets/boats/cutter-detail.png',
+  './assets/boats/yacht-card.png',
+  './assets/boats/yacht-detail.png',
+  './assets/boats/rowboat-fishing.png',
+  './assets/boats/motorboat-fishing.png',
+  './assets/boats/cutter-fishing.png',
+  './assets/boats/yacht-fishing.png'
 ];
 
 self.addEventListener('install', event => {

@@ -248,11 +248,12 @@ const seasons = {
 };
 
 const weatherData = {
-  clear: {name:'Ясно', icon:'☀', bite:1, visibility:'висока'},
-  rain: {name:'Дощ', icon:'🌧', bite:1.25, visibility:'середня'},
-  fog: {name:'Туман', icon:'🌫', bite:1.1, visibility:'низька'},
-  wind: {name:'Вітер', icon:'💨', bite:0.8, visibility:'середня'},
-  snow: {name:'Сніг', icon:'❄️', bite:0.7, visibility:'помірна'}
+  clear: {name:'Ясно', icon:'☀', bite:1, visibility:'висока', danger:0},
+  rain: {name:'Дощ', icon:'🌧', bite:1.25, visibility:'середня', danger:0.12},
+  fog: {name:'Туман', icon:'🌫', bite:1.1, visibility:'низька', danger:0.14},
+  wind: {name:'Вітер', icon:'💨', bite:0.8, visibility:'середня', danger:0.38},
+  storm: {name:'Шторм', icon:'⛈', bite:0.62, visibility:'низька', danger:0.72},
+  snow: {name:'Сніг', icon:'❄️', bite:0.7, visibility:'помірна', danger:0.2}
 };
 
 const timeData = {
@@ -438,24 +439,23 @@ const boats = [
   {id:'motorboat', name:'Моторний човен', price:8500, depth:35, rarity:2, weight:1.35, icon:'🚤', desc:'Швидкий вихід до глибоких ям, де полюють хижаки.'},
   {id:'cutter', name:'Морський катер', price:36000, depth:65, rarity:3, weight:1.6, icon:'🛥️', desc:'Потужний катер для відкритого моря та великої риби.'},
   {id:'yacht', name:'Експедиційна яхта', price:110000, depth:120, rarity:4, weight:2.1, icon:'🚢', desc:'Повноцінна океанічна база для вилову найбільших морських гігантів.'}
-];
+].map(boat => ({
+  ...boat,
+  image: `assets/boats/${boat.id}-card.png`,
+  detailImage: `assets/boats/${boat.id}-detail.png`,
+  fishingImage: `assets/boats/${boat.id}-fishing.png`
+}));
 
-const boatProfiles = {
-  rowboat: {scale:1, height:130, hull:'#8a4b27', stroke:'#3d1d0c'},
-  motorboat: {scale:1.1, height:140, hull:'#2b6f8a', stroke:'#0f3040'},
-  cutter: {scale:1.2, height:155, hull:'#e0f0f4', stroke:'#23495d'},
-  yacht: {scale:1.35, height:170, hull:'#1e3347', stroke:'#d4af37'}
-};
+function fishingSceneImage(location) {
+  const boat = state.atDepth && boats.find(item => item.id === state.boat);
+  return boat ? boat.fishingImage : location.image;
+}
 
 function drawBoatArt(item) {
-  const p = boatProfiles[item.id] || boatProfiles.rowboat;
-  return `<svg class="boat-art-svg" viewBox="0 0 220 90" aria-hidden="true" width="100%" height="${p.height}">
-    <path d="M20 55 Q70 78 190 62 L205 38 L45 38 Z" fill="${p.hull}" stroke="${p.stroke}" stroke-width="3"/>
-    <path d="M55 38 L95 18 L145 18 L155 38 Z" fill="#ffffffaa" stroke="${p.stroke}" stroke-width="2"/>
-    <circle cx="105" cy="28" r="4" fill="#082b3d"/>
-    <circle cx="125" cy="28" r="4" fill="#082b3d"/>
-    <line x1="20" y1="46" x2="200" y2="46" stroke="#ffffff44" stroke-width="2"/>
-  </svg>`;
+  return `<button type="button" class="boat-preview" data-boat-preview="${item.id}" onclick="openBoatDetails('${item.id}')" aria-label="Оглянути: ${item.name}" aria-haspopup="dialog">
+    <img src="${item.image}" alt="${item.name} на воді" width="1536" height="1024" loading="lazy" decoding="async">
+    <span>Оглянути човен <b aria-hidden="true">↗</b></span>
+  </button>`;
 }
 
 // Наживки
@@ -780,6 +780,8 @@ const initial = {
   ownedBoats: [],
   boat: null,
   atDepth: false,
+  activeLodge: 'forest',
+  lodgeCozy: false,
   bankDebt: 0,
   buffs: {},
   soundEnabled: true,
@@ -805,6 +807,8 @@ function normalizeSave(raw) {
   normalized.ownedBoats = normalized.ownedBoats.filter(id => boats.some(b => b.id === id));
   normalized.boat = normalized.ownedBoats.includes(normalized.boat) ? normalized.boat : null;
   normalized.atDepth = !!normalized.boat && !!normalized.atDepth;
+  normalized.activeLodge = typeof normalized.activeLodge === 'string' ? normalized.activeLodge : 'forest';
+  normalized.lodgeCozy = !!normalized.lodgeCozy;
   normalized.sonar = !!normalized.sonar;
   normalized.ownedReels = [...new Set([...normalized.ownedReels.filter(n => Number.isInteger(n) && n >= 1 && n <= gear.reels.length), normalized.reels])];
   for (const key of Object.keys(baseUpgrades)) normalized.base[key] = Math.min(3, Math.trunc(normalized.base[key] || 0));
@@ -819,7 +823,7 @@ function normalizeSave(raw) {
   if (normalized.orders && (!Array.isArray(normalized.orders.collection?.species) || !Array.isArray(normalized.orders.collection?.seen) || !Object.hasOwn(fishPrices,normalized.orders.restaurant?.fish) || ![normalized.orders.restaurant.reward,normalized.orders.restaurant.target,normalized.orders.collection.reward].every(n => Number.isFinite(n) && n > 0) || normalized.orders.collection.species.some(n => !Object.hasOwn(fishPrices,n)))) normalized.orders = null;
   if (normalized.npcQuest && (!Object.hasOwn(fishPrices,normalized.npcQuest.fish) || ![normalized.npcQuest.progress,normalized.npcQuest.target,normalized.npcQuest.weight,normalized.npcQuest.reward?.coins,normalized.npcQuest.reward?.amount,normalized.npcQuest.reward?.reputation].every(n => Number.isFinite(n) && n >= 0))) normalized.npcQuest = null;
   if (normalized.tournament && (!['total','heaviest'].includes(normalized.tournament.mode) || !Array.isArray(normalized.tournament.rivals) || normalized.tournament.rivals.length !== 3 || ![normalized.tournament.count,normalized.tournament.totalWeight,normalized.tournament.heaviest,normalized.tournament.endsAt].every(n => Number.isFinite(n) && n >= 0) || normalized.tournament.rivals.some(r => !r || typeof r.name !== 'string' || !Number.isFinite(r.score) || r.score < 0))) normalized.tournament = null;
-  normalized.buffs = Object.fromEntries(Object.entries(normalized.buffs).filter(([,b]) => b && typeof b.name === 'string' && Number.isFinite(b.until)));
+  normalized.buffs = Object.fromEntries(Object.entries(normalized.buffs).map(([id,b]) => [id, b && {...b, name:b.name || b.desc, until:b.until ?? b.expires}]).filter(([,b]) => b && typeof b.name === 'string' && Number.isFinite(b.until)));
   if (normalized.auctions.some(a => !a || !a.fish || typeof a.fish.name !== 'string' || !Number.isFinite(a.bid) || a.bid < 0 || !Number.isFinite(a.endsAt) || !Number.isFinite(a.bidders))) throw Error('Некоректний лот аукціону.');
   if (normalized.auctionLog.some(line => typeof line !== 'string')) throw Error('Некоректний журнал аукціону.');
   normalized.ambientEnabled = normalized.ambientEnabled !== false;
@@ -936,6 +940,7 @@ function fightLoad(fish, reelProgress = 0) {
   const hookSkill = 1 - (state.skills.hook || 0) * 0.05;
   const baseTension = fish.weight * (1.02 + fish.rarity * 0.1) * hookSkill;
   const brakeRelief = tackleLimits().brake * 0.04;
+  const risk = environmentRisk();
   
   // Додаткове навантаження залежно від фази
   let dynamicFactor = 1.0;
@@ -947,7 +952,8 @@ function fightLoad(fish, reelProgress = 0) {
     dynamicFactor = 0.65;
   }
 
-  const load = Math.max(0.1, (baseTension * dynamicFactor - brakeRelief + reelProgress * 0.005));
+  const weatherPressure = risk * (1 + fish.weight * 0.7) * 0.8;
+  const load = Math.max(0.1, (baseTension * dynamicFactor - brakeRelief + reelProgress * 0.005 + weatherPressure));
   return load;
 }
 
@@ -1000,6 +1006,16 @@ function assignQuality(fish) {
   return fish;
 }
 
+function environmentRisk() {
+  const weather = weatherData[world.weather] || weatherData.clear;
+  const event = eventData[world.event] || eventData.calm;
+  const isStorm = world.weather === 'storm' || world.event === 'storm';
+  const weatherRisk = Number(weather.danger || 0) + (isStorm ? 0.18 : 0);
+  const eventRisk = event.name === 'Штормовий фронт' || event.weather === 'wind' ? 0.28 : 0;
+  const nightRisk = world.time === 'night' ? 0.08 : 0;
+  return Number(Math.min(1, weatherRisk + eventRisk + nightRisk).toFixed(2));
+}
+
 const worldActivity = () => {
   const weather = weatherData[world.weather] || weatherData.clear;
   const time = timeData[world.time] || timeData.day;
@@ -1008,7 +1024,8 @@ const worldActivity = () => {
   const pierBonus = 1 + (state.base.pier || 0) * 0.08;
   const buffSpeed = hasBuff('bite_boost') ? 1.3 : 1;
   const temperatureBonus = world.temperature < 6 ? 0.75 : world.temperature > 26 ? 0.85 : 1;
-  return weather.bite * time.bite * season.bite * event.bite * activeTechnique().bite * pierBonus * buffSpeed * temperatureBonus;
+  const riskFactor = 1 - environmentRisk() * 0.2;
+  return weather.bite * time.bite * season.bite * event.bite * activeTechnique().bite * pierBonus * buffSpeed * riskFactor * temperatureBonus;
 };
 
 // Розрахунок вартості риби
@@ -1055,7 +1072,7 @@ class ProceduralScene {
     this.g = this.c.getContext('2d');
     this.g.setTransform(d, 0, 0, d, 0, 0);
   }
-  startCast(power) {
+  startCast(power, delay = 2800) {
     this.cast = power;
     this.reel = 0;
     this.x = state.atDepth ? 52 + power * 0.35 : 31 + power * 0.55;
@@ -1067,6 +1084,18 @@ class ProceduralScene {
     const fl = $('equippedFloat');
     if (fl) fl.hidden = false;
     this.fightOffset = {x:0, y:0, targetX:0, targetY:0, next:0};
+
+    // Механіка: риба підпливає з глибини та здалеку до поплавка
+    this.castStartTime = performance.now();
+    this.fishApproachDuration = Math.max(1800, Math.min(4200, delay - 250));
+    const spawnAngles = [
+      Math.PI * 0.25 + Math.random() * 0.45,  // знизу-праворуч
+      Math.PI * 0.65 + Math.random() * 0.45,  // знизу-ліворуч
+      Math.PI * 0.88 + Math.random() * 0.35,  // ліворуч із глибини
+      -Math.PI * 0.12 + Math.random() * 0.35  // праворуч
+    ];
+    this.fishApproachAngle = spawnAngles[Math.floor(Math.random() * spawnAngles.length)];
+    this.fishStartDist = 260 + Math.random() * 120;
   }
   beginBite(fish) {
     this.fish = fish || this.fish;
@@ -1084,6 +1113,9 @@ class ProceduralScene {
     this.fish = null;
     this.biteMode = 'idle';
     this.surface = false;
+    this.castStartTime = 0;
+    const fl = $('equippedFloat');
+    if (fl) fl.hidden = true;
     this.fightOffset = {x:0, y:0, targetX:0, targetY:0, next:0};
   }
   addSplash(x, y, count = 6) {
@@ -1105,7 +1137,9 @@ class ProceduralScene {
       return { x: idleX, y: idleY + wave };
     }
     const p = this.pulling ? this.reel / 100 : 0;
-    const base = {x: w * (this.x + (56 - this.x) * p) / 100, y: h * (this.y + (84 - this.y) * p) / 100};
+    // Keep the float on the water in front of the photographed bow while reeling.
+    const nearY = state.atDepth ? 58 : 84;
+    const base = {x: w * (this.x + (56 - this.x) * p) / 100, y: h * (this.y + (nearY - this.y) * p) / 100};
     if (this.pulling && this.fish) {
       const resistance = Math.min(1, Math.max(0.2, this.fish.weight / Math.max(1, tackleLimits().rod)));
       const amplitude = (this.biteMode === 'surface' ? 14 : (this.biteMode === 'escape' ? 18 : 8) + resistance * 24) * (1 - p);
@@ -1141,20 +1175,24 @@ class ProceduralScene {
   }
   frame(now) {
     const dt = 0.016;
-    const t = (now - this.t0) / 1000;
+    // The first animation-frame timestamp can precede constructor initialization.
+    const t = Math.max(0, (now - this.t0) / 1000);
     const g = this.g, w = this.w, h = this.h;
     if (!g) return;
     g.clearRect(0, 0, w, h);
 
-    if (state.atDepth) this.deepWater(g, w, h, t);
-    this.ripples(g, w, h, t, now);
-
-    // Рибка, яка реалістично плаває біля поплавка
-    this.drawSwimmingFish(g, w, h, t, now);
-
-    this.line(g, w, h, now);
-    this.bobber(g, w, h, t, now);
-    if (this.pulling && this.surface) this.surfaceFight(g, w, h, t, now);
+    // The scene photograph supplies the boat and water; this canvas stays transparent.
+    if (this.cast) {
+      this.ripples(g, w, h, t, now);
+      // Рибка, яка реалістично плаває біля поплавка після закиду
+      this.drawSwimmingFish(g, w, h, t, now);
+      this.line(g, w, h, now);
+      this.bobber(g, w, h, t, now);
+      if (this.pulling && this.surface) this.surfaceFight(g, w, h, t, now);
+    } else {
+      const fl = $('equippedFloat');
+      if (fl) fl.hidden = true;
+    }
 
     // Частинки бризок
     this.updateSplashes(g, dt);
@@ -1168,38 +1206,80 @@ class ProceduralScene {
   }
   drawSwimmingFish(g, w, h, t, now) {
     const p = this.floatPoint(w, h, now);
-    // Траєкторія плавного руху рибки навколо поплавка
-    const speed = this.biting ? 3.4 : this.pulling ? 4.6 : 1.1;
-    const orbitTime = t * speed;
-    const radiusX = this.biting ? 13 : this.pulling ? 24 : 34 + Math.sin(t * 0.65) * 12;
-    const radiusY = radiusX * 0.45;
 
-    const fx = p.x + Math.cos(orbitTime) * radiusX;
-    const fy = p.y + Math.sin(orbitTime) * radiusY + (this.pulling ? Math.sin(t * 12) * 4 : 5);
+    // Плавний розрахунок підпливання риби здалеку
+    const castElapsed = Math.max(0, now - (this.castStartTime || now));
+    const duration = this.fishApproachDuration || 2800;
+    let approachProgress = Math.min(1, castElapsed / duration);
+    if (this.biting || this.pulling) {
+      approachProgress = 1;
+    }
 
-    // Кут повороту риби по напрямку руху
-    const angle = Math.atan2(-Math.sin(orbitTime) * radiusY, Math.cos(orbitTime) * radiusX) + Math.PI / 2;
+    let fx, fy, angle, fishAlpha, fishScale;
+
+    if (approachProgress < 1) {
+      // Риба плавно пливе з глибини та здалеку до поплавка
+      const ease = approachProgress * approachProgress * (3 - 2 * approachProgress);
+      const startAngle = this.fishApproachAngle || (Math.PI * 0.4);
+      const startDist = this.fishStartDist || 280;
+
+      const spawnX = Math.cos(startAngle) * startDist;
+      const spawnY = Math.sin(startAngle) * startDist;
+
+      // Хвилеподібний рух тіла риби при плаванні
+      const sway = Math.sin(t * 4.2) * (1 - approachProgress) * 16;
+      const perpAngle = startAngle + Math.PI / 2;
+
+      fx = p.x + (1 - ease) * spawnX + Math.cos(perpAngle) * sway;
+      fy = p.y + (1 - ease) * spawnY + Math.sin(perpAngle) * sway;
+
+      // Риба дивиться вперед, за курсом свого руху до поплавка
+      const targetAngle = Math.atan2(p.y - fy, p.x - fx);
+      const wagAngle = Math.sin(t * 8) * 0.12;
+      angle = targetAngle + wagAngle;
+
+      // З глибини риба поступово підіймається (прозорість і масштаб зростають)
+      fishAlpha = 0.22 + 0.66 * ease;
+      fishScale = 0.58 + 0.42 * ease;
+    } else {
+      // Риба вже біля поплавка, плаває навколо наживки
+      const arrivalTime = (castElapsed - duration) / 1000;
+      const speed = this.biting ? 3.6 : this.pulling ? 4.8 : 1.2;
+      const orbitTime = arrivalTime * speed;
+      const radiusX = this.biting ? 13 : this.pulling ? 24 : 30 + Math.sin(t * 0.65) * 8;
+      const radiusY = radiusX * 0.45;
+
+      fx = p.x + Math.cos(orbitTime) * radiusX;
+      fy = p.y + Math.sin(orbitTime) * radiusY + (this.pulling ? Math.sin(t * 12) * 4 : 4);
+
+      angle = Math.atan2(-Math.sin(orbitTime) * radiusY, Math.cos(orbitTime) * radiusX) + Math.PI / 2;
+      fishAlpha = (this.pulling && this.surface) ? 0.96 : 0.84;
+      fishScale = 1.0;
+    }
 
     // Частота коливання хвостика
-    const tailFreq = this.biting ? 18 : this.pulling ? 24 : 8;
+    const tailFreq = this.biting ? 18 : this.pulling ? 24 : (approachProgress < 1 ? 12 : 8);
     const tailWag = Math.sin(t * tailFreq) * 0.38;
 
     g.save();
 
     // Підводна тінь рибки
-    g.fillStyle = 'rgba(0, 20, 32, 0.28)';
+    g.fillStyle = `rgba(0, 20, 32, ${0.12 + 0.22 * fishScale})`;
     g.beginPath();
-    g.ellipse(fx, fy + 10, 16, 7, angle * 0.5, 0, Math.PI * 2);
+    g.ellipse(fx, fy + 10 * fishScale, 16 * fishScale, 7 * fishScale, angle * 0.5, 0, Math.PI * 2);
     g.fill();
 
     g.translate(fx, fy);
     g.rotate(angle);
+    if (fishScale !== 1) {
+      g.scale(fishScale, fishScale);
+    }
 
     const fishLen = 32;
     const fishWidth = 9.5;
 
     // Напівпрозорість під водою
-    g.globalAlpha = (this.pulling && this.surface) ? 0.96 : 0.82;
+    g.globalAlpha = fishAlpha;
 
     // Градієнт тіла риби
     const fishGrad = g.createLinearGradient(0, -fishWidth, 0, fishWidth);
@@ -1301,239 +1381,6 @@ class ProceduralScene {
       g.arc(x, y, (i % 3) + 1.2, 0, Math.PI * 2);
       g.fill();
     }
-    g.restore();
-  }
-  deepWater(g, w, h, t) {
-    const boatId = state.boat || (state.ownedBoats && state.ownedBoats[0]) || 'cutter';
-    const skyH = h * 0.40;
-
-    // Глибоководний морський простір
-    g.save();
-    const ocean = g.createLinearGradient(0, skyH, 0, h);
-    ocean.addColorStop(0, '#0a364a');
-    ocean.addColorStop(0.3, '#084860');
-    ocean.addColorStop(0.65, '#052b3d');
-    ocean.addColorStop(1, '#011520');
-    g.fillStyle = ocean;
-    g.fillRect(0, skyH, w, h - skyH);
-
-    // Анімовані океанські хвилі та гребені води
-    for (let row = 0; row < 18; row++) {
-      const p = row / 17;
-      const y = skyH + (h - skyH) * (0.05 + p * 0.88);
-      const amp = 1.5 + p * 8;
-      const step = 20 + p * 25;
-      g.strokeStyle = `rgba(180, 245, 255, ${0.12 * (1 - p * 0.5) + 0.04})`;
-      g.lineWidth = 0.8 + p * 1.5;
-      g.beginPath();
-      for (let x = -step; x <= w + step; x += step) {
-        const wave = Math.sin(x * 0.025 + t * (1.2 + p * 1.8) + row * 1.6) * amp + Math.sin(x * 0.06 - t * 1.6 + row) * amp * 0.35;
-        x === -step ? g.moveTo(x, y + wave) : g.lineTo(x, y + wave);
-      }
-      g.stroke();
-    }
-
-    // Погойдування човна на хвилях
-    const sway = Math.sin(t * 1.4) * 4;
-    const roll = Math.sin(t * 1.1) * 0.012;
-    const pitch = Math.cos(t * 1.3) * 3;
-
-    g.translate(sway, pitch);
-    g.translate(w * 0.5, h);
-    g.rotate(roll);
-    g.translate(-w * 0.5, -h);
-
-    // Буруни та біла піна води біля бортів човна
-    g.strokeStyle = 'rgba(215, 250, 255, 0.35)';
-    g.lineWidth = 2.5;
-    g.beginPath();
-    g.moveTo(w * 0.1, h);
-    g.quadraticCurveTo(w * 0.28, h * 0.76, w * 0.45, h * 0.68);
-    g.stroke();
-    g.beginPath();
-    g.moveTo(w * 0.9, h);
-    g.quadraticCurveTo(w * 0.72, h * 0.76, w * 0.55, h * 0.68);
-    g.stroke();
-
-    if (boatId === 'cutter') {
-      // === МОРСЬКИЙ КАТЕР (CUTTER) ===
-      // Склопластиковий корпус катера (біло-синій глянець)
-      const hullGrad = g.createLinearGradient(0, h * 0.64, 0, h);
-      hullGrad.addColorStop(0, '#f2f8fc');
-      hullGrad.addColorStop(0.12, '#d6e6f0');
-      hullGrad.addColorStop(0.22, '#143e59');
-      hullGrad.addColorStop(0.7, '#071e2e');
-      hullGrad.addColorStop(1, '#020b12');
-      g.fillStyle = hullGrad;
-      g.beginPath();
-      g.moveTo(w * 0.02, h);
-      g.lineTo(w * 0.18, h * 0.73);
-      g.quadraticCurveTo(w * 0.5, h * 0.61, w * 0.82, h * 0.73);
-      g.lineTo(w * 0.98, h);
-      g.closePath();
-      g.fill();
-
-      // Захисний брус та бірюзова смуга
-      g.strokeStyle = '#36d3ca';
-      g.lineWidth = 3;
-      g.beginPath();
-      g.moveTo(w * 0.03, h);
-      g.lineTo(w * 0.18, h * 0.73);
-      g.quadraticCurveTo(w * 0.5, h * 0.61, w * 0.82, h * 0.73);
-      g.lineTo(w * 0.97, h);
-      g.stroke();
-
-      // Тікова палуба на носі
-      const deckGrad = g.createLinearGradient(0, h * 0.66, 0, h);
-      deckGrad.addColorStop(0, '#9e6d3e');
-      deckGrad.addColorStop(0.5, '#764d26');
-      deckGrad.addColorStop(1, '#4a2e15');
-      g.fillStyle = deckGrad;
-      g.beginPath();
-      g.moveTo(w * 0.22, h);
-      g.lineTo(w * 0.28, h * 0.76);
-      g.quadraticCurveTo(w * 0.5, h * 0.66, w * 0.72, h * 0.76);
-      g.lineTo(w * 0.78, h);
-      g.closePath();
-      g.fill();
-
-      // Палубні шви тікового дерева
-      g.strokeStyle = 'rgba(40, 20, 10, 0.45)';
-      g.lineWidth = 1;
-      for (let i = 1; i <= 8; i++) {
-        const lx = w * (0.24 + i * 0.06);
-        g.beginPath();
-        g.moveTo(lx, h);
-        g.lineTo(w * 0.5 + (lx - w * 0.5) * 0.45, h * 0.72);
-        g.stroke();
-      }
-
-      // Хромований леєр (рейлінг) на носі
-      g.strokeStyle = '#e6fbff';
-      g.lineWidth = 3.5;
-      g.beginPath();
-      g.moveTo(w * 0.15, h * 0.82);
-      g.lineTo(w * 0.26, h * 0.65);
-      g.quadraticCurveTo(w * 0.5, h * 0.54, w * 0.74, h * 0.65);
-      g.lineTo(w * 0.85, h * 0.82);
-      g.stroke();
-
-      // Стійки леєрного огородження
-      g.strokeStyle = '#c4ecf7';
-      g.lineWidth = 2.5;
-      [0.26, 0.38, 0.5, 0.62, 0.74].forEach(px => {
-        g.beginPath();
-        g.moveTo(w * px, h * 0.63);
-        g.lineTo(w * px, h * 0.74);
-        g.stroke();
-      });
-
-      // Бортові ходові вогні катера
-      g.fillStyle = '#ff4a4a'; // червоний лівий
-      g.beginPath();
-      g.arc(w * 0.28, h * 0.72, 3.5, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = '#4aff7a'; // зелений правий
-      g.beginPath();
-      g.arc(w * 0.72, h * 0.72, 3.5, 0, Math.PI * 2);
-      g.fill();
-
-    } else if (boatId === 'inflatable') {
-      // === НАДУВНИЙ МОТОРНИЙ ЧОВЕН (INFLATABLE) ===
-      const tubeGrad = g.createRadialGradient(w * 0.5, h * 0.66, 20, w * 0.5, h * 0.75, w * 0.55);
-      tubeGrad.addColorStop(0, '#538c9c');
-      tubeGrad.addColorStop(0.4, '#245a68');
-      tubeGrad.addColorStop(0.8, '#0e2e38');
-      tubeGrad.addColorStop(1, '#05141a');
-      g.fillStyle = tubeGrad;
-      g.beginPath();
-      g.moveTo(0, h);
-      g.lineTo(w * 0.12, h * 0.72);
-      g.quadraticCurveTo(w * 0.5, h * 0.58, w * 0.88, h * 0.72);
-      g.lineTo(w, h);
-      g.closePath();
-      g.fill();
-
-      // Гумовий привальний брус
-      g.strokeStyle = '#0a171d';
-      g.lineWidth = 6;
-      g.beginPath();
-      g.moveTo(0, h * 0.95);
-      g.lineTo(w * 0.12, h * 0.72);
-      g.quadraticCurveTo(w * 0.5, h * 0.58, w * 0.88, h * 0.72);
-      g.lineTo(w, h * 0.95);
-      g.stroke();
-
-      // Леєрний трос уздовж балонів
-      g.strokeStyle = '#ffe48a';
-      g.lineWidth = 2.5;
-      g.beginPath();
-      g.moveTo(w * 0.08, h * 0.85);
-      g.quadraticCurveTo(w * 0.22, h * 0.68, w * 0.35, h * 0.65);
-      g.stroke();
-      g.beginPath();
-      g.moveTo(w * 0.92, h * 0.85);
-      g.quadraticCurveTo(w * 0.78, h * 0.68, w * 0.65, h * 0.65);
-      g.stroke();
-
-      // Алюмінієвий настил кокпіта
-      g.fillStyle = '#223844';
-      g.beginPath();
-      g.moveTo(w * 0.24, h);
-      g.lineTo(w * 0.32, h * 0.77);
-      g.quadraticCurveTo(w * 0.5, h * 0.71, w * 0.68, h * 0.77);
-      g.lineTo(w * 0.76, h);
-      g.closePath();
-      g.fill();
-
-    } else {
-      // === ВЕСЕЛЬНИЙ ДЕРЕВ'ЯНИЙ ЧОВЕН (ROWBOAT) ===
-      const woodGrad = g.createLinearGradient(0, h * 0.65, 0, h);
-      woodGrad.addColorStop(0, '#c78446');
-      woodGrad.addColorStop(0.2, '#9c5f2b');
-      woodGrad.addColorStop(0.6, '#5e3415');
-      woodGrad.addColorStop(1, '#2b1607');
-      g.fillStyle = woodGrad;
-      g.beginPath();
-      g.moveTo(w * 0.04, h);
-      g.lineTo(w * 0.2, h * 0.74);
-      g.quadraticCurveTo(w * 0.5, h * 0.62, w * 0.8, h * 0.74);
-      g.lineTo(w * 0.96, h);
-      g.closePath();
-      g.fill();
-
-      // Дерев'яний планшир (бортовий брус)
-      g.strokeStyle = '#e0a058';
-      g.lineWidth = 4;
-      g.beginPath();
-      g.moveTo(w * 0.05, h);
-      g.lineTo(w * 0.2, h * 0.74);
-      g.quadraticCurveTo(w * 0.5, h * 0.62, w * 0.8, h * 0.74);
-      g.lineTo(w * 0.95, h);
-      g.stroke();
-
-      // Весла, складені вздовж бортів
-      g.strokeStyle = '#c4894d';
-      g.lineWidth = 5;
-      g.beginPath();
-      g.moveTo(w * 0.08, h);
-      g.lineTo(w * 0.32, h * 0.68);
-      g.stroke();
-      g.beginPath();
-      g.moveTo(w * 0.92, h);
-      g.lineTo(w * 0.68, h * 0.68);
-      g.stroke();
-
-      // Латунні кочети
-      g.fillStyle = '#ffde6b';
-      g.beginPath();
-      g.arc(w * 0.26, h * 0.75, 4, 0, Math.PI * 2);
-      g.fill();
-      g.beginPath();
-      g.arc(w * 0.74, h * 0.75, 4, 0, Math.PI * 2);
-      g.fill();
-    }
-
     g.restore();
   }
   ripples(g, w, h, t, now) {
@@ -1701,7 +1548,7 @@ function consumeBait() {
   return true;
 }
 
-const fishingBlocked = () => !!document.querySelector('.modal.open, .butcher-overlay.open');
+const fishingBlocked = () => !!document.querySelector('.modal.open, .butcher-overlay.open, #boatDetails[open]');
 
 function updateFishingControls() {
   const castBtn = $('castButton'), pullBtn = $('pullButton');
@@ -1763,7 +1610,10 @@ function cast() {
   casting = true;
   reel = 0;
   clearTimeout(biteTimer);
-  sceneRenderer.startCast(charge);
+
+  const baseDelay = (petBonus('speed') ? 1800 : 3100) - (state.floats - 1) * 140;
+  const delay = (Math.max(600, baseDelay / worldActivity()) + Math.random() * 1600) * (perfectCast ? 0.75 : 1);
+  sceneRenderer.startCast(charge, delay);
   sound.playSplash();
 
   checkAchievements({type:'cast'});
@@ -1772,9 +1622,6 @@ function cast() {
   if (perfectCast) checkAchievements({type:'perfectCast'});
 
   note(perfectCast ? '🎯 Точний закид! Кльов на 25% швидший · +15 XP за рибу.' : `Закид на ${charge}% — очікуємо клювання…`);
-  
-  const baseDelay = (petBonus('speed') ? 1800 : 3100) - (state.floats - 1) * 140;
-  const delay = (Math.max(600, baseDelay / worldActivity()) + Math.random() * 1600) * (perfectCast ? 0.75 : 1);
   biteTimer = setTimeout(bite, delay);
   renderEquipment();
   updateFishingControls();
@@ -1871,12 +1718,18 @@ function beginPull() {
     }
 
     if (ratio > 0.82 && !$('fightHud').classList.contains('active')) {
-      showFightHud(true, 'КРИТИЧНИЙ НАТЯГ ВОЛОСІНІ!', 'Загроза обриву! Послабте (S)');
+      const risk = environmentRisk();
+      const dangerMessage = risk > 0.45 ? 'Шторм і вітер збільшують ризик! Послабте волосінь (S) або завершите боротьбу.' : 'Загроза обриву! Послабте (S)';
+      showFightHud(true, 'КРИТИЧНИЙ НАТЯГ ВОЛОСІНІ!', dangerMessage);
     }
 
     if (ratio >= 1.0) {
       sound.playSnap();
-      loseFish(load > limits.line ? 'Волосінь обірвалася від сильного натягу!' : 'Вудилище зламалося під вагою улову.');
+      const risk = environmentRisk();
+      const breakReason = risk > 0.45
+        ? (load > limits.line ? 'Шторм розірвав волосінь — снасть втрачена через стихію!' : 'Порыв вітру зламав вудилище під сильним натягом!')
+        : (load > limits.line ? 'Волосінь обірвалася від сильного натягу!' : 'Вудилище зламалося під вагою улову.');
+      loseFish(breakReason);
       return;
     }
 
@@ -2482,6 +2335,58 @@ function renderBank() {
 // --------------------------------------------------------
 // Човнова станція
 // --------------------------------------------------------
+let boatDetailId = null;
+
+function boatAction(item) {
+  const owned = state.ownedBoats.includes(item.id);
+  return {
+    disabled: !owned && state.coins < item.price,
+    label: !owned
+      ? `Купити · ${item.price.toLocaleString('uk-UA')} ◉`
+      : state.boat === item.id
+        ? (state.atDepth ? 'Повернутися до берега' : 'Вийти на глибину')
+        : 'Екіпірувати'
+  };
+}
+
+function openBoatDetails(id) {
+  const item = boats.find(boat => boat.id === id);
+  const dialog = $('boatDetails');
+  if (!item || !dialog) return;
+  boatDetailId = id;
+  renderBoatDetails();
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeBoatDetails() {
+  const dialog = $('boatDetails');
+  if (dialog?.open) dialog.close();
+}
+
+function renderBoatDetails() {
+  const item = boats.find(boat => boat.id === boatDetailId);
+  if (!item) return;
+  const photo = $('boatDetailImage');
+  if (photo.getAttribute('src') !== item.detailImage) photo.src = item.detailImage;
+  photo.alt = `${item.name} — окремий ракурс палуби та оснащення`;
+  $('boatDetailTitle').textContent = item.name;
+  $('boatDetailDescription').textContent = item.desc;
+  $('boatDetailDepth').textContent = `${item.depth} м`;
+  $('boatDetailRarity').textContent = `+${item.rarity} ★`;
+  $('boatDetailWeight').textContent = `×${item.weight.toFixed(2)}`;
+  const owned = state.ownedBoats.includes(item.id);
+  $('boatDetailStatus').textContent = state.boat === item.id
+    ? (state.atDepth ? 'На глибині' : 'Біля причалу · екіпіровано')
+    : owned ? 'У вашому флоті' : 'Доступний для придбання';
+  const action = boatAction(item), button = $('boatDetailAction');
+  button.textContent = action.label;
+  button.disabled = action.disabled;
+  button.onclick = () => manageBoat(item.id);
+}
+
+window.openBoatDetails = openBoatDetails;
+window.closeBoatDetails = closeBoatDetails;
+
 function renderBoats() {
   const selectedBoat = boats.find(b => b.id === state.boat);
   const status = $('boatStatus'), root = $('boatsContent'), launch = $('boatLaunchLabel');
@@ -2493,25 +2398,21 @@ function renderBoats() {
     : '<b>Берегова ловля</b><span>Придбайте човен, щоб дістатися до глибоководних трофеїв.</span>';
 
   root.innerHTML = boats.map(item => {
-    const profile = boatProfiles[item.id] || boatProfiles.rowboat;
-    const owned = state.ownedBoats.includes(item.id);
     const equipped = state.boat === item.id;
-    const canBuy = state.coins >= item.price;
-    const action = !owned
-      ? `Купити · ${item.price.toLocaleString('uk-UA')} ◉`
-      : equipped
-        ? (state.atDepth ? 'Повернутися до берега' : 'Вийти на глибину')
-        : 'Екіпірувати';
+    const action = boatAction(item);
 
-    return `<article class="boat-card ${equipped ? 'equipped' : ''}" style="--boat-scale:${profile.scale}; --boat-art-height:${profile.height}px">
+    return `<article class="boat-card ${equipped ? 'equipped' : ''}">
       ${drawBoatArt(item)}
-      <small>ГЛИБИНА ДО ${item.depth} М</small>
-      <h3>${item.name}</h3>
-      <p>${item.desc}</p>
-      <div class="boat-bonus">★ +${item.rarity} до рідкості · ×${item.weight.toFixed(2)} до ваги</div>
-      <button onclick="manageBoat('${item.id}')" ${!owned && !canBuy ? 'disabled' : ''}>${action}</button>
+      <div class="boat-card-info">
+        <small>ГЛИБИНА ДО ${item.depth} М</small>
+        <h3>${item.name}</h3>
+        <p>${item.desc}</p>
+        <div class="boat-bonus">★ +${item.rarity} до рідкості · ×${item.weight.toFixed(2)} до ваги</div>
+        <button type="button" class="boat-action" onclick="manageBoat('${item.id}')" ${action.disabled ? 'disabled' : ''}>${action.label}</button>
+      </div>
     </article>`;
   }).join('');
+  renderBoatDetails();
 }
 
 function manageBoat(id) {
@@ -2610,7 +2511,7 @@ function render() {
   $('depthPanel').classList.toggle('locked', !state.sonar);
 
   Object.assign($('scene').style, {
-    backgroundImage: `url('${location.image}')`,
+    backgroundImage: `url('${fishingSceneImage(location)}')`,
     backgroundSize: 'cover',
     backgroundPosition: 'center center',
     backgroundRepeat: 'no-repeat'
@@ -2774,7 +2675,256 @@ function showCatchDialog(catches) {
   renderTutorial();
 }
 
+const LODGES = [
+  {
+    id: 'forest',
+    name: 'Ведмежий кут',
+    subtitle: 'Лісова хатина',
+    capacity: 4,
+    icon: '🌲',
+    locationKey: 'pier',
+    desc: 'Затишний зруб із вікової сосни біля тихого лісового озера. Панорамне вікно, диван кольору охри та кам’яний камін.',
+    sky: 'linear-gradient(180deg, #1d2d24 0%, #3b533b 50%, #e09f5a 100%)',
+    landscape: 'polygon(0% 100%, 15% 40%, 35% 75%, 50% 25%, 70% 65%, 85% 30%, 100% 100%)',
+    landColor: '#142918',
+    water: 'linear-gradient(180deg, #1b3d2f 0%, #0e2119 100%)',
+    pierDesc: 'Замшілий дощатий місток серед очерету'
+  },
+  {
+    id: 'sea',
+    name: 'Тиха лагуна',
+    subtitle: 'Будиночок біля моря',
+    capacity: 6,
+    icon: '🌊',
+    locationKey: 'blackSea',
+    desc: 'Світлий будинок із вибіленого дерева на піщаній косі. Морський бриз, тераса з видом на лазурові хвилі та довгий пірс.',
+    sky: 'linear-gradient(180deg, #2b3a4a 0%, #4a6fa5 50%, #e9b872 100%)',
+    landscape: 'polygon(0% 100%, 25% 65%, 45% 70%, 65% 55%, 85% 60%, 100% 100%)',
+    landColor: '#364958',
+    water: 'linear-gradient(180deg, #1d3557 0%, #0c1826 100%)',
+    pierDesc: 'Бревенчатий пірс на високих палях із ліхтарем'
+  },
+  {
+    id: 'mountain',
+    name: 'Гірський притулок',
+    subtitle: 'Альпійське шале',
+    capacity: 2,
+    icon: '🏔️',
+    locationKey: 'ocean',
+    desc: 'Усамітнене шале з дикого сланцю та кедра під засніженими скелями. Кришталеве льодовикове озеро та первозданна тиша.',
+    sky: 'linear-gradient(180deg, #1b263b 0%, #3d5a80 50%, #ee6c4d 100%)',
+    landscape: 'polygon(0% 100%, 18% 20%, 35% 55%, 52% 10%, 68% 45%, 85% 15%, 100% 100%)',
+    landColor: '#1d232a',
+    water: 'linear-gradient(180deg, #184e77 0%, #0a2538 100%)',
+    pierDesc: 'Кам’яний мыс із дерев’яним настилом'
+  },
+  {
+    id: 'taiga',
+    name: 'Тайгова заїмка',
+    subtitle: 'Північна садиба',
+    capacity: 8,
+    icon: '🛖',
+    locationKey: 'river',
+    desc: 'Простора садиба на березі повноводної північної річки. Місце для великої дружньої компанії рибалок.',
+    sky: 'linear-gradient(180deg, #1f2d3d 0%, #47607a 50%, #f4a261 100%)',
+    landscape: 'polygon(0% 100%, 20% 30%, 40% 70%, 60% 20%, 80% 60%, 100% 100%)',
+    landColor: '#122618',
+    water: 'linear-gradient(180deg, #133a4f 0%, #081721 100%)',
+    pierDesc: 'Широкий плотовий причал із коптильнею'
+  }
+];
+
+function currentLodge() {
+  return LODGES.find(l => l.id === state.activeLodge) || LODGES[0];
+}
+
+function switchLodgeTab(tab) {
+  const views = {
+    room: $('lodgeViewRoom'),
+    select: $('lodgeViewSelect'),
+    services: $('lodgeViewServices')
+  };
+  const btns = {
+    room: $('tabBtnLodgeRoom'),
+    select: $('tabBtnLodgeSelect'),
+    services: $('tabBtnLodgeServices')
+  };
+  Object.keys(views).forEach(k => {
+    if (views[k]) views[k].hidden = (k !== tab);
+    if (btns[k]) btns[k].classList.toggle('active', k === tab);
+  });
+  if (tab === 'room') {
+    startLodgeFireAnimation();
+  }
+}
+window.switchLodgeTab = switchLodgeTab;
+
+function selectLodge(id) {
+  const lodge = LODGES.find(l => l.id === id);
+  if (!lodge) return;
+  state.activeLodge = id;
+  if (locations[lodge.locationKey]) {
+    state.location = lodge.locationKey;
+  }
+  sound.playCoin?.();
+  renderLodgeHub();
+  switchLodgeTab('room');
+  showLodgeNotice(`🏡 Ви переїхали на базу «${lodge.name}» (${lodge.capacity} місця)!`);
+  save();
+  render();
+}
+window.selectLodge = selectLodge;
+
+function toggleLodgeBlanket() {
+  state.lodgeCozy = !state.lodgeCozy;
+  const chair = $('lodgeChairZone');
+  if (chair) chair.classList.toggle('is-cozy', state.lodgeCozy);
+  if (state.lodgeCozy) {
+    sound.beep?.(320, 'sine', 0.15, 0.2);
+    state.buffs.cozyFire = {
+      expires: Date.now() + 15 * 60 * 1000,
+      desc: 'Тепло каміна: +25% до шансу рідкісної риби та спокій'
+    };
+    showLodgeNotice('🧣 Ви укуталися в теплий плед біля вогню (+25% до кльову рідкісної риби на 15 хв)!');
+  } else {
+    showLodgeNotice('Ви підвелися з крісла, зігріті та готові до пригод.');
+  }
+  save();
+}
+window.toggleLodgeBlanket = toggleLodgeBlanket;
+
+function sipLodgeTea() {
+  sound.beep?.(440, 'triangle', 0.08, 0.15);
+  showLodgeNotice('☕ Ви зробили ковток ароматного гарячого чаю з травами.');
+}
+window.sipLodgeTea = sipLodgeTea;
+
+function goToLodgePier() {
+  const lodge = currentLodge();
+  if (locations[lodge.locationKey]) {
+    state.location = lodge.locationKey;
+  }
+  closeAll();
+  note(`Ви вийшли на пірс бази «${lodge.name}». Час закинути вудку!`);
+  render();
+}
+window.goToLodgePier = goToLodgePier;
+
+function showLodgeNotice(text) {
+  const el = $('lodgeCozyNotice');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(el._tm);
+  el._tm = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+let lodgeFireCanvasRunning = false;
+function startLodgeFireAnimation() {
+  const canvas = $('lodgeFireCanvas');
+  if (!canvas || lodgeFireCanvasRunning) return;
+  const ctx = canvas.getContext('2d');
+  lodgeFireCanvasRunning = true;
+  const particles = [];
+  for (let i = 0; i < 35; i++) {
+    particles.push({
+      x: canvas.width / 2 + (Math.random() * 40 - 20),
+      y: canvas.height - 10,
+      vx: (Math.random() * 2 - 1) * 0.5,
+      vy: -(Math.random() * 1.6 + 1.1),
+      life: Math.random() * 0.7 + 0.3,
+      maxLife: 1,
+      r: Math.random() * 7 + 4
+    });
+  }
+  function loop() {
+    const baseModal = $('base');
+    if (!baseModal || !baseModal.classList.contains('open')) {
+      lodgeFireCanvasRunning = false;
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'lighter';
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.025;
+      if (p.life <= 0) {
+        p.x = canvas.width / 2 + (Math.random() * 40 - 20);
+        p.y = canvas.height - 10;
+        p.vx = (Math.random() * 2 - 1) * 0.5;
+        p.vy = -(Math.random() * 1.6 + 1.1);
+        p.life = Math.random() * 0.7 + 0.3;
+        p.r = Math.random() * 7 + 4;
+      }
+      const rad = p.r * (p.life / p.maxLife);
+      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rad);
+      grad.addColorStop(0, `rgba(255, 230, 110, ${p.life * 0.8})`);
+      grad.addColorStop(0.4, `rgba(255, 110, 20, ${p.life * 0.6})`);
+      grad.addColorStop(1, 'rgba(180, 40, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalCompositeOperation = 'source-over';
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
+function renderLodgeHub() {
+  const lodge = currentLodge();
+  const nameEl = $('lodgeActiveName');
+  const capEl = $('lodgeCapacityBadge');
+  const descEl = $('lodgeActiveDesc');
+  if (nameEl) nameEl.textContent = `${lodge.icon} ${lodge.name} — ${lodge.subtitle}`;
+  if (capEl) capEl.textContent = `👥 ${lodge.capacity} місця`;
+  if (descEl) descEl.textContent = `${lodge.desc} · Пірс: ${lodge.pierDesc}`;
+
+  // Окно в комнате
+  const winSky = $('lodgeWinSky');
+  const winLand = $('lodgeWinLandscape');
+  const winWater = $('lodgeWinWater');
+  if (winSky) winSky.style.background = lodge.sky;
+  if (winLand) {
+    winLand.style.clipPath = lodge.landscape;
+    winLand.style.background = lodge.landColor;
+  }
+  if (winWater) winWater.style.background = lodge.water;
+
+  // Кресло с пледом
+  const chair = $('lodgeChairZone');
+  if (chair) chair.classList.toggle('is-cozy', !!state.lodgeCozy);
+
+  // Сетка выбора баз
+  const grid = $('lodgeCardsGrid');
+  if (grid) {
+    grid.innerHTML = LODGES.map(l => {
+      const active = l.id === state.activeLodge;
+      const loc = locations[l.locationKey];
+      const fishSample = loc ? loc.fish.slice(0, 3).join(', ') : '';
+      return `
+        <article class="lodge-select-card ${active ? 'active-lodge-card' : ''}" onclick="selectLodge('${l.id}')">
+          <div class="lodge-card-header">
+            <span class="lodge-card-title">${l.icon} ${l.name}</span>
+            <span class="lodge-card-capacity">👥 ${l.capacity} місця</span>
+          </div>
+          <small style="color:#f1c40f;font-weight:700">${l.subtitle}</small>
+          <p class="lodge-card-desc">${l.desc}</p>
+          <div class="lodge-card-pier-hint">🎣 Пірс: ${l.pierDesc} (риба: ${fishSample})</div>
+          <button type="button" class="btn-warm" onclick="event.stopPropagation(); selectLodge('${l.id}')">
+            ${active ? '✓ Активна база' : 'Обрати цю базу'}
+          </button>
+        </article>
+      `;
+    }).join('');
+  }
+  startLodgeFireAnimation();
+}
+
 function renderBase() {
+  renderLodgeHub();
   const root = $('baseStatus');
   if (!root) return;
   const location = locations[state.location], market = dailyMarket();
@@ -2837,12 +2987,15 @@ function renderWorld() {
   const available = activePool().map(f => f.name);
   const workshop = state.base.workshop || 0;
 
+  const risk = environmentRisk();
+  const riskLabel = risk > 0.6 ? 'Високий' : risk > 0.25 ? 'Середній' : 'Низький';
+
   $('weatherStatus').textContent = `${weather.icon} ${weather.name} · ${world.temperature} °C`;
   $('timeStatus').textContent = `${season.icon} ${season.name} · ${timeOfDay.name}`;
   $('eventStatus').textContent = event.name;
 
   $('worldSummary').innerHTML = `
-    <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name} · вода ${world.temperature} °C</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility}. Доба: 12 хв; сезон: 30 хв.</small></article>
+    <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name} · вода ${world.temperature} °C</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility} · ризик: ${riskLabel}. Доба: 12 хв; сезон: 30 хв.</small></article>
     <article><b>${event.name}</b><small>${event.desc} Зараз клює: ${available.slice(0, 4).join(' · ')}...</small></article>
     <article><b>★ Репутація: ${state.reputation} · місцева: ${localRep(state.location)}</b><small>Нові локації відкриваються з рівнем та репутацією.</small></article>
     <article class="dock-npc"><b>🔧 Майстер Гліб</b><small>Майстерня ${workshop}/3 · додає швидкості котушці.</small><button onclick="openModal('baseUpgrades')">Покращити базу</button></article>
@@ -3471,6 +3624,10 @@ function openModal(id) {
   closeAll();
   const el = $(id);
   if (el) el.classList.add('open');
+  if (id === 'base') {
+    switchLodgeTab('room');
+    renderLodgeHub();
+  }
   if (id === 'settings' && typeof ensureLanguageSelectorUI === 'function') {
     ensureLanguageSelectorUI();
   }
@@ -3480,6 +3637,7 @@ window.openModal = openModal;
 
 function closeAll() {
   document.querySelectorAll('.modal').forEach(x => x.classList.remove('open'));
+  closeBoatDetails();
   renderTutorial();
 }
 window.closeAll = closeAll;
@@ -3572,7 +3730,20 @@ document.querySelectorAll('[data-modal]').forEach(b => {
     openModal(b.dataset.modal);
   };
 });
+const returnBaseBtn = $('returnBaseBtn');
+if (returnBaseBtn) returnBaseBtn.onclick = () => openModal('base');
+const topBaseQuickBtn = $('topBaseQuickBtn');
+if (topBaseQuickBtn) topBaseQuickBtn.onclick = () => openModal('base');
 document.querySelectorAll('.close, .close-dialog').forEach(b => b.onclick = closeAll);
+$('boatDetails').addEventListener('click', event => {
+  if (event.target === $('boatDetails')) closeBoatDetails();
+});
+$('boatDetails').addEventListener('close', () => {
+  if ($('boats').classList.contains('open')) {
+    document.querySelector(`[data-boat-preview="${boatDetailId}"]`)?.focus({preventScroll:true});
+  }
+  boatDetailId = null;
+});
 document.querySelectorAll('.shop-tabs button').forEach(b => {
   b.onclick = () => {
     shop = b.dataset.shop;

@@ -52,7 +52,7 @@ const FishingRules = (() => {
     let nodes = 0;
     function visit(value, depth = 0) {
       if (++nodes > 100000 || depth > 15) throw Error('Збереження занадто велике.');
-      if (typeof value === 'number' && (!Number.isFinite(value) || Math.abs(value) > 1e12)) throw Error('Некоректне число у збереженні.');
+      if (typeof value === 'number' && (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER)) throw Error('Некоректне число у збереженні.');
       if (typeof value === 'string' && (value.length > 2000 || /[<>]/.test(value))) throw Error('Некоректний текст у збереженні.');
       if (value && typeof value === 'object') Object.entries(value).forEach(([key,item]) => {
         if (['__proto__','prototype','constructor'].includes(key) || /[<>]/.test(key)) throw Error('Некоректне поле збереження.');

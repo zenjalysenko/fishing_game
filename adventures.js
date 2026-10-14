@@ -227,7 +227,7 @@ function renderTutorial() {
   const root = $('tutorialHint');
   if (!root) return;
   const step = tutorialSteps.find(s => !state.tutorial[s.id]);
-  root.hidden = state.tutorial.dismissed || !step || !!document.querySelector('.modal.open, .butcher-overlay.open');
+  root.hidden = state.tutorial.dismissed || !step || !!document.querySelector('.modal.open, .butcher-overlay.open, #boatDetails[open]');
   if (root.hidden) return;
   root.innerHTML = `<b>Навчання ${tutorialSteps.indexOf(step)+1}/${tutorialSteps.length}: ${step.title}</b><p>${step.text}</p><button onclick="dismissTutorial()" aria-label="Приховати навчання">Зрозуміло, приховати</button>`;
 }
