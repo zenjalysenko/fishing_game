@@ -1,0 +1,10 @@
+.adventure-grid,.habitat-grid,.trophy-album{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:12px 0}
+.adventure-card,.trophy-photo{padding:16px;border:1px solid #79d5d650;border-radius:12px;background:#082d3c;color:#e5f8fa}
+.adventure-card h3{margin:0 0 8px}.adventure-card small,.trophy-photo small{display:block;margin:8px 0;color:#b8dce2;line-height:1.5}
+.adventure-card button,.adventure-actions button,#tournamentContent button,.trophy-photo button{padding:9px 13px;margin:6px 0;border-radius:8px;background:#66dfd1;color:#03202c;font-weight:700;min-height:40px}
+.adventure-actions{display:flex;gap:8px;flex-wrap:wrap}.adventure-actions button{flex:1}
+.trophy-photo{margin:0;overflow:hidden}.trophy-photo img{display:block;width:100%;height:150px;object-fit:contain;border-radius:9px;background:#031924}.trophy-photo b{display:block;margin-top:12px}
+#habitatContent input{display:block;width:100%;margin:14px 0;accent-color:#66dfd1}#tournamentContent li{padding:9px;border-bottom:1px solid #ffffff22}
+.tutorial-hint{position:fixed;z-index:45;top:70px;left:50%;transform:translateX(-50%);width:min(440px,calc(100% - 24px));padding:14px 18px;border:1px solid #ffe3a0;border-radius:12px;background:#092735f2;color:#edf9fa;box-shadow:0 8px 30px #0008}
+.tutorial-hint[hidden]{display:none}.tutorial-hint p{font-size:.85rem;line-height:1.5;margin:8px 0}.tutorial-hint button{background:transparent;color:#ffe3a0;text-decoration:underline;padding:7px 0}
+@media(max-width:600px){.tutorial-hint{top:58px}.adventure-grid,.habitat-grid,.trophy-album{grid-template-columns:1fr}.adventure-card{padding:12px}.base-page{padding:18px 14px}}

@@ -7,7 +7,8 @@
   <meta name="description" content="Українська Рибалка — атмосферна браузерна гра про риболовлю: понад 50 видів риб, десятки водойм, снасті, турніри та експедиції.">
   <title>Українська Рибалка — Морський курорт</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=boat-visuals-2">
+  <link rel="stylesheet" href="styles.css?v=adventures-1">
+  <link rel="stylesheet" href="adventures.css?v=adventures-1">
 </head>
 <body>
   <aside class="save-warning" id="saveWarning" role="alert" hidden>
@@ -132,7 +133,9 @@
           <button class="base-link" data-modal="world"><i>🌦️</i><span><b>Умови ловлі</b><small>Сезон, погода, час доби та завдання</small></span></button>
           <button class="base-link" data-modal="auction"><i>🔨</i><span><b>Аукціон улову</b><small>Продаж рідкісних трофеїв покупцям</small></span></button>
           <button class="base-link" data-modal="trophy"><i>🏆</i><span><b>Зала трофеїв</b><small>Рекорди, стенди та 20+ досягнень</small></span></button>
-          <button class="base-link" data-modal="progress"><i>📊</i><span><b>Прогрес та крафт</b><small>Навички, турнір дня та матеріали</small></span></button>
+          <button class="base-link" data-modal="tournaments"><i>🥇</i><span><b>Рибальські турніри</b><small>Найбільша риба та загальна вага улову</small></span></button>
+          <button class="base-link" data-modal="world"><i>📋</i><span><b>Завдання та замовлення</b><small>Ресторан, колекція дня та інспектор</small></span></button>
+          <button class="base-link" data-modal="progress"><i>📊</i><span><b>Прогрес та крафт</b><small>Матеріали та виготовлення наживок</small></span></button>
           <button class="base-link" data-modal="settings"><i>⚙️</i><span><b>Налаштування</b><small>Експорт, імпорт сейвів та звук</small></span></button>
         </section>
       </div>
@@ -234,6 +237,8 @@
       <p class="muted">Готуйте поживні страви зі свіжого улову та матеріалів. Кожна страва дає тривалий корисний баф!</p>
       <div class="kitchen-active-buffs" id="activeBuffsContainer"></div>
       <div class="kitchen-recipes-grid" id="kitchenRecipesGrid"></div>
+      <h3>Страви на продаж</h3>
+      <div id="preparedDishesContent" class="adventure-grid"></div>
     </section>
   </div>
 
@@ -244,6 +249,9 @@
       <h2>🏆 Зала трофеїв та досягнення</h2>
       <p class="muted">Ваші рекорди, здобуті кубки та перелік усіх рибальських досягнень.</p>
       <div class="trophy-records-summary" id="trophyRecordsSummary"></div>
+      <h3>📷 Фотоальбом трофеїв</h3>
+      <p class="muted">Рекорди зберігаються автоматично. Картки залишаються після продажу чи відпускання риби. До 200 фото.</p>
+      <div id="trophyAlbumContent" class="trophy-album"></div>
       <h3>Рибальські досягнення (20+)</h3>
       <div class="achievements-full-grid" id="achievementsFullGrid"></div>
     </section>
@@ -282,6 +290,8 @@
       <div class="settings-block">
         <h3 data-i18n="audioVisual">Аудіо та візуальні ефекти</h3>
         <label class="settings-row"><span data-i18n="audioEffects">Звукові ефекти (Web Audio)</span><input type="checkbox" id="settingsSoundEnabled" checked></label>
+        <label class="settings-row"><span>Звуки природи: вода, вітер і птахи</span><input type="checkbox" id="settingsAmbientEnabled" checked></label>
+        <button type="button" class="settings-btn" onclick="restartTutorial()">Повторити навчання</button>
         <label class="settings-row"><span data-i18n="effectVolume">Гучність ефектів</span><input type="range" id="settingsVolumeRange" min="0" max="1" step="0.05" value="0.7"></label>
         <label class="settings-row"><span data-i18n="haptics">Вібрація на смартфонах (Haptic)</span><input type="checkbox" id="settingsVibrationEnabled" checked></label>
       </div>
@@ -290,6 +300,7 @@
         <p class="muted" data-i18n="backupHint">Експортуйте файл або код збереження, щоб перенести гру на телефон або інший браузер.</p>
         <div class="save-actions">
           <button type="button" class="settings-btn" onclick="exportSave()" data-i18n="exportJson">📤 Експорт у файл (JSON)</button>
+          <button type="button" class="settings-btn" onclick="exportBackupSave()">Завантажити резервну копію до імпорту</button>
           <button type="button" class="settings-btn" onclick="copySaveToClipboard()" data-i18n="copyCode">📋 Скопіювати код</button>
         </div>
         <hr>
@@ -316,6 +327,10 @@
       <div class="world-summary" id="worldSummary"></div>
       <h3>Стилі та техніка ловлі</h3>
       <div class="technique-grid" id="techniqueGrid"></div>
+      <h3>Глибина та поведінка риби</h3>
+      <div id="habitatContent"></div>
+      <h3>Замовлення та колекція дня</h3>
+      <div id="ordersContent" class="adventure-grid"></div>
       <h3>Завдання від персонажів (NPC)</h3>
       <div class="npc-quest" id="questContent"></div>
       <h3>Місцевий ринок</h3>
@@ -368,8 +383,12 @@
     </section>
   </div>
 
-  <script src="lang.js?v=boat-visuals-2"></script>
-  <script src="script.js?v=boat-visuals-2"></script>
+  <aside id="tutorialHint" class="tutorial-hint" aria-live="polite" hidden></aside>
+  <div class="modal" id="tournaments" role="dialog" aria-modal="true" aria-labelledby="tournamentTitle"><section><button class="close" aria-label="Закрити">×</button><h2 id="tournamentTitle">🏆 Рибальські турніри</h2><div id="tournamentContent"></div></section></div>
+  <script src="lang.js?v=adventures-1"></script>
+  <script src="fishing-rules.js?v=adventures-1"></script>
+  <script src="adventures.js?v=adventures-1"></script>
+  <script src="script.js?v=adventures-1"></script>
   <script>
     if (window.i18n) {
       window.i18n.ensureLanguageStyles();
@@ -384,7 +403,7 @@
     }
     if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=2').then(reg => {
+        navigator.serviceWorker.register('sw.js?v=3').then(reg => {
           reg.update();
         }).catch(err => console.log('SW registration error:', err));
       });

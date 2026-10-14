@@ -5,6 +5,7 @@
 
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'sea-resort-fishing-v1';
+const newItemId = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 // --------------------------------------------------------
 // Звуковий рушій Web Audio API (без зовнішніх файлів)
@@ -23,15 +24,53 @@ class SoundEngine {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+    if (this.ctx && !this.ambientGain) this.startAmbient();
   }
   setVolume(val) {
     this.volume = Math.max(0, Math.min(1, parseFloat(val) || 0));
     localStorage.setItem('ukr_fish_vol', this.volume);
+    this.updateAmbient();
   }
   toggle() {
     this.enabled = !this.enabled;
     localStorage.setItem('ukr_fish_sound', this.enabled);
+    if (this.enabled) this.init();
+    this.updateAmbient();
     return this.enabled;
+  }
+  startAmbient() {
+    const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 4, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let smooth = 0;
+    for (let i = 0; i < data.length; i++) {
+      smooth = (smooth + (Math.random()*2-1)*0.03)/1.03;
+      data[i] = smooth * 3 * (0.65 + 0.35*Math.sin(i/this.ctx.sampleRate*Math.PI));
+    }
+    this.ambientSource = this.ctx.createBufferSource();
+    this.ambientSource.buffer = buffer;
+    this.ambientSource.loop = true;
+    this.ambientFilter = this.ctx.createBiquadFilter();
+    this.ambientFilter.type = 'lowpass';
+    this.ambientGain = this.ctx.createGain();
+    this.ambientGain.gain.value = 0;
+    this.ambientSource.connect(this.ambientFilter);
+    this.ambientFilter.connect(this.ambientGain);
+    this.ambientGain.connect(this.ctx.destination);
+    this.ambientSource.start();
+    this.updateAmbient();
+  }
+  updateAmbient() {
+    if (!this.ambientGain) return;
+    const enabled = this.enabled && state.ambientEnabled && !document.hidden;
+    const windy = ['rain','wind'].includes(world.weather);
+    this.ambientFilter.frequency.setTargetAtTime(windy ? 1200 : 420, this.ctx.currentTime, 0.5);
+    this.ambientGain.gain.setTargetAtTime(enabled ? this.volume * (windy ? 0.45 : 0.22) : 0, this.ctx.currentTime, 0.05);
+  }
+  playBird() {
+    if (!this.ctx || !this.enabled || !state.ambientEnabled || document.hidden || world.time !== 'day') return;
+    [2200,2700,2400].forEach((f,i) => setTimeout(() => {
+      if (this.enabled && state.ambientEnabled && !document.hidden) this.beep(f,'sine',0.08,0.025);
+    },i*110));
   }
   beep(freq = 440, type = 'sine', duration = 0.15, vol = 1, ramp = true) {
     if (!this.enabled || !this.volume) return;
@@ -635,7 +674,7 @@ const achievements = [
   {id:'legendary', name:'Легендарний улов', desc:'Спіймати легендарну рибу 5-го рівня рідкості.', reward:400, icon:'🐉'},
   {id:'blackSea', name:'Чорноморський гід', desc:'Відкрити всі види Чорного моря.', reward:350, icon:'🐬'},
   {id:'dnieperMaster', name:'Володар Дніпра', desc:'Відкрити всі види річки Дніпро.', reward:350, icon:'🇺🇦'},
-  {id:'dailyRecord', name:'Чемпіон дня', desc:'Очолити щоденний турнір причалу.', reward:250, icon:'🥇'},
+  {id:'dailyRecord', name:'Чемпіон дня', desc:'Посісти перше місце у турнірі та отримати нагороду.', reward:250, icon:'🥇'},
   {id:'bossHunter', name:'Гроза гігантів', desc:'Перемогти хоча б одного унікального боса.', reward:500, icon:'👑'},
   {id:'traveler', name:'Мандрівник', desc:'Вирушити у свою першу закордонну експедицію.', reward:300, icon:'✈️'},
   {id:'oceanMaster', name:'Океанічний ас', desc:'Відкрити 30 різних видів риб у альбомі.', reward:600, icon:'🗺️'},
@@ -643,17 +682,21 @@ const achievements = [
   {id:'chef', name:'Шеф-кухар причалу', desc:'Приготувати першу поживну страву на кухні.', reward:180, icon:'🍳'},
   {id:'boatCaptain', name:'Власний капітан', desc:'Придбати плавзасіб та вийти на глибину.', reward:300, icon:'⚓'},
   {id:'creditClear', name:'Чесний позичальник', desc:'Повністю закрити заборгованість у Банку.', reward:150, icon:'💳'},
-  {id:'baseTycoon', name:'Магнат курорту', desc:'Покращити всі 4 об’єкти бази до максимуму (3 рівень).', reward:800, icon:'🏗️'},
+  {id:'baseTycoon', name:'Магнат курорту', desc:'Покращити всі 6 об’єктів бази до максимуму (3 рівень).', reward:800, icon:'🏗️'},
   {id:'masterStreak', name:'Серія майстра', desc:'Зловити 10 риб поспіль без жодного зриву.', reward:300, icon:'⚡'},
-  {id:'wealthyFisher', name:'Золота шпуля', desc:'Накопичити в гаманці понад 10 000 монет.', reward:500, icon:'💰'}
+  {id:'wealthyFisher', name:'Золота шпуля', desc:'Накопичити в гаманці понад 10 000 монет.', reward:500, icon:'💰'},
+  {id:'restaurateur', name:'Друг ресторану', desc:'Доставити перше замовлення ресторану.', reward:150, icon:'🍽️'},
+  {id:'collector', name:'Колекціонер видів', desc:'Завершити колекцію дня.', reward:180, icon:'📚'},
+  {id:'photographer', name:'Фото на пам’ять', desc:'Зберегти фото улову в альбомі.', reward:80, icon:'📷'},
+  {id:'foodMerchant', name:'Смак прибутку', desc:'Продати готову страву.', reward:120, icon:'🥘'}
 ];
 
 // Рецепти кухні з бафами
 const kitchenRecipes = [
   {id:'soup', name:'Рибальська юшка', desc:'+25% до отримуваного досвіду (XP) на 10 хвилин.', buff:'xp_boost', duration:600000, needs:{fish:1, plants:1}, icon:'🍲'},
-  {id:'friedFish', name:'Смажений карась у травах', desc:'+15% до вартості продажу риби на ринку на 10 хвилин.', buff:'price_boost', duration:600000, needs:{fish:1}, icon:'🍳'},
-  {id:'smokedFish', name:'Копчений лящ', desc:'Міцність снасті збільшено на 25% на 10 хвилин.', buff:'tackle_boost', duration:600000, needs:{fish:1, plants:2}, icon:'🔥'},
-  {id:'oceanDish', name:'Морський делікатес', desc:'+35% шанс виловити рідкісну або трофейну рибу на 10 хвилин.', buff:'trophy_boost', duration:600000, needs:{fish:1, shells:2}, icon:'🦪'}
+  {id:'friedFish', name:'Смажений карась у травах', species:['Карась сріблястий'], desc:'+15% до вартості продажу риби на ринку на 10 хвилин.', buff:'price_boost', duration:600000, needs:{fish:1}, icon:'🍳'},
+  {id:'smokedFish', name:'Копчений лящ', species:['Лящ звичайний'], desc:'Міцність снасті збільшено на 25% на 10 хвилин.', buff:'tackle_boost', duration:600000, needs:{fish:1, plants:2}, icon:'🔥'},
+  {id:'oceanDish', name:'Морський делікатес', species:['Кефаль','Ставрида чорноморська','Скумбрія атлантична','Лаврак європейський','Тай червоний'], desc:'+35% шанс виловити рідкісну або трофейну рибу на 10 хвилин.', buff:'trophy_boost', duration:600000, needs:{fish:1, shells:2}, icon:'🦪'}
 ];
 
 // Покращення бази
@@ -661,7 +704,9 @@ const baseUpgrades = {
   pier: {name:'Причал', icon:'⚓', cost:120, desc:'+8% до активності риби за кожен рівень.'},
   smokehouse: {name:'Коптильня', icon:'🔥', cost:180, desc:'+10% до ціни очищеної риби за кожен рівень.'},
   workshop: {name:'Майстерня', icon:'🔧', cost:240, desc:'+6% до швидкості та гальма котушки за рівень.'},
-  aquarium: {name:'Акваріум', icon:'🐠', cost:300, desc:'+1 очко репутації за кожну рідкісну рибу за рівень.'}
+  aquarium: {name:'Акваріум', icon:'🐠', cost:300, desc:'+1 очко репутації за кожну рідкісну рибу за рівень.'},
+  storage: {name:'Склад снастей', icon:'📦', cost:160, desc:'Раз на день отримуйте набір наживки: хліб і черв’як ×3 за кожен рівень.'},
+  kitchen: {name:'Кухня', icon:'🍳', cost:220, desc:'Відкриває смажені й морські страви. +10% до продажної ціни готових страв за рівень.'}
 };
 
 // --------------------------------------------------------
@@ -714,7 +759,17 @@ const initial = {
   treasures: [],
   achievements: {},
   skills: {casting:0, hook:0, trophy:0},
-  base: {pier:0, smokehouse:0, workshop:0, aquarium:0},
+  base: {pier:0, smokehouse:0, workshop:0, aquarium:0, storage:0, kitchen:0},
+  orders: null,
+  trophyAlbum: [],
+  preparedDishes: [],
+  tutorial: {},
+  fishingDepth: 3,
+  worldSeconds: 0,
+  catchStreak: 0,
+  cleanedCount: 0,
+  tournamentWins: 0,
+  ambientEnabled: true,
   tournament: null,
   bossKills: {},
   auctions: [],
@@ -732,56 +787,58 @@ const initial = {
   vibrationEnabled: true
 };
 
+function normalizeSave(raw) {
+  FishingRules.validateSave(raw);
+  const normalized = {...JSON.parse(JSON.stringify(initial)), ...raw};
+  for (const key of ['baitStock','materials','skills','base','tutorial']) normalized[key] = {...initial[key], ...(raw[key] || {})};
+  for (const type of Object.keys(gear)) normalized[type] = Math.max(1, Math.min(gear[type].length, Math.trunc(Number(normalized[type])) || 1));
+  normalized.location = Object.hasOwn(locations, normalized.location) ? normalized.location : 'pier';
+  normalized.bait = baitTypes.some(b => b.id === normalized.bait) ? normalized.bait : 'bread';
+  normalized.technique = Object.hasOwn(techniques, normalized.technique) ? normalized.technique : 'float';
+  normalized.inventory = normalized.inventory.map(f => {
+    const name = migrateFishName(f.name);
+    if (!Object.hasOwn(fishPrices,name) && !bosses.some(b => b.name === name)) throw Error('Невідомий вид риби у збереженні.');
+    return {...f, name, image:fishImages[name] || fishImages[bosses.find(b => b.name === name)?.base], location:Object.hasOwn(locations,f.location) ? f.location : normalized.location, clean:!!f.clean, favorite:!!f.favorite, cuts:f.cuts || 0, pricePerKg:fishPrices[name] || bosses.find(b => b.name === name)?.pricePerKg};
+  });
+  for (const key of ['journal','discovered']) if (!normalized[key].every(v => typeof v === 'string')) throw Error('Некоректний список текстів.');
+  normalized.discovered = [...new Set(normalized.discovered.map(migrateFishName))];
+  normalized.ownedBoats = normalized.ownedBoats.filter(id => boats.some(b => b.id === id));
+  normalized.boat = normalized.ownedBoats.includes(normalized.boat) ? normalized.boat : null;
+  normalized.atDepth = !!normalized.boat && !!normalized.atDepth;
+  normalized.sonar = !!normalized.sonar;
+  normalized.ownedReels = [...new Set([...normalized.ownedReels.filter(n => Number.isInteger(n) && n >= 1 && n <= gear.reels.length), normalized.reels])];
+  for (const key of Object.keys(baseUpgrades)) normalized.base[key] = Math.min(3, Math.trunc(normalized.base[key] || 0));
+  for (const key of Object.keys(initial.skills)) normalized.skills[key] = Math.min(5, Math.trunc(normalized.skills[key] || 0));
+  normalized.records = Object.fromEntries(Object.entries(normalized.records).map(([name,n]) => [migrateFishName(name),n]));
+  normalized.trophyAlbum = normalized.trophyAlbum.filter(f => f && (fishPrices[f.name] || bosses.some(b => b.name === f.name)) && Number.isFinite(f.weight) && f.weight > 0 && Number.isFinite(f.caughtAt) && /^[\w.-]+$/.test(String(f.id))).slice(0,200);
+  normalized.preparedDishes = normalized.preparedDishes.filter(d => d && kitchenRecipes.some(r => r.id === d.recipe) && Number.isFinite(d.value) && d.value > 0 && /^[\w.-]+$/.test(String(d.id)));
+  normalized.fishingDepth = Math.max(1, Math.min(120, Number(normalized.fishingDepth) || 3));
+  normalized.worldSeconds = Math.max(0, Math.trunc(normalized.worldSeconds));
+  normalized.pets = normalized.pets.map(p => pets.find(item => item.name === p?.name)).filter(Boolean);
+  if (!normalized.contract || !Number.isFinite(normalized.contract.target) || normalized.contract.target < 1 || !Number.isFinite(normalized.contract.progress) || !Number.isFinite(normalized.contract.reward)) normalized.contract = {...initial.contract};
+  if (normalized.orders && (!Array.isArray(normalized.orders.collection?.species) || !Array.isArray(normalized.orders.collection?.seen) || !Object.hasOwn(fishPrices,normalized.orders.restaurant?.fish) || ![normalized.orders.restaurant.reward,normalized.orders.restaurant.target,normalized.orders.collection.reward].every(n => Number.isFinite(n) && n > 0) || normalized.orders.collection.species.some(n => !Object.hasOwn(fishPrices,n)))) normalized.orders = null;
+  if (normalized.npcQuest && (!Object.hasOwn(fishPrices,normalized.npcQuest.fish) || ![normalized.npcQuest.progress,normalized.npcQuest.target,normalized.npcQuest.weight,normalized.npcQuest.reward?.coins,normalized.npcQuest.reward?.amount,normalized.npcQuest.reward?.reputation].every(n => Number.isFinite(n) && n >= 0))) normalized.npcQuest = null;
+  if (normalized.tournament && (!['total','heaviest'].includes(normalized.tournament.mode) || !Array.isArray(normalized.tournament.rivals) || normalized.tournament.rivals.length !== 3 || ![normalized.tournament.count,normalized.tournament.totalWeight,normalized.tournament.heaviest,normalized.tournament.endsAt].every(n => Number.isFinite(n) && n >= 0) || normalized.tournament.rivals.some(r => !r || typeof r.name !== 'string' || !Number.isFinite(r.score) || r.score < 0))) normalized.tournament = null;
+  normalized.buffs = Object.fromEntries(Object.entries(normalized.buffs).filter(([,b]) => b && typeof b.name === 'string' && Number.isFinite(b.until)));
+  if (normalized.auctions.some(a => !a || !a.fish || typeof a.fish.name !== 'string' || !Number.isFinite(a.bid) || a.bid < 0 || !Number.isFinite(a.endsAt) || !Number.isFinite(a.bidders))) throw Error('Некоректний лот аукціону.');
+  if (normalized.auctionLog.some(line => typeof line !== 'string')) throw Error('Некоректний журнал аукціону.');
+  normalized.ambientEnabled = normalized.ambientEnabled !== false;
+  normalized.tutorial = Object.fromEntries(Object.entries(normalized.tutorial).map(([key,value]) => [key, value === true]));
+  if (normalized.dailyReward && (!Number.isFinite(normalized.dailyReward.day) || !Number.isFinite(normalized.dailyReward.streak) || normalized.dailyReward.streak < 1)) normalized.dailyReward = null;
+  return normalized;
+}
+
 let state, savedState;
 try {
   savedState = JSON.parse(localStorage.getItem(SAVE_KEY));
-  state = {...initial, ...savedState};
+  state = normalizeSave(savedState || JSON.parse(JSON.stringify(initial)));
 } catch {
   savedState = {};
-  state = {...initial};
-}
-
-// Міграція старого спорядження
-Object.keys(gear).forEach(type => {
-  state[type] = Math.max(1, Math.min(gear[type].length, Math.trunc(Number(state[type])) || 1));
-});
-
-state.baitStock = {...initial.baitStock, ...(state.baitStock || {})};
-state.records = {...(state.records || {})};
-state.sonar = Boolean(state.sonar);
-state.ownedReels = Array.isArray(state.ownedReels) ? [...new Set(state.ownedReels)] : [state.reels];
-if (!state.ownedReels.includes(state.reels)) state.ownedReels.push(state.reels);
-state.ownedBoats = Array.isArray(state.ownedBoats) ? state.ownedBoats.filter(id => boats.some(b => b.id === id)) : [];
-state.boat = state.ownedBoats.includes(state.boat) ? state.boat : null;
-state.reputation = Math.max(0, state.reputation || 0);
-state.localReputation = {...(state.localReputation || {})};
-state.materials = {...initial.materials, ...(state.materials || {})};
-state.treasures = [...(state.treasures || [])];
-state.achievements = {...(state.achievements || {})};
-state.skills = {...initial.skills, ...(state.skills || {})};
-state.base = {...initial.base, ...(state.base || {})};
-state.bossKills = {...(state.bossKills || {})};
-state.buffs = {...(state.buffs || {})};
-
-// Міграція імен риб в інвентарі, альбомі та рекордах
-if (Array.isArray(state.inventory)) {
-  state.inventory = state.inventory.map(f => {
-    const ukrName = migrateFishName(f.name);
-    return {
-      ...f,
-      name: ukrName,
-      image: fishImages[ukrName] || f.image,
-      pricePerKg: fishPrices[ukrName] || f.pricePerKg
-    };
-  });
-}
-if (Array.isArray(state.discovered)) {
-  state.discovered = [...new Set(state.discovered.map(migrateFishName))];
-}
-if (state.records) {
-  const newRec = {};
-  Object.entries(state.records).forEach(([k, v]) => { newRec[migrateFishName(k)] = v; });
-  state.records = newRec;
+  try {
+    const previous = localStorage.getItem(SAVE_KEY);
+    if (previous) localStorage.setItem(`${SAVE_KEY}-backup`, previous);
+  } catch (_) {}
+  state = JSON.parse(JSON.stringify(initial));
 }
 
 // --------------------------------------------------------
@@ -789,7 +846,7 @@ if (state.records) {
 // --------------------------------------------------------
 let charge = 0, charging = false, castTimer, casting = false, pulling = false, pullTimer, biteTimer;
 let perfectCast = false, reel = 0, session = 0, shop = 'rods', mapRegion = 'home';
-let world = {weather:'clear', time:'day', event:'calm', season:'spring'};
+let world = {weather:'clear', time:'day', event:'calm', season:'spring', temperature:15};
 
 // Фази та динаміка виважування
 let fightState = {
@@ -839,6 +896,9 @@ const localRep = (key) => state.localReputation[key] || 0;
 const gearColors = ['#cd995b','#bacddb','#a8e167','#869fff','#ffe078','#59dfce','#effaff','#e28af2'];
 const lineColors = ['#e5fbffba','#b8e7ffaa','#c7efff77','#8fc688','#50cab7','#edd170','#b7cfff','#e495f0'];
 const baitIcons = {bread:'🍞', worm:'🪱', shrimp:'🦐', trout:'🐟', sturgeon:'🪱', sea:'🦐'};
+
+const knifeImages = Array.from({length: 8}, (_, i) => `assets/knives/knife-${String(i + 1).padStart(2, '0')}.png`);
+const hookImages = Array.from({length: 8}, (_, i) => `assets/hooks/hook-${String(i + 1).padStart(2, '0')}.png`);
 
 function gearIcon(type, level) {
   const color = gearColors[level-1] || '#cd995b';
@@ -914,7 +974,7 @@ function applyBuff(type, name, durationMs) {
 // Щоденний ринок та квести
 // --------------------------------------------------------
 function dailyMarket() {
-  const day = new Date().toISOString().slice(0, 10);
+  const day = FishingRules.dayKey();
   if (state.market?.day === day && Object.hasOwn(fishPrices, state.market.fish) && Number.isFinite(state.market.bonus)) {
     return state.market;
   }
@@ -934,6 +994,7 @@ function assignQuality(fish) {
   const previous = state.records[fish.name] || 0;
   const precision = Math.min(1, Math.max(0, 1 - Math.abs(charge - 72) / 72) + (state.skills.casting || 0) * 0.06);
   const score = Math.random() + precision * 0.25 + (state.skills.trophy || 0) * 0.08 + (hasBuff('trophy_boost') ? 0.25 : 0);
+  fish.isRecord = fish.weight > previous;
   state.records[fish.name] = Math.max(previous, fish.weight);
   fish.quality = fish.weight > previous ? 'record' : score > 1.25 ? 'trophy' : score > 0.72 ? 'good' : 'normal';
   return fish;
@@ -946,14 +1007,15 @@ const worldActivity = () => {
   const event = eventData[world.event] || eventData.calm;
   const pierBonus = 1 + (state.base.pier || 0) * 0.08;
   const buffSpeed = hasBuff('bite_boost') ? 1.3 : 1;
-  return weather.bite * time.bite * season.bite * event.bite * activeTechnique().bite * pierBonus * buffSpeed;
+  const temperatureBonus = world.temperature < 6 ? 0.75 : world.temperature > 26 ? 0.85 : 1;
+  return weather.bite * time.bite * season.bite * event.bite * activeTechnique().bite * pierBonus * buffSpeed * temperatureBonus;
 };
 
 // Розрахунок вартості риби
 function price(f) {
   const quality = qualityOf(f);
   const perKg = f.pricePerKg || fishPrices[f.name] || 40;
-  const smokehouse = 1 + (state.base.smokehouse || 0) * 0.1;
+  const smokehouse = 1 + (f.clean ? (state.base.smokehouse || 0) * 0.1 : 0);
   const buffPrice = hasBuff('price_boost') ? 1.15 : 1;
   const petMul = petBonus('money') ? 1.2 : 1;
   const smallBonus = (f.weight < 1.0 && petBonus('money_small')) ? 1.1 : 1;
@@ -1477,7 +1539,7 @@ class ProceduralScene {
   ripples(g, w, h, t, now) {
     const p = this.floatPoint(w, h, now);
     for (let i = 0; i < 3; i++) {
-      const r = (t * (this.biting ? 45 : 22) + i * 19) % 70;
+      const r = (Math.max(0,t) * (this.biting ? 45 : 22) + i * 19) % 70;
       g.strokeStyle = `rgba(225,255,255,${(this.biting ? 0.65 : 0.42) - r / 170})`;
       g.lineWidth = 1.2;
       g.beginPath();
@@ -1581,7 +1643,7 @@ function pickFish() {
   if (boss && Math.random() < 0.035) {
     const weight = +(boss.weight[0] + Math.random() * (boss.weight[1] - boss.weight[0])).toFixed(2);
     return {
-      id: Date.now() + Math.random(),
+      id: newItemId(),
       name: boss.name,
       rarity: 5,
       weight,
@@ -1605,9 +1667,8 @@ function pickFish() {
 
   const choices = pool.filter(fish => fish.rarity === rarity);
   const targeted = pool.filter(fish => bait.species.includes(fish.name) && fish.rarity <= max);
-  const species = targeted.length && Math.random() < bait.focus
-    ? targeted[Math.floor(Math.random() * targeted.length)]
-    : choices[Math.floor(Math.random() * choices.length)] || pool[0];
+  const candidates = targeted.length && Math.random() < bait.focus ? targeted : choices.length ? choices : pool.filter(f => f.rarity <= max);
+  const species = FishingRules.weightedPick(candidates, fishAffinity) || pool[0];
 
   const range = species.weight || [0.4, 3];
   const boatWeightMul = state.atDepth && state.boat ? (boats.find(b => b.id === state.boat)?.weight || 1) : 1;
@@ -1615,7 +1676,7 @@ function pickFish() {
   const reaction = determineFishReaction(weight);
 
   return {
-    id: Date.now() + Math.random(),
+    id: newItemId(),
     name: species.name,
     rarity: species.rarity,
     weight,
@@ -1659,6 +1720,7 @@ function updateFishingControls() {
 
 function beginCharge() {
   if (casting || charging || fishingBlocked()) return;
+  sound.init();
   if (!baitCount()) {
     note('Наживка закінчилася! Натисніть її іконку внизу або отримайте щоденний подарунок.');
     return;
@@ -1705,6 +1767,8 @@ function cast() {
   sound.playSplash();
 
   checkAchievements({type:'cast'});
+  completeTutorial('cast');
+  renderTutorial();
   if (perfectCast) checkAchievements({type:'perfectCast'});
 
   note(perfectCast ? '🎯 Точний закид! Кльов на 25% швидший · +15 XP за рибу.' : `Закид на ${charge}% — очікуємо клювання…`);
@@ -1901,6 +1965,9 @@ function landFish() {
     assignQuality(f);
     f.bait = state.bait;
     f.perfectCast = perfectCast;
+    f.caughtAt = Date.now();
+    f.depth = fishingDepth();
+    archiveRecord(f);
   });
 
   state.inventory.unshift(...catches);
@@ -1924,6 +1991,8 @@ function landFish() {
   checkAchievements({type:'catch', catches});
   advanceContract(catches.length);
   advanceNpcQuest(catches);
+  advanceCollection(catches);
+  completeTutorial('catch');
 
   const top = catches.reduce((a, b) => a.rarity > b.rarity ? a : b);
   const r = rarities[top.rarity - 1];
@@ -1956,7 +2025,7 @@ function updateDepth(pulling = false) {
   const point = Math.min(90, 15 + (pulling ? 65 : charge * 0.65));
   $('depthNeedle').style.left = point + '%';
   $('depthNeedle').style.height = (pulling ? 70 : 28 + charge * 0.45) + '%';
-  $('depthReadout').textContent = (4.8 + point * 0.09).toFixed(1);
+  $('depthReadout').textContent = fishingDepth().toFixed(1);
 }
 
 // --------------------------------------------------------
@@ -1976,6 +2045,7 @@ function autoClean() {
   updateButcherTable();
   $('butcherTable').classList.add('open');
   $('butcherTable').setAttribute('aria-hidden', 'false');
+  renderTutorial();
 }
 
 function closeButcherTable() {
@@ -1983,6 +2053,7 @@ function closeButcherTable() {
   $('butcherTable').setAttribute('aria-hidden', 'true');
   butcherFishId = null;
   butcherDragging = false;
+  renderTutorial();
 }
 
 function finishButcherAutoClean() {
@@ -2120,7 +2191,9 @@ function checkAchievements(event) {
   if (event.type === 'cast') unlockAchievement('firstCast');
   if (event.type === 'perfectCast') unlockAchievement('perfectCast');
   if (event.type === 'clean') {
-    if (state.materials.fish >= 10) unlockAchievement('masterCutter');
+    state.cleanedCount += event.count || 1;
+    completeTutorial('clean');
+    if (state.cleanedCount >= 10) unlockAchievement('masterCutter');
   }
   if (event.type === 'catch' && event.catches) {
     unlockAchievement('firstFish');
@@ -2144,14 +2217,15 @@ function checkAchievements(event) {
 // --------------------------------------------------------
 // Кухня рибалки
 // --------------------------------------------------------
-function cookDish(id) {
+function cookDish(id, useNow = true) {
   const recipe = kitchenRecipes.find(r => r.id === id);
   if (!recipe) return;
+  if (!FishingRules.kitchenUnlocked(recipe, state.base)) { note('Спочатку збудуйте кухню або коптильню на базі.'); return; }
+  const ingredients = FishingRules.ingredients(state.inventory, recipe);
   
   // Перевірка інгредієнтів
   if (recipe.needs.fish) {
-    const cleaned = state.inventory.filter(f => f.clean && !f.favorite);
-    if (cleaned.length < recipe.needs.fish) {
+    if (ingredients.length < recipe.needs.fish) {
       note(`Потрібно ${recipe.needs.fish} очищеної риби в садку.`);
       return;
     }
@@ -2167,7 +2241,7 @@ function cookDish(id) {
   // Списання інгредієнтів
   if (recipe.needs.fish) {
     for (let i = 0; i < recipe.needs.fish; i++) {
-      const idx = state.inventory.findIndex(f => f.clean && !f.favorite);
+      const idx = state.inventory.indexOf(ingredients[i]);
       if (idx >= 0) state.inventory.splice(idx, 1);
     }
   }
@@ -2176,7 +2250,12 @@ function cookDish(id) {
     state.materials[mat] -= count;
   }
 
-  applyBuff(recipe.buff, recipe.name, recipe.duration);
+  if (useNow) applyBuff(recipe.buff, recipe.name, recipe.duration);
+  else {
+    const value = Math.round(ingredients.reduce((sum,f) => sum + price(f),0)*1.25*(1+state.base.kitchen*0.1));
+    state.preparedDishes.push({id:newItemId(), recipe:id, value});
+    note(`${recipe.name} готова до продажу за ${value} ◉.`);
+  }
   unlockAchievement('chef');
   render();
 }
@@ -2195,8 +2274,8 @@ function renderKitchen() {
   }
 
   grid.innerHTML = kitchenRecipes.map(r => {
-    const cleanedCount = state.inventory.filter(f => f.clean && !f.favorite).length;
-    let canCook = true;
+    const cleanedCount = FishingRules.ingredients(state.inventory, r).length;
+    let canCook = FishingRules.kitchenUnlocked(r, state.base);
     const reqStr = Object.entries(r.needs).map(([k, v]) => {
       const have = k === 'fish' ? cleanedCount : (state.materials[k] || 0);
       if (have < v) canCook = false;
@@ -2208,11 +2287,13 @@ function renderKitchen() {
       <div>
         <h3>${r.icon} ${r.name}</h3>
         <p>${r.desc}</p>
-        <small>Інгредієнти: ${reqStr}</small>
+        <small>Інгредієнти: ${reqStr}${r.species ? `<br>Види: ${r.species.join(', ')}` : ''}</small>
+        <small>${FishingRules.kitchenUnlocked(r,state.base) ? 'Рецепт доступний' : r.id === 'smokedFish' ? 'Потрібна коптильня' : 'Потрібна кухня на базі'}</small>
       </div>
-      <button onclick="cookDish('${r.id}')" ${canCook ? '' : 'disabled'}>Приготувати страву</button>
+      <div class="adventure-actions"><button onclick="cookDish('${r.id}')" ${canCook ? '' : 'disabled'}>Приготувати й з’їсти</button><button onclick="cookDish('${r.id}',false)" ${canCook ? '' : 'disabled'}>Приготувати на продаж</button></div>
     </article>`;
   }).join('');
+  renderPreparedDishes();
 }
 
 // --------------------------------------------------------
@@ -2252,7 +2333,7 @@ function exportSave() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `ukr_fishing_save_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `ukr_fishing_save_${FishingRules.dayKey()}.json`;
   a.click();
   URL.revokeObjectURL(url);
   note('Збереження успішно експортовано у файл .json!');
@@ -2271,14 +2352,10 @@ function importSave() {
   const text = $('importSaveInput').value.trim();
   if (!text) { note('Вставте текст збереження у поле.'); return; }
   try {
-    const parsed = JSON.parse(text);
-    if (!parsed || typeof parsed !== 'object') throw new Error();
-    state = {...initial, ...parsed};
-    save();
-    render();
+    restoreSave(JSON.parse(text));
     note('Збереження успішно відновлено!');
-  } catch {
-    note('Помилка: недійсний формат файлу збереження.');
+  } catch (error) {
+    note(`Імпорт відхилено: ${error.message || 'недійсний формат'}. Поточний прогрес збережено.`);
   }
 }
 
@@ -2288,16 +2365,29 @@ function importSaveFile(e) {
   const reader = new FileReader();
   reader.onload = (evt) => {
     try {
-      const parsed = JSON.parse(evt.target.result);
-      state = {...initial, ...parsed};
-      save();
-      render();
+      restoreSave(JSON.parse(evt.target.result));
       note('Збереження з файлу успішно імпортовано!');
-    } catch {
-      note('Помилка читання файлу JSON.');
+    } catch (error) {
+      note(`Імпорт відхилено: ${error.message || 'помилка JSON'}. Поточний прогрес збережено.`);
     }
   };
+  reader.onerror = () => note('Не вдалося прочитати файл. Поточний прогрес збережено.');
+  if (file.size > 5000000) { note('Файл завеликий: максимум 5 МБ.'); return; }
   reader.readAsText(file);
+}
+
+function restoreSave(raw) {
+  const restored = normalizeSave(raw);
+  // Persist first: a validation or storage failure must leave the live game intact.
+  const previous = localStorage.getItem(SAVE_KEY);
+  if (previous) localStorage.setItem(`${SAVE_KEY}-backup`, previous);
+  localStorage.setItem(SAVE_KEY, JSON.stringify(restored));
+  cancelCharge();
+  if (casting) loseFish('Снасть витягнуто перед імпортом.');
+  closeButcherTable();
+  state = restored;
+  $('catch').classList.remove('open');
+  render();
 }
 
 function resetGameProgress() {
@@ -2434,7 +2524,6 @@ function manageBoat(id) {
     state.boat = id;
     state.atDepth = false;
     sound.playCoin();
-    unlockAchievement('boatCaptain');
     state.journal.unshift(`Придбано плавзасіб: ${boat.name}.`);
     note(`${boat.name} готовий біля причалу.`);
   } else if (state.boat !== id) {
@@ -2443,6 +2532,8 @@ function manageBoat(id) {
     note(`Екіпіровано: ${boat.name}.`);
   } else {
     state.atDepth = !state.atDepth;
+    if (state.atDepth) { state.fishingDepth = Math.min(boat.depth, 15); unlockAchievement('boatCaptain'); }
+    else state.fishingDepth = Math.min(state.fishingDepth,12);
     sound.playSplash();
     note(state.atDepth ? `${boat.name}: ви вийшли на глибину ${boat.depth} м. Трофейні ями доступні.` : 'Ви повернулися до берега.');
   }
@@ -2460,11 +2551,12 @@ function syncWorld() {
   const seasonKeys = Object.keys(seasons);
 
   // Плавний цикл: доба 12 хвилин (720 сек), пора року 30 хвилин
-  const dayPhase = Math.floor(session / 360) % times.length;
-  const weatherPhase = Math.floor(session / 180) % weatherKeys.length;
-  const eventPhase = Math.floor(session / 300);
+  const clock = state.worldSeconds || 0;
+  const dayPhase = Math.floor(clock / 360) % times.length;
+  const weatherPhase = Math.floor(clock / 180) % weatherKeys.length;
+  const eventPhase = Math.floor(clock / 300);
   const eventKey = eventPhase % 3 === 0 ? rareEvents[Math.floor(eventPhase / 3) % rareEvents.length] : 'calm';
-  const seasonPhase = Math.floor(session / 900) % seasonKeys.length;
+  const seasonPhase = Math.floor(clock / 1800) % seasonKeys.length;
 
   world = {
     weather: weatherKeys[weatherPhase],
@@ -2473,6 +2565,8 @@ function syncWorld() {
     season: seasonKeys[seasonPhase]
   };
 
+  world.temperature = FishingRules.temperature(world.season, world.weather, world.time, ['winter','alpine'].includes(state.location));
+  sound.updateAmbient();
   $('game').className = `game location-${state.location} time-${world.time} weather-${world.weather} season-${world.season} ${state.atDepth ? 'deep-water' : ''}`;
   $('weatherFx').className = `weather-fx weather-${world.weather}`;
   renderWorld();
@@ -2480,11 +2574,18 @@ function syncWorld() {
 
 function time() {
   session++;
+  state.worldSeconds++;
+  if (session % 12 === 0) sound.playBird();
+  if (session % 5 === 0) {
+    if ($('tournaments').classList.contains('open')) renderTournament();
+    if ($('kitchen').classList.contains('open')) renderKitchen();
+  }
   $('sessionTime').textContent = `${String(Math.floor(session / 60)).padStart(2,'0')}:${String(session % 60).padStart(2,'0')}`;
   if (session % 30 === 0) {
     syncWorld();
     renderDailyGift();
     renderMarketRequest();
+    save();
   }
 }
 setInterval(time, 1000);
@@ -2545,6 +2646,11 @@ function render() {
   renderBank();
   renderKitchen();
   renderTrophyRoom();
+  renderOrders();
+  renderTournament();
+  renderPhotoAlbum();
+  renderTutorial();
+  renderHabitat();
   save();
 }
 
@@ -2553,9 +2659,9 @@ function renderEquipment() {
   const items = [
     ['rods','Вудка',gear.rods[state.rods-1].name,`${limits.rod.toFixed(1)} кг`,rodImages],
     ['lines','Волосінь',gear.lines[state.lines-1][0],`${limits.line.toFixed(1)} кг`,lineImages],
-    ['hooks','Гачок',gear.hooks[state.hooks-1][0],`×${state.hooks}`,null],
+    ['hooks','Гачок',gear.hooks[state.hooks-1][0],`×${state.hooks}`,hookImages],
     ['reels','Котушка',gear.reels[state.reels-1][0],`×${limits.reel.toFixed(2)}`,reelImages],
-    ['knives','Ніж',gear.knives[state.knives-1][0],`${cutsNeeded()} надрізи`,null],
+    ['knives','Ніж',gear.knives[state.knives-1][0],`${cutsNeeded()} надрізи`,knifeImages],
     ['floats','Поплавок',gear.floats[state.floats-1][0],`Рів. ${roman(state.floats)}`,floatImages],
     ['baits','Наживка',bait.name,`×${baitCount()}`,null],
     ['sonar','Ехолот',state.sonar?'Увімкнено':'Не встановлено',state.sonar?'Глибина':'Магазин',null]
@@ -2579,7 +2685,7 @@ function renderEquipment() {
 function openGearShop(type) { shop = type; openModal('shops'); }
 
 // Щоденний подарунок
-function rewardDay(now = new Date()) { return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000; }
+function rewardDay(now = new Date()) { return Date.parse(FishingRules.dayKey(now)) / 86400000; }
 function dailyGiftInfo() {
   const day = rewardDay(), previous = state.dailyReward;
   const claimed = previous && previous.day >= day;
@@ -2639,6 +2745,7 @@ function renderCatchActions() {
   const fish = state.inventory.find(f => String(f.id) === $('catch').dataset.fishId);
   if (!root) return;
   root.innerHTML = fish ? `
+    <button type="button" onclick="photographFish('${fish.id}')" ${state.trophyAlbum.some(photo => String(photo.id) === String(fish.id)) ? 'disabled' : ''}>📷 Фото в альбом</button>
     <button type="button" aria-pressed="${!!fish.favorite}" onclick="toggleFavorite('${fish.id}')">${fish.favorite ? '★ Захищено' : '☆ Захистити трофей'}</button>
     <button type="button" onclick="releaseFish('${fish.id}')" ${fish.favorite || fish.clean || fish.cuts > 0 ? 'disabled' : ''}>Відпустити · +${fish.rarity + 1} реп.</button>
   ` : '';
@@ -2664,6 +2771,7 @@ function showCatchDialog(catches) {
     : 'Риба у садку. Очистіть її на столі розбирання або віднесіть на ринок.';
   if (fish.perfectCast) $('catchFishExtra').textContent += ' 🎯 Точний закид: +15 XP.';
   $('catch').classList.add('open');
+  renderTutorial();
 }
 
 function renderBase() {
@@ -2691,7 +2799,7 @@ function buyBaseUpgrade(id) {
   sound.playCoin();
   state.journal.unshift(`Базу покращено: ${upgrade.name} (рівень ${state.base[id]}/3).`);
   note(`${upgrade.icon} ${upgrade.name}: покращено до ${state.base[id]}/3!`);
-  if (Object.values(state.base).every(lvl => lvl >= 3)) unlockAchievement('baseTycoon');
+  if (Object.keys(baseUpgrades).every(key => state.base[key] >= 3)) unlockAchievement('baseTycoon');
   render();
 }
 window.buyBaseUpgrade = buyBaseUpgrade;
@@ -2715,6 +2823,7 @@ function renderBaseUpgrades() {
       </div>
     </article>`;
   }).join('');
+  root.innerHTML += `<article class="adventure-card"><h3>📦 Запас зі складу</h3><p>Хліб і черв’як ×${state.base.storage*3} за день.</p><button onclick="claimStorageSupplies()" ${!state.base.storage || state.storageDay === FishingRules.dayKey() ? 'disabled' : ''}>${state.storageDay === FishingRules.dayKey() ? 'Сьогодні вже отримано' : 'Отримати запас'}</button></article>`;
 }
 
 function renderWorld() {
@@ -2728,12 +2837,12 @@ function renderWorld() {
   const available = activePool().map(f => f.name);
   const workshop = state.base.workshop || 0;
 
-  $('weatherStatus').textContent = `${weather.icon} ${weather.name}`;
+  $('weatherStatus').textContent = `${weather.icon} ${weather.name} · ${world.temperature} °C`;
   $('timeStatus').textContent = `${season.icon} ${season.name} · ${timeOfDay.name}`;
   $('eventStatus').textContent = event.name;
 
   $('worldSummary').innerHTML = `
-    <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name}</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility}.</small></article>
+    <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name} · вода ${world.temperature} °C</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility}. Доба: 12 хв; сезон: 30 хв.</small></article>
     <article><b>${event.name}</b><small>${event.desc} Зараз клює: ${available.slice(0, 4).join(' · ')}...</small></article>
     <article><b>★ Репутація: ${state.reputation} · місцева: ${localRep(state.location)}</b><small>Нові локації відкриваються з рівнем та репутацією.</small></article>
     <article class="dock-npc"><b>🔧 Майстер Гліб</b><small>Майстерня ${workshop}/3 · додає швидкості котушці.</small><button onclick="openModal('baseUpgrades')">Покращити базу</button></article>
@@ -2750,6 +2859,8 @@ function renderWorld() {
     ? `<b>👩‍✈️ ${quest.npc} · завдання виконано</b><p>Чудова робота! Новий контракт з’явиться завтра.</p><small>Отримано: ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутації.</small>`
     : `<b>👩‍✈️ ${quest.npc} · контракт дня</b><p>Виловити ${quest.target} × ${quest.fish} вагою від ${quest.weight} кг.</p><div class="quest-meter"><i style="width:${quest.progress/quest.target*100}%"></i></div><small>${quest.progress} / ${quest.target} · ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутації · ${bait.name} ×${quest.reward.amount}</small>`;
 
+  renderOrders();
+  renderHabitat();
   if ($('marketContent')) {
     $('marketContent').innerHTML = `
       <b>🧺 Торговець ринку</b>
@@ -2769,8 +2880,8 @@ function setTechnique(key) {
 window.setTechnique = setTechnique;
 
 function ensureNpcQuest() {
-  const quest = state.npcQuest, today = new Date().toISOString().slice(0, 10);
-  if (!quest || quest.day !== today || !locations[state.location].fish.includes(quest.fish)) {
+  const quest = state.npcQuest, today = FishingRules.dayKey();
+  if (!quest || quest.day !== today) {
     state.npcQuest = makeNpcQuest();
   }
   return state.npcQuest;
@@ -2785,7 +2896,7 @@ function makeNpcQuest() {
   const targetWeight = +(range[0] + (Math.min(range[1], limit * 0.6) - range[0]) * 0.6).toFixed(2);
   const bait = baitTypes[(state.completedQuests + locationLevels[state.location]) % baitTypes.length];
   return {
-    day: new Date().toISOString().slice(0, 10),
+    day: FishingRules.dayKey(),
     completed: false,
     npc: 'Інспектор Марина',
     fish: name,
@@ -2843,6 +2954,7 @@ function sell(id) {
   if (f.favorite) return;
   if (!f.clean) { note('Спочатку розберіть рибу на столі.'); return; }
   state.inventory.splice(i, 1);
+  completeTutorial('sell');
   const earned = price(f);
   state.coins += earned;
   state.total += earned;
@@ -2857,6 +2969,7 @@ function sellAll() {
   if (!cleaned.length) { note('У садку немає очищеної незахищеної риби.'); return; }
   const earned = cleaned.reduce((sum, f) => sum + price(f), 0);
   state.inventory = state.inventory.filter(f => !f.clean || f.favorite);
+  completeTutorial('sell');
   state.coins += earned;
   state.total += earned;
   sound.playCoin();
@@ -2894,6 +3007,7 @@ function renderFishCard(f) {
       ${!f.clean ? `<div class="cut-progress"><i style="width:${Math.min(100, f.cuts / needed * 100)}%"></i></div>` : ''}
     </div>
     <div class="fish-actions">
+      <button onclick="photographFish('${f.id}')" ${state.trophyAlbum.some(photo => String(photo.id) === String(f.id)) ? 'disabled' : ''}>📷 Фото</button>
       <button class="favorite-button" aria-pressed="${!!f.favorite}" onclick="toggleFavorite('${f.id}')">${f.favorite ? '★ Захищено' : '☆ Трофей'}</button>
       ${action}
     </div>
@@ -3045,7 +3159,9 @@ function renderShop() {
     const name = shop === 'rods' ? g.name : g[0];
     const pic = shop === 'rods' ? `<img class="shop-photo" src="${rodImages[i]}" alt="${name}">`
       : shop === 'floats' ? `<img class="shop-photo float-photo" src="${floatImages[i]}" alt="${name}">`
-      : shop === 'lines' ? `<img class="shop-photo line-photo" src="${lineImages[i]}" alt="${name}">` : '';
+      : shop === 'lines' ? `<img class="shop-photo line-photo" src="${lineImages[i]}" alt="${name}">`
+      : shop === 'knives' ? `<img class="shop-photo" src="${knifeImages[i]}" alt="${name}" loading="lazy">`
+      : shop === 'hooks' ? `<img class="shop-photo" src="${hookImages[i]}" alt="${name}" loading="lazy">` : '';
 
     return `<article class="shop-card ${shop} ${level === state[shop] ? 'current' : ''}">
       ${pic}
@@ -3091,6 +3207,7 @@ function buy(type, level) {
   if (state[type] !== level - 1 || state.coins < cost) return;
   state.coins -= cost;
   state[type] = level;
+  completeTutorial('buy');
   sound.playCoin();
   state.journal.unshift(`Куплено спорядження: ${name}.`);
   render();
@@ -3105,6 +3222,7 @@ function buyReel(level) {
   if (!owned) {
     state.coins -= cost;
     state.ownedReels.push(level);
+    completeTutorial('buy');
     sound.playCoin();
     state.journal.unshift(`Куплена котушка: ${name}.`);
   }
@@ -3119,6 +3237,7 @@ function buySonar() {
   if (state.sonar || state.coins < p) return;
   state.coins -= p;
   state.sonar = true;
+  completeTutorial('buy');
   sound.playCoin();
   state.journal.unshift('Встановлено навігаційний ехолот.');
   note('Ехолот увімкнено: рельєф дна доступний на екрані!');
@@ -3132,6 +3251,7 @@ function buyBait(id) {
   state.coins -= bait.price;
   state.baitStock[id] = (state.baitStock[id] || 0) + bait.amount;
   state.bait = id;
+  completeTutorial('buy');
   sound.playCoin();
   state.journal.unshift(`Куплено наживку: ${bait.name} ×${bait.amount}.`);
   render();
@@ -3231,7 +3351,6 @@ function changeLocation(key) {
   }
   state.location = key;
   state.atDepth = false;
-  state.npcQuest = null;
   sound.playSplash();
   state.journal.unshift(`Вирушили на нову водойму: ${loc.name}.`);
   closeAll();
@@ -3335,17 +3454,12 @@ function craftBait(id) {
 window.craftBait = craftBait;
 
 function resetTournamentStreak() {
-  if (state.tournament) state.tournament.streak = 0;
+  state.catchStreak = 0;
 }
 function updateTournament(catches) {
-  if (!state.tournament) {
-    state.tournament = {heaviest:0, streak:0};
-  }
-  state.tournament.streak += catches.length;
-  catches.forEach(f => {
-    state.tournament.heaviest = Math.max(state.tournament.heaviest, f.weight);
-  });
-  if (state.tournament.heaviest > 15) unlockAchievement('dailyRecord');
+  state.catchStreak += catches.length;
+  if (state.catchStreak >= 10) unlockAchievement('masterStreak');
+  state.tournament = FishingRules.tournamentScore(state.tournament, catches);
 }
 
 // --------------------------------------------------------
@@ -3366,6 +3480,7 @@ window.openModal = openModal;
 
 function closeAll() {
   document.querySelectorAll('.modal').forEach(x => x.classList.remove('open'));
+  renderTutorial();
 }
 window.closeAll = closeAll;
 
@@ -3377,11 +3492,11 @@ function note(text) {
 // Події миші, дотику та кнопок
 document.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('mousedown', e => {
-  if (e.button === 2 && !e.target.closest('button,input,select,.modal,.butcher-overlay')) {
+  if (e.button === 2 && !e.target.closest('button,input,select,.modal,.butcher-overlay,.tutorial-hint')) {
     e.preventDefault();
     beginCharge();
   }
-  if (e.button === 0 && !e.target.closest('button,input,select,.modal,.butcher-overlay')) {
+  if (e.button === 0 && !e.target.closest('button,input,select,.modal,.butcher-overlay,.tutorial-hint')) {
     beginPull();
   }
 });
@@ -3429,6 +3544,10 @@ function updateSoundUI() {
   if (rng) rng.value = sound.volume;
   const setChk = $('settingsSoundEnabled');
   if (setChk) setChk.checked = sound.enabled;
+  const ambient = $('settingsAmbientEnabled');
+  if (ambient) ambient.checked = state.ambientEnabled;
+  const volume = $('settingsVolumeRange');
+  if (volume) volume.value = sound.volume;
 }
 
 // Прив'язка кнопок інтерфейсу
@@ -3495,6 +3614,14 @@ if (settingsVib) settingsVib.onchange = (e) => {
   save();
 };
 
+document.addEventListener('pointerdown', () => { if (sound.enabled) sound.init(); }, {once:true});
+document.addEventListener('visibilitychange', () => sound.updateAmbient());
+$('settingsAmbientEnabled').onchange = e => {
+  state.ambientEnabled = e.target.checked;
+  sound.init();
+  sound.updateAmbient();
+  save();
+};
 updateSoundUI();
 showFightHud(false);
 render();

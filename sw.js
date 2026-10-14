@@ -1,16 +1,21 @@
-const CACHE_NAME = 'ukr-fishing-v2';
+const CACHE_NAME = 'ukr-fishing-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './styles.css',
+  './adventures.css',
   './lang.js',
   './script.js',
+  './fishing-rules.js',
+  './adventures.js',
   './manifest.json',
+  './assets/forest-lake.png',
+  './assets/freshwater-fish.png',
   './assets/ui/keepnet-icon.png',
   './assets/ui/base-icon.png',
   './assets/ui/profile-icon.png',
   './assets/ui/journal-icon.png',
-  './assets/ui/fishing-base-hub.png'
+  './assets/ui/fishing-base-hub-realistic.png'
 ];
 
 self.addEventListener('install', event => {
@@ -47,7 +52,7 @@ self.addEventListener('fetch', event => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request, {ignoreSearch:true}))
     );
     return;
   }
