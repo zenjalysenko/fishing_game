@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ukr-fishing-v5-merged';
+const CACHE_NAME = 'ukr-fishing-v6-lodge-photos';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -16,6 +16,10 @@ const ASSETS_TO_CACHE = [
   './assets/ui/profile-icon.png',
   './assets/ui/journal-icon.png',
   './assets/ui/fishing-base-hub-realistic.png',
+  './assets/lodges/forest-room.png',
+  './assets/lodges/sea-room.png',
+  './assets/lodges/mountain-room.png',
+  './assets/lodges/taiga-room.png',
   './assets/boats/rowboat-card.png',
   './assets/boats/rowboat-detail.png',
   './assets/boats/motorboat-card.png',

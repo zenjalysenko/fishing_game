@@ -1,3 +1,6 @@
+.lodge-room-photo{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+.lodge-room-photo~*{display:none!important}
+.lodge-room-backdrop:has(.lodge-room-photo){height:auto;min-height:0;background:#20180f;border:1px solid #b78652}
 .adventure-grid,.habitat-grid,.trophy-album{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:12px 0}
 .adventure-card,.trophy-photo{padding:16px;border:1px solid #79d5d650;border-radius:12px;background:#082d3c;color:#e5f8fa}
 .adventure-card h3{margin:0 0 8px}.adventure-card small,.trophy-photo small{display:block;margin:8px 0;color:#b8dce2;line-height:1.5}

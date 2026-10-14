@@ -2821,6 +2821,7 @@ function showLodgeNotice(text) {
 
 let lodgeFireCanvasRunning = false;
 function startLodgeFireAnimation() {
+  if ($('lodgeRoomPhoto')) return;
   const canvas = $('lodgeFireCanvas');
   if (!canvas || lodgeFireCanvasRunning) return;
   const ctx = canvas.getContext('2d');
@@ -2875,6 +2876,12 @@ function startLodgeFireAnimation() {
 
 function renderLodgeHub() {
   const lodge = currentLodge();
+  const photo = $('lodgeRoomPhoto');
+  if (photo) {
+    const source = `assets/lodges/${lodge.id}-room.png`;
+    if (photo.getAttribute('src') !== source) photo.src = source;
+    photo.alt = `${lodge.name} — реалістична вітальня рибальської бази`;
+  }
   const nameEl = $('lodgeActiveName');
   const capEl = $('lodgeCapacityBadge');
   const descEl = $('lodgeActiveDesc');

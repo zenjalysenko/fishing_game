@@ -8,8 +8,8 @@
   <title>Українська Рибалка — Морський курорт</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" type="image/svg+xml" sizes="any">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=merged-5">
-  <link rel="stylesheet" href="adventures.css?v=merged-5">
+  <link rel="stylesheet" href="styles.css?v=lodge-photos-6">
+  <link rel="stylesheet" href="adventures.css?v=lodge-photos-6">
 </head>
 <body>
   <aside class="save-warning" id="saveWarning" role="alert" hidden>
@@ -163,6 +163,7 @@
       <!-- 1. ВКЛАДКА: ЗАТИШНА ВІТАЛЬНЯ БАЗИ -->
       <div class="lodge-view lodge-room-view active" id="lodgeViewRoom">
         <div class="lodge-room-backdrop" id="lodgeRoomBackdrop">
+          <img id="lodgeRoomPhoto" class="lodge-room-photo" src="assets/lodges/forest-room.png" alt="Реалістична вітальня лісової рибальської бази" decoding="async">
           <!-- Панорамне вікно на водойму бази -->
           <div class="lodge-panoramic-window" id="lodgePanoramicWindow">
             <div class="lodge-win-glass">
@@ -235,6 +236,7 @@
 
         <!-- Нижні кнопки дій у вітальні -->
         <div class="lodge-room-actions">
+          <button type="button" class="lodge-action-btn btn-warm" onclick="sipLodgeTea()">☕ Зігрітися чаєм</button>
           <button type="button" class="lodge-action-btn btn-warm" onclick="toggleLodgeBlanket()">
             🧣 Укутатися в плед (+бонус до кльову)
           </button>
@@ -534,10 +536,10 @@
 
   <aside id="tutorialHint" class="tutorial-hint" aria-live="polite" hidden></aside>
   <div class="modal" id="tournaments" role="dialog" aria-modal="true" aria-labelledby="tournamentTitle"><section><button class="close" aria-label="Закрити">×</button><h2 id="tournamentTitle">🏆 Рибальські турніри</h2><div id="tournamentContent"></div></section></div>
-  <script src="lang.js?v=merged-5"></script>
-  <script src="fishing-rules.js?v=merged-5"></script>
-  <script src="adventures.js?v=merged-5"></script>
-  <script src="script.js?v=merged-5"></script>
+  <script src="lang.js?v=lodge-photos-6"></script>
+  <script src="fishing-rules.js?v=lodge-photos-6"></script>
+  <script src="adventures.js?v=lodge-photos-6"></script>
+  <script src="script.js?v=lodge-photos-6"></script>
   <script>
     if (window.i18n) {
       window.i18n.ensureLanguageStyles();
@@ -552,7 +554,7 @@
     }
     if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=5-merged').then(reg => {
+        navigator.serviceWorker.register('sw.js?v=6-lodge-photos').then(reg => {
           reg.update();
         }).catch(err => console.log('SW registration error:', err));
       });
