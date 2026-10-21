@@ -19,7 +19,7 @@
 
   <main class="game location-pier" id="game">
     <!-- Верхня панель швидких налаштувань (звук, повноекранний режим) -->
-    <header class="top-quick-bar" aria-label="Швидкі налаштування">
+    <header class="top-quick-bar" id="topQuickBar" aria-label="Швидкі налаштування">
       <button type="button" data-modal="base" id="topBaseQuickBtn" class="quick-btn quick-base-btn" title="Повернутися на базу до каміна" aria-label="База">🏡 <span class="quick-base-text">База</span></button>
       <button type="button" id="soundToggle" class="quick-btn" title="Увімкнути/вимкнути звук (M)" data-i18n-title="soundToggleTitle" aria-label="Звук">🔊</button>
       <input type="range" id="soundVolume" class="volume-slider" min="0" max="1" step="0.05" value="0.7" title="Гучність звуку" data-i18n-title="soundVolumeTitle" aria-label="Гучність">
@@ -48,6 +48,7 @@
     </section>
 
     <button class="boat-launch glass" data-modal="boats" type="button" aria-label="Плавзасіб">⚓ <span data-i18n="transport">ТРАНСПОРТ</span><small id="boatLaunchLabel" data-i18n="boatLaunchLabel">Берег</small></button>
+    <button type="button" id="interfaceToggle" class="interface-toggle" aria-expanded="true" title="Скрыть интерфейс" aria-label="Скрыть интерфейс">◀</button>
     <div class="modal" id="boats"><section class="boat-window"><button class="close">×</button><header class="boat-header"><span>⚓ Човнова станція</span><small>ПЛАВЗАСОБИ ДЛЯ ВИХОДУ НА ГЛИБОКІ ТРОФЕЙНІ ЯМИ</small></header><p class="boat-intro">На глибині тримаються трофейні гіганти, недоступні з берега. Купіть плавзасіб, екіпіруйте його та вийдіть у відкриту воду.</p><div class="boat-status" id="boatStatus"></div><div class="boats-grid" id="boatsContent"></div></section></div>
     <dialog id="boatDetails" class="boat-details" aria-labelledby="boatDetailTitle" aria-describedby="boatDetailDescription">
       <div class="boat-detail-window">
@@ -86,12 +87,13 @@
       <div class="sonar-lock" id="sonarLock"><i aria-hidden="true">⌁</i><b data-i18n="sonarLockTitle">Ехолот не встановлено</b><small data-i18n="sonarLockHint">Відкрийте рельєф дна та навантаження снасті</small><span data-i18n="sonarLockAction">МАГАЗИН → ЕХОЛОТ</span></div>
     </section>
 
-    <nav class="left-menu" aria-label="Швидкі дії">
+    <nav class="left-menu" id="leftUtilityMenu" aria-label="Швидкі дії">
       <button data-modal="keepnet"><img class="menu-icon" src="assets/ui/keepnet-icon.png" alt=""><span data-i18n="menuKeepnet">Садок</span></button>
       <button data-modal="base" class="base-entry"><img class="menu-icon" src="assets/ui/base-icon.png" alt=""><span data-i18n="menuBase">База</span></button>
       <button data-modal="profile"><img class="menu-icon" src="assets/ui/profile-icon.png" alt=""><span data-i18n="menuProfile">Рибалка</span></button>
       <button data-modal="journal"><img class="menu-icon" src="assets/ui/journal-icon.png" alt=""><span data-i18n="menuJournal">Щоденник</span></button>
     </nav>
+    <button type="button" class="utility-menu-toggle" id="utilityMenuToggle" aria-expanded="false" aria-controls="leftUtilityMenu topQuickBar" title="Додаткові кнопки" aria-label="Додаткові кнопки">☰</button>
 
     <aside class="session glass"><small data-i18n="sessionLabel">СЕСІЯ</small><b id="sessionTime">00:00</b><span><span data-i18n="bestCatchLabel">Кращий улов: </span><strong id="bestCatch">—</strong></span></aside>
     <aside class="progression glass"><strong><span data-i18n="levelLabel">Рівень </span><b id="playerLevel">1</b></strong><div class="xp-meter"><i id="xpBar"></i></div><small id="contractLabel">Контракт: 0/8 · 300 ◉</small></aside>
@@ -113,7 +115,7 @@
     <!-- Кнопка розбирання риби -->
     <button id="autoClean" class="auto-clean" title="Відкрити стіл розбирання улову"><span data-i18n="autoCleanBtn">РОЗБИРАННЯ</span> <span id="uncleanCount" class="badge"></span></button>
 
-    <footer class="bottom-bar glass">
+    <footer class="bottom-bar glass" id="bottomBar">
       <nav class="equipment" id="equipmentBar" aria-label="Активне спорядження — натисни, щоб відкрити магазин"></nav>
       <div class="currency" data-modal="bank" role="button" tabindex="0" title="Натисніть, щоб відкрити Рибальський Банк та кредит">
         <span>◉ <b id="coins">30</b></span>
@@ -122,6 +124,7 @@
       </div>
       <div class="bottom-center">
         <nav class="tabs">
+          <button type="button" id="equipmentToggle" class="equipment-toggle" data-i18n="equipmentToggle" aria-expanded="false" aria-controls="equipmentBar" title="Показать или скрыть снасти">🎣 Снасти</button>
           <button class="active" data-i18n="tabFishing">Риболовля</button>
           <button type="button" data-modal="base" class="tab-base-btn" data-i18n="tabBase" title="Повернутися на затишну базу до каміна">🏡 База</button>
           <button data-modal="map" data-i18n="tabLocation">Локація</button>

@@ -3741,6 +3741,31 @@ const returnBaseBtn = $('returnBaseBtn');
 if (returnBaseBtn) returnBaseBtn.onclick = () => openModal('base');
 const topBaseQuickBtn = $('topBaseQuickBtn');
 if (topBaseQuickBtn) topBaseQuickBtn.onclick = () => openModal('base');
+const utilityMenuToggle = $('utilityMenuToggle');
+if (utilityMenuToggle) utilityMenuToggle.onclick = () => {
+  const isOpen = $('game').classList.toggle('utility-open');
+  utilityMenuToggle.setAttribute('aria-expanded', String(isOpen));
+};
+document.querySelectorAll('#leftUtilityMenu [data-modal], #topQuickBar [data-modal]').forEach(button => {
+  button.addEventListener('click', () => {
+    $('game').classList.remove('utility-open');
+    utilityMenuToggle?.setAttribute('aria-expanded', 'false');
+  });
+});
+const equipmentToggle = $('equipmentToggle');
+if (equipmentToggle) equipmentToggle.onclick = event => {
+  event.stopPropagation();
+  const isOpen = $('bottomBar').classList.toggle('gear-open');
+  equipmentToggle.setAttribute('aria-expanded', String(isOpen));
+};
+const interfaceToggle = $('interfaceToggle');
+if (interfaceToggle) interfaceToggle.onclick = () => {
+  const isVisible = $('game').classList.toggle('interface-hidden') === false;
+  interfaceToggle.textContent = isVisible ? '◀' : '☰';
+  interfaceToggle.setAttribute('aria-expanded', String(isVisible));
+  interfaceToggle.setAttribute('aria-label', isVisible ? 'Скрыть интерфейс' : 'Показать интерфейс');
+  interfaceToggle.title = isVisible ? 'Скрыть интерфейс' : 'Показать интерфейс';
+};
 document.querySelectorAll('.close, .close-dialog').forEach(b => b.onclick = closeAll);
 $('boatDetails').addEventListener('click', event => {
   if (event.target === $('boatDetails')) closeBoatDetails();

@@ -67,6 +67,7 @@ const I18N_MESSAGES = {
     pullBtnSub: 'утримуй · R',
     autoCleanBtn: 'РОЗБИРАННЯ',
 
+    equipmentToggle: '🎣 Снасти',
     tabFishing: 'Риболовля',
     tabBase: '🏡 База',
     tabLocation: 'Локація',
@@ -150,6 +151,7 @@ const I18N_MESSAGES = {
     pullBtnSub: 'удерживай · R',
     autoCleanBtn: 'САМООЧИСТКА',
 
+    equipmentToggle: '🎣 Снасти',
     tabFishing: 'Рыбалка',
     tabBase: '🏡 База',
     tabLocation: 'Локация',
@@ -233,6 +235,7 @@ const I18N_MESSAGES = {
     pullBtnSub: 'hold · R',
     autoCleanBtn: 'CLEAN FISH',
 
+    equipmentToggle: '🎣 Gear',
     tabFishing: 'Fishing',
     tabBase: '🏡 Lodge',
     tabLocation: 'Location',
