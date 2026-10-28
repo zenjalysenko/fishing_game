@@ -109,12 +109,12 @@
       fov: 68
     },
     positions: {
-      sofa: new THREE.Vector3(0, 1.15, 1.25),
-      pier: new THREE.Vector3(0, 1.65, 8.5)
+      sofa: typeof THREE !== 'undefined' ? new THREE.Vector3(0, 1.15, 1.25) : { x: 0, y: 1.15, z: 1.25 },
+      pier: typeof THREE !== 'undefined' ? new THREE.Vector3(0, 1.65, 8.5) : { x: 0, y: 1.65, z: 8.5 }
     },
     lookTargets: {
-      sofa: new THREE.Vector3(0, 1.25, -3.9),
-      pier: new THREE.Vector3(0, 1.6, 25.0)
+      sofa: typeof THREE !== 'undefined' ? new THREE.Vector3(0, 1.25, -3.9) : { x: 0, y: 1.25, z: -3.9 },
+      pier: typeof THREE !== 'undefined' ? new THREE.Vector3(0, 1.6, 25.0) : { x: 0, y: 1.6, z: 25.0 }
     }
   };
 
@@ -547,10 +547,19 @@
   let animatedObjects = [];
   let lakeMesh, fireParticles, emberParticles, steamParticles, snowParticles;
   let coffeeCupMesh, blanketMesh;
-  let currentPosition = new THREE.Vector3().copy(STATE.positions.sofa);
-  let targetPosition = new THREE.Vector3().copy(STATE.positions.sofa);
+  let currentPosition = null;
+  let targetPosition = null;
 
   function initThree() {
+    if (!STATE.positions.sofa || !STATE.positions.sofa.isVector3) {
+      STATE.positions.sofa = new THREE.Vector3(0, 1.15, 1.25);
+      STATE.positions.pier = new THREE.Vector3(0, 1.65, 8.5);
+      STATE.lookTargets.sofa = new THREE.Vector3(0, 1.25, -3.9);
+      STATE.lookTargets.pier = new THREE.Vector3(0, 1.6, 25.0);
+    }
+    currentPosition = new THREE.Vector3().copy(STATE.positions.sofa);
+    targetPosition = new THREE.Vector3().copy(STATE.positions.sofa);
+
     const container = document.getElementById('canvas-container');
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -1661,9 +1670,141 @@
   }
 
   // =========================================================================
+  // BILINGUAL LOCALIZATION (RU / EN)
+  // =========================================================================
+  const I18N_TEXTS = {
+    ru: {
+      langBtn: 'RU',
+      lookHint: '🖱️ Зажмите для обзора · Колёсико — зум',
+      btnPierLabel: 'Выйти на пирс',
+      btnPierSub: 'Панорамный вид от первого лица',
+      btnChangeBaseLabel: 'Сменить базу',
+      btnChangeBaseSub: 'Лес · Горы · Озеро · Зима',
+      btnBlanketLabel: 'Укутаться в плед и пить кофе',
+      btnBlanketSub: 'Режим уютного отдыха',
+      btnRemoveBlanketLabel: 'Снять плед',
+      btnRemoveBlanketSub: 'Вернуться в обычный режим',
+      btnReturnBaseLabel: 'Вернуться в дом',
+      btnReturnBaseSub: 'Шагнуть обратно в тепло к камину',
+      modalTitle: '🗺️ Выберите базу',
+      modalSub: 'Каждая база — отдельная 3D-локация с уникальным интерьером, освещением, видом из окна и звуками природы.',
+      toastPier: 'Вы на деревянном пирсе у озера. Наслаждайтесь гладью воды и свежим бризом.',
+      toastReturn: 'Вы вернулись в тепло к камину на мягкий диван.',
+      toastRelax: 'Вы укутались в мягкий шерстяной плед и пьёте горячий кофе у камина.',
+      toastNormal: 'Плед убран. Вы сидите на диване перед камином.',
+      bases: {
+        lakeside: { name: 'База у озера', sub: 'Панорамный вид на озеро и личный пирс', toast: 'Добро пожаловать на базу у озера. Уют и тишина у воды.' },
+        forest: { name: 'Лесная хижина', sub: 'Густой бор и вековые сосны', toast: 'Добро пожаловать в лесную хижину. Вокруг шумит вековой лес.' },
+        mountain: { name: 'Горный приют', sub: 'Альпийское шале и снежные вершины', toast: 'Добро пожаловать в горный приют. Чистейший горный воздух.' },
+        winter: { name: 'Зимняя база', sub: 'Снежная хижина и живая метель', toast: 'Добро пожаловать на зимнюю базу. Пылающий камин посреди метели.' }
+      }
+    },
+    en: {
+      langBtn: 'EN',
+      lookHint: '🖱️ Drag to look around · Scroll to zoom',
+      btnPierLabel: 'Go Out to the Pier',
+      btnPierSub: 'First-person scenic view',
+      btnChangeBaseLabel: 'Change Base',
+      btnChangeBaseSub: 'Forest · Mountain · Lakeside · Winter',
+      btnBlanketLabel: 'Wrap Yourself in a Blanket and Drink Hot Coffee',
+      btnBlanketSub: 'Cozy relaxation mode',
+      btnRemoveBlanketLabel: 'Remove Blanket',
+      btnRemoveBlanketSub: 'Return to Normal Mode',
+      btnReturnBaseLabel: 'Return to Base',
+      btnReturnBaseSub: 'Step back inside to the warm fireplace',
+      modalTitle: '🗺️ Choose Your Base',
+      modalSub: 'Each cabin is a fully separate 3D location with unique architecture, lighting, window views, and sounds.',
+      toastPier: 'Standing on the wooden pier. Take in the peaceful lake and fresh breeze.',
+      toastReturn: 'Returned inside to the warm fireplace and cozy sofa.',
+      toastRelax: 'Wrapped warm in a soft blanket, sipping hot coffee by the fireplace.',
+      toastNormal: 'Removed blanket. Sitting comfortably on the sofa.',
+      bases: {
+        lakeside: { name: 'Lakeside Base', sub: 'Panoramic Lake & Private Pier', toast: 'Welcome to Lakeside Base. Cozy warmth beside the water.' },
+        forest: { name: 'Forest Base', sub: 'Deep Pine Forest & Tall Trees', toast: 'Welcome to Forest Base. Surrounded by towering pine trees.' },
+        mountain: { name: 'Mountain Base', sub: 'Alpine Lodge & Snowy Peaks', toast: 'Welcome to Mountain Base. Crisp alpine air and rocky summits.' },
+        winter: { name: 'Winter Base', sub: 'Snowy Cabin & Live Snowstorm', toast: 'Welcome to Winter Base. Warm fireplace amid the swirling blizzard.' }
+      }
+    }
+  };
+
+  let currentLang = 'ru';
+
+  function applyLanguage(lang) {
+    currentLang = lang === 'en' ? 'en' : 'ru';
+    try { localStorage.setItem('cozy_lodge_lang', currentLang); } catch(e){}
+    const t = I18N_TEXTS[currentLang];
+
+    const langLabel = document.getElementById('langLabel');
+    if (langLabel) langLabel.textContent = t.langBtn;
+
+    const lookHint = document.getElementById('lookHint');
+    if (lookHint && lookHint.querySelector('span')) {
+      lookHint.querySelector('span').textContent = t.lookHint;
+    }
+
+    const btnPier = document.getElementById('btnPier');
+    if (btnPier) {
+      const lbl = btnPier.querySelector('.btn-label');
+      const sub = btnPier.querySelector('.btn-subtext');
+      if (lbl) lbl.textContent = t.btnPierLabel;
+      if (sub) sub.textContent = t.btnPierSub;
+    }
+
+    const btnChangeBase = document.getElementById('btnChangeBase');
+    if (btnChangeBase) {
+      const lbl = btnChangeBase.querySelector('.btn-label');
+      const sub = btnChangeBase.querySelector('.btn-subtext');
+      if (lbl) lbl.textContent = t.btnChangeBaseLabel;
+      if (sub) sub.textContent = t.btnChangeBaseSub;
+    }
+
+    const btnBlanket = document.getElementById('btnBlanket');
+    if (btnBlanket) {
+      const lbl = document.getElementById('blanketBtnLabel');
+      const sub = document.getElementById('blanketBtnSub');
+      if (lbl) lbl.textContent = STATE.isRelaxing ? t.btnRemoveBlanketLabel : t.btnBlanketLabel;
+      if (sub) sub.textContent = STATE.isRelaxing ? t.btnRemoveBlanketSub : t.btnBlanketSub;
+    }
+
+    const btnReturn = document.getElementById('btnReturnBase');
+    if (btnReturn) {
+      const lbl = btnReturn.querySelector('.btn-label');
+      const sub = btnReturn.querySelector('.btn-subtext');
+      if (lbl) lbl.textContent = t.btnReturnBaseLabel;
+      if (sub) sub.textContent = t.btnReturnBaseSub;
+    }
+
+    // Modal texts
+    const modalHeader = document.querySelector('.modal-title-wrap');
+    if (modalHeader) {
+      const h2 = modalHeader.querySelector('h2');
+      const p = modalHeader.querySelector('p');
+      if (h2) h2.textContent = t.modalTitle;
+      if (p) p.textContent = t.modalSub;
+    }
+
+    // Update active badge
+    const bInfo = t.bases[STATE.currentBase] || t.bases.lakeside;
+    const badgeTitle = document.getElementById('badgeTitle');
+    const badgeSub = document.getElementById('badgeSub');
+    if (badgeTitle) badgeTitle.textContent = bInfo.name;
+    if (badgeSub) badgeSub.textContent = bInfo.sub;
+  }
+
+  function toggleLanguage() {
+    applyLanguage(currentLang === 'ru' ? 'en' : 'ru');
+    showToast(currentLang === 'ru' ? 'Язык переключён: Русский' : 'Language switched: English');
+  }
+
+  // =========================================================================
   // 16. UI ATTACHMENT & INITIALIZATION
   // =========================================================================
   function initUI() {
+    // Language toggle
+    const btnLangToggle = document.getElementById('btnLangToggle');
+    if (btnLangToggle) btnLangToggle.addEventListener('click', toggleLanguage);
+    applyLanguage(currentLang);
+
     // Button 1: Go Out to Pier
     document.getElementById('btnPier').addEventListener('click', goToPier);
     document.getElementById('btnReturnBase').addEventListener('click', returnToBase);
