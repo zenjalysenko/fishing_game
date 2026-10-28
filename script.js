@@ -849,7 +849,7 @@ try {
 // Стан риболовлі, змінних сесії та натягу
 // --------------------------------------------------------
 let charge = 0, charging = false, castTimer, casting = false, pulling = false, pullTimer, biteTimer;
-let perfectCast = false, reel = 0, session = 0, shop = 'rods', mapRegion = 'home';
+let perfectCast = false, reel = 0, session = 0, shop = 'rods', mapRegion = 'home', isInterfaceHidden = false;
 let world = {weather:'clear', time:'day', event:'calm', season:'spring', temperature:15};
 
 // Фази та динаміка виважування
@@ -1857,7 +1857,9 @@ function landFish() {
   state.journal = state.journal.slice(0, 35);
   
   render();
-  showCatchDialog(catches);
+  if (!isInterfaceHidden) {
+    showCatchDialog(catches);
+  }
 }
 
 function setTension(load = 0) {
@@ -2468,7 +2470,8 @@ function syncWorld() {
 
   world.temperature = FishingRules.temperature(world.season, world.weather, world.time, ['winter','alpine'].includes(state.location));
   sound.updateAmbient();
-  $('game').className = `game location-${state.location} time-${world.time} weather-${world.weather} season-${world.season} ${state.atDepth ? 'deep-water' : ''}`;
+  const isUtil = $('game').classList.contains('utility-open');
+  $('game').className = `game location-${state.location} time-${world.time} weather-${world.weather} season-${world.season} ${state.atDepth ? 'deep-water' : ''}${isInterfaceHidden ? ' interface-hidden' : ''}${isUtil ? ' utility-open' : ''}`;
   $('weatherFx').className = `weather-fx weather-${world.weather}`;
   renderWorld();
 }
@@ -3758,13 +3761,29 @@ if (equipmentToggle) equipmentToggle.onclick = event => {
   const isOpen = $('bottomBar').classList.toggle('gear-open');
   equipmentToggle.setAttribute('aria-expanded', String(isOpen));
 };
+function toggleInterface(force) {
+  isInterfaceHidden = typeof force === 'boolean' ? force : !isInterfaceHidden;
+  state.interfaceHidden = isInterfaceHidden;
+  if (isInterfaceHidden) {
+    closeAll();
+  }
+  const game = $('game');
+  if (game) {
+    game.classList.toggle('interface-hidden', isInterfaceHidden);
+  }
+  const toggleBtn = $('interfaceToggle');
+  if (toggleBtn) {
+    toggleBtn.textContent = isInterfaceHidden ? '☰' : '◀';
+    toggleBtn.setAttribute('aria-expanded', String(!isInterfaceHidden));
+    toggleBtn.setAttribute('aria-label', isInterfaceHidden ? 'Показать интерфейс' : 'Скрыть интерфейс');
+    toggleBtn.title = isInterfaceHidden ? 'Показать интерфейс' : 'Скрыть интерфейс';
+  }
+}
+window.toggleInterface = toggleInterface;
+
 const interfaceToggle = $('interfaceToggle');
 if (interfaceToggle) interfaceToggle.onclick = () => {
-  const isVisible = $('game').classList.toggle('interface-hidden') === false;
-  interfaceToggle.textContent = isVisible ? '◀' : '☰';
-  interfaceToggle.setAttribute('aria-expanded', String(isVisible));
-  interfaceToggle.setAttribute('aria-label', isVisible ? 'Скрыть интерфейс' : 'Показать интерфейс');
-  interfaceToggle.title = isVisible ? 'Скрыть интерфейс' : 'Показать интерфейс';
+  toggleInterface();
 };
 document.querySelectorAll('.close, .close-dialog').forEach(b => b.onclick = closeAll);
 $('boatDetails').addEventListener('click', event => {
