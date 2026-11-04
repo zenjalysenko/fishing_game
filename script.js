@@ -2678,67 +2678,135 @@ function showCatchDialog(catches) {
   renderTutorial();
 }
 
-const LODGES = [
-  {
-    id: 'forest',
-    name: 'Ведмежий кут',
-    subtitle: 'Лісова хатина',
-    capacity: 4,
-    icon: '🌲',
-    locationKey: 'pier',
-    desc: 'Затишний зруб із вікової сосни біля тихого лісового озера. Панорамне вікно, диван кольору охри та кам’яний камін.',
-    sky: 'linear-gradient(180deg, #1d2d24 0%, #3b533b 50%, #e09f5a 100%)',
-    landscape: 'polygon(0% 100%, 15% 40%, 35% 75%, 50% 25%, 70% 65%, 85% 30%, 100% 100%)',
-    landColor: '#142918',
-    water: 'linear-gradient(180deg, #1b3d2f 0%, #0e2119 100%)',
-    pierDesc: 'Замшілий дощатий місток серед очерету'
-  },
-  {
-    id: 'sea',
-    name: 'Тиха лагуна',
-    subtitle: 'Будиночок біля моря',
-    capacity: 6,
-    icon: '🌊',
-    locationKey: 'blackSea',
-    desc: 'Світлий будинок із вибіленого дерева на піщаній косі. Морський бриз, тераса з видом на лазурові хвилі та довгий пірс.',
-    sky: 'linear-gradient(180deg, #2b3a4a 0%, #4a6fa5 50%, #e9b872 100%)',
-    landscape: 'polygon(0% 100%, 25% 65%, 45% 70%, 65% 55%, 85% 60%, 100% 100%)',
-    landColor: '#364958',
-    water: 'linear-gradient(180deg, #1d3557 0%, #0c1826 100%)',
-    pierDesc: 'Бревенчатий пірс на високих палях із ліхтарем'
-  },
-  {
-    id: 'mountain',
-    name: 'Гірський притулок',
-    subtitle: 'Альпійське шале',
-    capacity: 2,
-    icon: '🏔️',
-    locationKey: 'ocean',
-    desc: 'Усамітнене шале з дикого сланцю та кедра під засніженими скелями. Кришталеве льодовикове озеро та первозданна тиша.',
-    sky: 'linear-gradient(180deg, #1b263b 0%, #3d5a80 50%, #ee6c4d 100%)',
-    landscape: 'polygon(0% 100%, 18% 20%, 35% 55%, 52% 10%, 68% 45%, 85% 15%, 100% 100%)',
-    landColor: '#1d232a',
-    water: 'linear-gradient(180deg, #184e77 0%, #0a2538 100%)',
-    pierDesc: 'Кам’яний мыс із дерев’яним настилом'
-  },
-  {
-    id: 'taiga',
-    name: 'Тайгова заїмка',
-    subtitle: 'Північна садиба',
-    capacity: 8,
-    icon: '🛖',
-    locationKey: 'river',
-    desc: 'Простора садиба на березі повноводної північної річки. Місце для великої дружньої компанії рибалок.',
-    sky: 'linear-gradient(180deg, #1f2d3d 0%, #47607a 50%, #f4a261 100%)',
-    landscape: 'polygon(0% 100%, 20% 30%, 40% 70%, 60% 20%, 80% 60%, 100% 100%)',
-    landColor: '#122618',
-    water: 'linear-gradient(180deg, #133a4f 0%, #081721 100%)',
-    pierDesc: 'Широкий плотовий причал із коптильнею'
-  }
-];
+const LODGES_DATA = {
+  ru: [
+    {
+      id: 'forest',
+      name: 'Медвежий угол',
+      subtitle: 'Лесная хижина',
+      capacity: 4,
+      icon: '🌲',
+      locationKey: 'pier',
+      desc: 'Уютный сруб из вековой сосны у тихого лесного озера. Панорамное окно, диван цвета охры и каменный камин.',
+      sky: 'linear-gradient(180deg, #1d2d24 0%, #3b533b 50%, #e09f5a 100%)',
+      landscape: 'polygon(0% 100%, 15% 40%, 35% 75%, 50% 25%, 70% 65%, 85% 30%, 100% 100%)',
+      landColor: '#142918',
+      water: 'linear-gradient(180deg, #1b3d2f 0%, #0e2119 100%)',
+      pierDesc: 'Замшелый дощатый мостик среди камыша'
+    },
+    {
+      id: 'sea',
+      name: 'Тихая лагуна',
+      subtitle: 'Домик у моря',
+      capacity: 6,
+      icon: '🌊',
+      locationKey: 'blackSea',
+      desc: 'Светлый дом из выбеленного дерева на песчаной косе. Морской бриз, терраса с видом на лазурные волны и длинный пирс.',
+      sky: 'linear-gradient(180deg, #2b3a4a 0%, #4a6fa5 50%, #e9b872 100%)',
+      landscape: 'polygon(0% 100%, 25% 65%, 45% 70%, 65% 55%, 85% 60%, 100% 100%)',
+      landColor: '#364958',
+      water: 'linear-gradient(180deg, #1d3557 0%, #0c1826 100%)',
+      pierDesc: 'Бревенчатый пирс на высоких сваях с фонарём'
+    },
+    {
+      id: 'mountain',
+      name: 'Горный приют',
+      subtitle: 'Альпийское шале',
+      capacity: 2,
+      icon: '🏔️',
+      locationKey: 'ocean',
+      desc: 'Уединённое шале из дикого сланца и кедра под заснеженными скалами. Хрустальное ледниковое озеро и первозданная тишина.',
+      sky: 'linear-gradient(180deg, #1b263b 0%, #3d5a80 50%, #ee6c4d 100%)',
+      landscape: 'polygon(0% 100%, 18% 20%, 35% 55%, 52% 10%, 68% 45%, 85% 15%, 100% 100%)',
+      landColor: '#1d232a',
+      water: 'linear-gradient(180deg, #184e77 0%, #0a2538 100%)',
+      pierDesc: 'Каменный мыс с деревянным настилом'
+    },
+    {
+      id: 'taiga',
+      name: 'Таёжная заимка',
+      subtitle: 'Северная усадьба',
+      capacity: 8,
+      icon: '🛖',
+      locationKey: 'river',
+      desc: 'Просторная усадьба на берегу полноводной северной реки. Место для большой дружной компании рыбаков.',
+      sky: 'linear-gradient(180deg, #1f2d3d 0%, #47607a 50%, #f4a261 100%)',
+      landscape: 'polygon(0% 100%, 20% 30%, 40% 70%, 60% 20%, 80% 60%, 100% 100%)',
+      landColor: '#122618',
+      water: 'linear-gradient(180deg, #133a4f 0%, #081721 100%)',
+      pierDesc: 'Широкий плотовой причал с коптильней'
+    }
+  ],
+  uk: [
+    {
+      id: 'forest',
+      name: 'Ведмежий кут',
+      subtitle: 'Лісова хатина',
+      capacity: 4,
+      icon: '🌲',
+      locationKey: 'pier',
+      desc: 'Затишний зруб із вікової сосни біля тихого лісового озера. Панорамне вікно, диван кольору охри та кам’яний камін.',
+      sky: 'linear-gradient(180deg, #1d2d24 0%, #3b533b 50%, #e09f5a 100%)',
+      landscape: 'polygon(0% 100%, 15% 40%, 35% 75%, 50% 25%, 70% 65%, 85% 30%, 100% 100%)',
+      landColor: '#142918',
+      water: 'linear-gradient(180deg, #1b3d2f 0%, #0e2119 100%)',
+      pierDesc: 'Замшілий дощатий місток серед очерету'
+    },
+    {
+      id: 'sea',
+      name: 'Тиха лагуна',
+      subtitle: 'Будиночок біля моря',
+      capacity: 6,
+      icon: '🌊',
+      locationKey: 'blackSea',
+      desc: 'Світлий будинок із вибіленого дерева на піщаній косі. Морський бриз, тераса з видом на лазурові хвилі та довгий пірс.',
+      sky: 'linear-gradient(180deg, #2b3a4a 0%, #4a6fa5 50%, #e9b872 100%)',
+      landscape: 'polygon(0% 100%, 25% 65%, 45% 70%, 65% 55%, 85% 60%, 100% 100%)',
+      landColor: '#364958',
+      water: 'linear-gradient(180deg, #1d3557 0%, #0c1826 100%)',
+      pierDesc: 'Бревенчатий пірс на високих палях із ліхтарем'
+    },
+    {
+      id: 'mountain',
+      name: 'Гірський притулок',
+      subtitle: 'Альпійське шале',
+      capacity: 2,
+      icon: '🏔️',
+      locationKey: 'ocean',
+      desc: 'Усамітнене шале з дикого сланцю та кедра під засніженими скелями. Кришталеве льодовикове озеро та первозданна тиша.',
+      sky: 'linear-gradient(180deg, #1b263b 0%, #3d5a80 50%, #ee6c4d 100%)',
+      landscape: 'polygon(0% 100%, 18% 20%, 35% 55%, 52% 10%, 68% 45%, 85% 15%, 100% 100%)',
+      landColor: '#1d232a',
+      water: 'linear-gradient(180deg, #184e77 0%, #0a2538 100%)',
+      pierDesc: 'Кам’яний мыс із дерев’яним настилом'
+    },
+    {
+      id: 'taiga',
+      name: 'Тайгова заїмка',
+      subtitle: 'Північна садиба',
+      capacity: 8,
+      icon: '🛖',
+      locationKey: 'river',
+      desc: 'Простора садиба на березі повноводної північної річки. Місце для великої дружньої компанії рибалок.',
+      sky: 'linear-gradient(180deg, #1f2d3d 0%, #47607a 50%, #f4a261 100%)',
+      landscape: 'polygon(0% 100%, 20% 30%, 40% 70%, 60% 20%, 80% 60%, 100% 100%)',
+      landColor: '#122618',
+      water: 'linear-gradient(180deg, #133a4f 0%, #081721 100%)',
+      pierDesc: 'Широкий плотовий причал із коптильнею'
+    }
+  ]
+};
+
+const LODGES = LODGES_DATA.ru;
+
+function getLodgesList() {
+  const lang = (typeof window !== 'undefined' && window.currentLanguage === 'uk') ? 'uk' : 'ru';
+  return LODGES_DATA[lang] || LODGES_DATA.ru;
+}
 
 function currentLodge() {
-  return LODGES.find(l => l.id === state.activeLodge) || LODGES[0];
+  const list = getLodgesList();
+  return list.find(l => l.id === state.activeLodge) || list[0];
 }
 
 function switchLodgeTab(tab) {
@@ -2772,7 +2840,9 @@ function selectLodge(id) {
   sound.playCoin?.();
   renderLodgeHub();
   switchLodgeTab('room');
-  showLodgeNotice(`🏡 Ви переїхали на базу «${lodge.name}» (${lodge.capacity} місця)!`);
+  const isUk = (typeof window !== 'undefined' && window.currentLanguage === 'uk');
+  const capWord = isUk ? (lodge.capacity === 8 ? 'місць' : 'місця') : (lodge.capacity === 8 ? 'мест' : 'места');
+  showLodgeNotice(isUk ? `🏡 Ви переїхали на базу «${lodge.name}» (${lodge.capacity} ${capWord})!` : `🏡 Вы переехали на базу «${lodge.name}» (${lodge.capacity} ${capWord})!`);
   save();
   render();
 }
@@ -2782,15 +2852,16 @@ function toggleLodgeBlanket() {
   state.lodgeCozy = !state.lodgeCozy;
   const chair = $('lodgeChairZone');
   if (chair) chair.classList.toggle('is-cozy', state.lodgeCozy);
+  const isUk = (typeof window !== 'undefined' && window.currentLanguage === 'uk');
   if (state.lodgeCozy) {
     sound.beep?.(320, 'sine', 0.15, 0.2);
     state.buffs.cozyFire = {
       expires: Date.now() + 15 * 60 * 1000,
-      desc: 'Тепло каміна: +25% до шансу рідкісної риби та спокій'
+      desc: isUk ? 'Тепло каміна: +25% до шансу рідкісної риби та спокій' : 'Тепло камина: +25% к шансу редкой рыбы и спокойствие'
     };
-    showLodgeNotice('🧣 Ви укуталися в теплий плед біля вогню (+25% до кльову рідкісної риби на 15 хв)!');
+    showLodgeNotice(isUk ? '🧣 Ви укуталися в теплий плед біля вогню (+25% до кльову рідкісної риби на 15 хв)!' : '🧣 Вы укутались в тёплый плед у огня (+25% к клёву редкой рыбы на 15 мин)!');
   } else {
-    showLodgeNotice('Ви підвелися з крісла, зігріті та готові до пригод.');
+    showLodgeNotice(isUk ? 'Ви підвелися з крісла, зігріті та готові до пригод.' : 'Вы встали с кресла, согретые и готовые к приключениям.');
   }
   save();
 }
@@ -2798,7 +2869,8 @@ window.toggleLodgeBlanket = toggleLodgeBlanket;
 
 function sipLodgeTea() {
   sound.beep?.(440, 'triangle', 0.08, 0.15);
-  showLodgeNotice('☕ Ви зробили ковток ароматного гарячого чаю з травами.');
+  const isUk = (typeof window !== 'undefined' && window.currentLanguage === 'uk');
+  showLodgeNotice(isUk ? '☕ Ви зробили ковток ароматного гарячого чаю з травами.' : '☕ Вы сделали глоток ароматного горячего чая с травами.');
 }
 window.sipLodgeTea = sipLodgeTea;
 
@@ -2808,7 +2880,8 @@ function goToLodgePier() {
     state.location = lodge.locationKey;
   }
   closeAll();
-  note(`Ви вийшли на пірс бази «${lodge.name}». Час закинути вудку!`);
+  const isUk = (typeof window !== 'undefined' && window.currentLanguage === 'uk');
+  note(isUk ? `Ви вийшли на пірс бази «${lodge.name}». Час закинути вудку!` : `Вы вышли на пирс базы «${lodge.name}». Время забросить удочку!`);
   render();
 }
 window.goToLodgePier = goToLodgePier;
@@ -2880,17 +2953,19 @@ function startLodgeFireAnimation() {
 function renderLodgeHub() {
   const lodge = currentLodge();
   const photo = $('lodgeRoomPhoto');
+  const isUk = (typeof window !== 'undefined' && window.currentLanguage === 'uk');
   if (photo) {
     const source = `assets/lodges/${lodge.id}-room.png`;
     if (photo.getAttribute('src') !== source) photo.src = source;
-    photo.alt = `${lodge.name} — реалістична вітальня рибальської бази`;
+    photo.alt = `${lodge.name} — ${isUk ? 'реалістична вітальня рибальської бази' : 'реалистичная гостиная рыболовной базы'}`;
   }
   const nameEl = $('lodgeActiveName');
   const capEl = $('lodgeCapacityBadge');
   const descEl = $('lodgeActiveDesc');
+  const capWord = isUk ? (lodge.capacity === 8 ? 'місць' : 'місця') : (lodge.capacity === 8 ? 'мест' : 'места');
   if (nameEl) nameEl.textContent = `${lodge.icon} ${lodge.name} — ${lodge.subtitle}`;
-  if (capEl) capEl.textContent = `👥 ${lodge.capacity} місця`;
-  if (descEl) descEl.textContent = `${lodge.desc} · Пірс: ${lodge.pierDesc}`;
+  if (capEl) capEl.textContent = `👥 ${lodge.capacity} ${capWord}`;
+  if (descEl) descEl.textContent = `${lodge.desc} · ${isUk ? 'Пірс' : 'Пирс'}: ${lodge.pierDesc}`;
 
   // Окно в комнате
   const winSky = $('lodgeWinSky');
@@ -2910,21 +2985,23 @@ function renderLodgeHub() {
   // Сетка выбора баз
   const grid = $('lodgeCardsGrid');
   if (grid) {
-    grid.innerHTML = LODGES.map(l => {
+    const list = getLodgesList();
+    grid.innerHTML = list.map(l => {
       const active = l.id === state.activeLodge;
       const loc = locations[l.locationKey];
       const fishSample = loc ? loc.fish.slice(0, 3).join(', ') : '';
+      const cWord = isUk ? (l.capacity === 8 ? 'місць' : 'місця') : (l.capacity === 8 ? 'мест' : 'места');
       return `
         <article class="lodge-select-card ${active ? 'active-lodge-card' : ''}" onclick="selectLodge('${l.id}')">
           <div class="lodge-card-header">
             <span class="lodge-card-title">${l.icon} ${l.name}</span>
-            <span class="lodge-card-capacity">👥 ${l.capacity} місця</span>
+            <span class="lodge-card-capacity">👥 ${l.capacity} ${cWord}</span>
           </div>
           <small style="color:#f1c40f;font-weight:700">${l.subtitle}</small>
           <p class="lodge-card-desc">${l.desc}</p>
-          <div class="lodge-card-pier-hint">🎣 Пірс: ${l.pierDesc} (риба: ${fishSample})</div>
+          <div class="lodge-card-pier-hint">🎣 ${isUk ? 'Пірс' : 'Пирс'}: ${l.pierDesc} (${isUk ? 'риба' : 'рыба'}: ${fishSample})</div>
           <button type="button" class="btn-warm" onclick="event.stopPropagation(); selectLodge('${l.id}')">
-            ${active ? '✓ Активна база' : 'Обрати цю базу'}
+            ${active ? (isUk ? '✓ Активна база' : '✓ Активная база') : (isUk ? 'Обрати цю базу' : 'Выбрать эту базу')}
           </button>
         </article>
       `;
@@ -2986,6 +3063,22 @@ function renderBaseUpgrades() {
   root.innerHTML += `<article class="adventure-card"><h3>📦 Запас зі складу</h3><p>Хліб і черв’як ×${state.base.storage*3} за день.</p><button onclick="claimStorageSupplies()" ${!state.base.storage || state.storageDay === FishingRules.dayKey() ? 'disabled' : ''}>${state.storageDay === FishingRules.dayKey() ? 'Сьогодні вже отримано' : 'Отримати запас'}</button></article>`;
 }
 
+
+function toggleTimeOfDay() {
+  world.time = world.time === 'night' ? 'day' : 'night';
+  sound.updateAmbient();
+  renderEnvironment();
+  renderWorld();
+  if (world.time === 'night') {
+    note('🌙 Настала ніч. Поплавок оснащено неоновим світлячком, чути цвіркунів!');
+    sound.playCrickets();
+  } else {
+    note('☀️ Настав день. Сонячні промені освітлюють гладь води.');
+    sound.playBird();
+  }
+}
+window.toggleTimeOfDay = toggleTimeOfDay;
+
 function renderWorld() {
   const weather = weatherData[world.weather] || weatherData.clear;
   const timeOfDay = timeData[world.time] || timeData.day;
@@ -3000,32 +3093,46 @@ function renderWorld() {
   const risk = environmentRisk();
   const riskLabel = risk > 0.6 ? 'Високий' : risk > 0.25 ? 'Середній' : 'Низький';
 
-  $('weatherStatus').textContent = `${weather.icon} ${weather.name} · ${world.temperature} °C`;
-  $('timeStatus').textContent = `${season.icon} ${season.name} · ${timeOfDay.name}`;
-  $('eventStatus').textContent = event.name;
+  const weatherStatus = $('weatherStatus');
+  const timeStatus = $('timeStatus');
+  const eventStatus = $('eventStatus');
+  const summaryRoot = $('worldSummary');
+  const techniqueRoot = $('techniqueGrid');
+  const questRoot = $('questContent');
+  const marketRoot = $('marketContent');
 
-  $('worldSummary').innerHTML = `
-    <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name} · вода ${world.temperature} °C</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility} · ризик: ${riskLabel}. Доба: 12 хв; сезон: 30 хв.</small></article>
-    <article><b>${event.name}</b><small>${event.desc} Зараз клює: ${available.slice(0, 4).join(' · ')}...</small></article>
-    <article><b>★ Репутація: ${state.reputation} · місцева: ${localRep(state.location)}</b><small>Нові локації відкриваються з рівнем та репутацією.</small></article>
-    <article class="dock-npc"><b>🔧 Майстер Гліб</b><small>Майстерня ${workshop}/3 · додає швидкості котушці.</small><button onclick="openModal('baseUpgrades')">Покращити базу</button></article>
-  `;
+  if (weatherStatus) weatherStatus.textContent = `${weather.icon} ${weather.name} · ${world.temperature} °C`;
+  if (timeStatus) timeStatus.textContent = `${season.icon} ${season.name} · ${timeOfDay.name}`;
+  if (eventStatus) eventStatus.textContent = event.name;
 
-  $('techniqueGrid').innerHTML = Object.entries(techniques).map(([key, t]) => `
-    <button class="technique-card ${state.technique === key ? 'active' : ''}" onclick="setTechnique('${key}')">
-      <b>${t.icon} ${t.name}</b>
-      <small>${t.desc}</small>
-    </button>
-  `).join('');
+  if (summaryRoot) {
+    summaryRoot.innerHTML = `
+      <article><b>${weather.icon} ${weather.name} · ${season.icon} ${season.name} · вода ${world.temperature} °C</b><small>Активність: ${Math.round(worldActivity()*100)}% · видимість: ${weather.visibility} · ризик: ${riskLabel}. Час доби: ${world.time === 'night' ? '🌙 Ніч (світлячок активний)' : '☀️ День'}.</small><button type="button" class="time-toggle-btn" onclick="toggleTimeOfDay()" style="margin-top:7px;padding:6px 12px;border-radius:8px;background:linear-gradient(135deg,#13324a,#22516f);border:1px solid #7be8f2;color:#fff;font-weight:800;font-size:0.75rem;cursor:pointer;">${world.time === 'night' ? '☀️ Увімкнути День' : '🌙 Увімкнути Ніч зі світлячком'}</button></article>
+      <article><b>${event.name}</b><small>${event.desc} Зараз клює: ${available.slice(0, 4).join(' · ')}...</small></article>
+      <article><b>★ Репутація: ${state.reputation} · місцева: ${localRep(state.location)}</b><small>Нові локації відкриваються з рівнем та репутацією.</small></article>
+      <article class="dock-npc"><b>🔧 Майстер Гліб</b><small>Майстерня ${workshop}/3 · додає швидкості котушці.</small><button onclick="openModal('baseUpgrades')">Покращити базу</button></article>
+    `;
+  }
 
-  $('questContent').innerHTML = quest.completed
-    ? `<b>👩‍✈️ ${quest.npc} · завдання виконано</b><p>Чудова робота! Новий контракт з’явиться завтра.</p><small>Отримано: ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутації.</small>`
-    : `<b>👩‍✈️ ${quest.npc} · контракт дня</b><p>Виловити ${quest.target} × ${quest.fish} вагою від ${quest.weight} кг.</p><div class="quest-meter"><i style="width:${quest.progress/quest.target*100}%"></i></div><small>${quest.progress} / ${quest.target} · ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутації · ${bait.name} ×${quest.reward.amount}</small>`;
+  if (techniqueRoot) {
+    techniqueRoot.innerHTML = Object.entries(techniques).map(([key, t]) => `
+      <button class="technique-card ${state.technique === key ? 'active' : ''}" onclick="setTechnique('${key}')">
+        <b>${t.icon} ${t.name}</b>
+        <small>${t.desc}</small>
+      </button>
+    `).join('');
+  }
+
+  if (questRoot) {
+    questRoot.innerHTML = quest.completed
+      ? `<b>👩‍✈️ ${quest.npc} · завдання виконано</b><p>Чудова робота! Новий контракт з’явиться завтра.</p><small>Отримано: ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутації.</small>`
+      : `<b>👩‍✈️ ${quest.npc} · контракт дня</b><p>Виловити ${quest.target} × ${quest.fish} вагою від ${quest.weight} кг.</p><div class="quest-meter"><i style="width:${quest.progress/quest.target*100}%"></i></div><small>${quest.progress} / ${quest.target} · ${quest.reward.coins} ◉ · +${quest.reward.reputation} репутації · ${bait.name} ×${quest.reward.amount}</small>`;
+  }
 
   renderOrders();
   renderHabitat();
-  if ($('marketContent')) {
-    $('marketContent').innerHTML = `
+  if (marketRoot) {
+    marketRoot.innerHTML = `
       <b>🧺 Торговець ринку</b>
       <p>Сьогодні шукаємо: <b>${market.fish}</b> (доплата +${Math.round(market.bonus*100)}%).</p>
       <small>Здавайте очищену рибу в садку для отримання максимального прибутку.</small>
@@ -3146,10 +3253,15 @@ function renderKeepnet() {
   const cleaned = state.inventory.filter(f => f.clean && !f.favorite);
   const total = cleaned.reduce((sum, f) => sum + price(f), 0);
   const protectedCount = state.inventory.filter(f => f.favorite).length;
-  $('keepnetSummary').textContent = `До продажу: ${cleaned.length} · ${total} ◉${protectedCount ? ` · ★ ${protectedCount} захищено` : ''}`;
-  $('sellAll').disabled = !cleaned.length;
-  $('sellAll').textContent = `Продати всю очищену рибу · ${total} ◉`;
-  $('keepnetList').innerHTML = state.inventory.length
+  const summary = $('keepnetSummary');
+  const sellAllButton = $('sellAll');
+  const list = $('keepnetList');
+  if (!summary || !sellAllButton || !list) return;
+
+  summary.textContent = `До продажу: ${cleaned.length} · ${total} ◉${protectedCount ? ` · ★ ${protectedCount} захищено` : ''}`;
+  sellAllButton.disabled = !cleaned.length;
+  sellAllButton.textContent = `Продати всю очищену рибу · ${total} ◉`;
+  list.innerHTML = state.inventory.length
     ? state.inventory.map(renderFishCard).join('')
     : '<p class="muted">Садок порожній — час закинути вудку!</p>';
 }
@@ -3232,7 +3344,9 @@ function auctionTick() {
 setInterval(auctionTick, 1500);
 
 function renderAuctions() {
-  const root = $('auctionContent'), now = Date.now();
+  const root = $('auctionContent');
+  if (!root) return;
+  const now = Date.now();
   root.innerHTML = state.auctions.length
     ? state.auctions.map(a => `<article class="auction-card">
         <span>${['🐠','🐟','🐡','🦈','🐉'][a.fish.rarity-1] || '🐟'}</span>
@@ -3246,17 +3360,23 @@ function renderAuctions() {
 }
 
 function renderMarketRequest() {
-  if (!$('marketRequests').classList.contains('open')) return;
+  const marketModal = $('marketRequests');
+  if (!marketModal || !marketModal.classList.contains('open')) return;
+  const title = $('marketRequestTitle');
+  const terms = $('marketRequestTerms');
+  const offers = $('marketOffers');
+  if (!title || !terms || !offers) return;
+
   const market = dailyMarket(), trophy = marketRequest === 'trophy', order = marketRequest === 'order';
-  $('marketRequestTitle').textContent = trophy ? 'Трофейний улов' : order ? 'Замовлення дня' : 'Приймаємо очищену рибу';
-  $('marketRequestTerms').textContent = trophy
+  title.textContent = trophy ? 'Трофейний улов' : order ? 'Замовлення дня' : 'Приймаємо очищену рибу';
+  terms.textContent = trophy
     ? 'Потрібна очищена риба епічної чи вищої рідкості або рекордної якості. Стартові ставки вищі за ринкові ціни!'
     : order
       ? `Сьогодні шукаємо: ${market.fish}. Доплата +${Math.round(market.bonus * 100)}% нараховується при продажу.`
       : `Приймаємо будь-яку очищену рибу без обмежень. Чим вища вага та якість — тим більше монет!`;
 
   const pool = locations[state.location].fishPool;
-  $('marketOffers').innerHTML = pool.map(item => `<article class="market-offer">
+  offers.innerHTML = pool.map(item => `<article class="market-offer">
     <img src="${fishImages[item.name] || 'assets/freshwater-fish.png'}" alt="${item.name}" loading="lazy">
     <div>
       <small>${rarities[item.rarity-1].name}</small>
@@ -3273,6 +3393,7 @@ function renderMarketRequest() {
 function renderShop() {
   if (shop === 'reels') { renderReelsShop(); return; }
   const content = $('shopContent');
+  if (!content) return;
   content.classList.remove('reel-items');
 
   if (shop === 'sonar') {
@@ -3345,6 +3466,7 @@ function updateShopTabs() {
 
 function renderReelsShop() {
   const active = state.reels, content = $('shopContent');
+  if (!content) return;
   content.classList.add('reel-items');
   content.innerHTML = gear.reels.map(([name, cost, speed, brake], index) => {
     const level = index + 1, owned = state.ownedReels.includes(level), equipped = active === level;
@@ -3479,6 +3601,9 @@ function setTravelDays(days) {
 window.setTravelDays = setTravelDays;
 
 function renderMap() {
+  const root = $('locationGrid');
+  if (!root) return;
+
   const region = travelRegions[mapRegion];
   const tabs = `<nav class="region-tabs">
     <button class="${mapRegion === 'home' ? 'active' : ''}" onclick="selectMap('home')">🏠 Рідні водойми</button>
@@ -3500,7 +3625,7 @@ function renderMap() {
     </article>`;
   }).join('');
 
-  $('locationGrid').innerHTML = `${tabs}<div class="map-card-grid">${cards}</div>`;
+  root.innerHTML = `${tabs}<div class="map-card-grid">${cards}</div>`;
 }
 
 function changeLocation(key) {
@@ -3527,8 +3652,11 @@ window.changeLocation = changeLocation;
 // Інші вікна (Рюкзак, Профіль, Альбом, Прогрес)
 // --------------------------------------------------------
 function renderBag() {
+  const root = $('bagContent');
+  if (!root) return;
+
   const limits = tackleLimits(), bait = activeBait();
-  $('bagContent').innerHTML = [
+  root.innerHTML = [
     ['🎣','Вудка', gear.rods[state.rods-1].name, `Макс. вага: ${limits.rod.toFixed(1)} кг`],
     ['🧵','Волосінь', gear.lines[state.lines-1][0], `Розривне навантаження: ${limits.line.toFixed(1)} кг`],
     ['🪝','Гачок', gear.hooks[state.hooks-1][0], `До ${limits.hook.toFixed(1)} кг · до ${state.hooks} уловів`],
@@ -3540,8 +3668,11 @@ function renderBag() {
 }
 
 function renderProfile() {
+  const root = $('profileContent');
+  if (!root) return;
+
   const limits = tackleLimits();
-  $('profileContent').innerHTML = `
+  root.innerHTML = `
     <div><b>Рибалка · Рівень ${playerLevel()}</b><p>XP: ${state.xp}<br>Баланс: ${state.coins.toLocaleString('uk-UA')} ◉<br>Репутація: ${state.reputation}<br>Відпущено риб: ${state.released || 0}<br>Точних закидів: ${state.perfectCasts || 0}</p></div>
     <div><b>Колекціонер</b><p>Відкрито видів: ${state.discovered.length} / 51<br>Кращий улов: ${state.best}</p></div>
     <div><b>Спорядження</b><p>Вудка: ${roman(state.rods)} (${limits.rod.toFixed(1)} кг)<br>Волосінь: ${roman(state.lines)} (${limits.line.toFixed(1)} кг)<br>Котушка: ${gear.reels[state.reels-1][0]}</p></div>
@@ -3549,12 +3680,17 @@ function renderProfile() {
 }
 
 function renderJournal() {
-  $('journalContent').innerHTML = state.journal.map(x => `<p>${x}</p>`).join('');
+  const root = $('journalContent');
+  if (!root) return;
+  root.innerHTML = state.journal.map(x => `<p>${x}</p>`).join('');
 }
 
 function renderIndex() {
+  const root = $('indexContent');
+  if (!root) return;
+
   const species = [...new Map(Object.values(locations).flatMap(l => l.fishPool.map(f => [f.name, f]))).values()];
-  $('indexContent').innerHTML = species.map(fish => {
+  root.innerHTML = species.map(fish => {
     const known = state.discovered.includes(fish.name);
     const rarity = rarities[fish.rarity - 1] || rarities[0];
     const visual = known
@@ -3719,20 +3855,34 @@ function updateSoundUI() {
 }
 
 // Прив'язка кнопок інтерфейсу
-$('autoClean').onclick = autoClean;
-$('sellAll').onclick = sellAll;
-$('closeButcher').onclick = closeButcherTable;
-$('butcherAutoClean').onclick = finishButcherAutoClean;
-$('dailyGift').onclick = claimDailyGift;
-$('releaseLine').onclick = releaseLine;
+const autoCleanBtn = $('autoClean');
+if (autoCleanBtn) autoCleanBtn.onclick = autoClean;
 
-$('butcherFish').addEventListener('pointerdown', e => {
-  butcherDragging = true;
-  butcherStart = {x: e.clientX, y: e.clientY};
-  $('butcherFish').setPointerCapture(e.pointerId);
-});
-$('butcherFish').addEventListener('pointerup', butcherCut);
-$('butcherFish').addEventListener('pointercancel', () => butcherDragging = false);
+const sellAllBtn = $('sellAll');
+if (sellAllBtn) sellAllBtn.onclick = sellAll;
+
+const closeButcherBtn = $('closeButcher');
+if (closeButcherBtn) closeButcherBtn.onclick = closeButcherTable;
+
+const butcherAutoCleanBtn = $('butcherAutoClean');
+if (butcherAutoCleanBtn) butcherAutoCleanBtn.onclick = finishButcherAutoClean;
+
+const dailyGiftBtn = $('dailyGift');
+if (dailyGiftBtn) dailyGiftBtn.onclick = claimDailyGift;
+
+const releaseLineBtn = $('releaseLine');
+if (releaseLineBtn) releaseLineBtn.onclick = releaseLine;
+
+const butcherFishBtn = $('butcherFish');
+if (butcherFishBtn) {
+  butcherFishBtn.addEventListener('pointerdown', e => {
+    butcherDragging = true;
+    butcherStart = {x: e.clientX, y: e.clientY};
+    butcherFishBtn.setPointerCapture(e.pointerId);
+  });
+  butcherFishBtn.addEventListener('pointerup', butcherCut);
+  butcherFishBtn.addEventListener('pointercancel', () => butcherDragging = false);
+}
 
 document.querySelectorAll('[data-modal]').forEach(b => {
   b.onclick = () => {
@@ -3786,15 +3936,19 @@ if (interfaceToggle) interfaceToggle.onclick = () => {
   toggleInterface();
 };
 document.querySelectorAll('.close, .close-dialog').forEach(b => b.onclick = closeAll);
-$('boatDetails').addEventListener('click', event => {
-  if (event.target === $('boatDetails')) closeBoatDetails();
-});
-$('boatDetails').addEventListener('close', () => {
-  if ($('boats').classList.contains('open')) {
-    document.querySelector(`[data-boat-preview="${boatDetailId}"]`)?.focus({preventScroll:true});
-  }
-  boatDetailId = null;
-});
+const boatDetailsDialog = $('boatDetails');
+if (boatDetailsDialog) {
+  boatDetailsDialog.addEventListener('click', event => {
+    if (event.target === boatDetailsDialog) closeBoatDetails();
+  });
+  boatDetailsDialog.addEventListener('close', () => {
+    const boatList = $('boats');
+    if (boatList?.classList.contains('open')) {
+      document.querySelector(`[data-boat-preview="${boatDetailId}"]`)?.focus({preventScroll:true});
+    }
+    boatDetailId = null;
+  });
+}
 document.querySelectorAll('.shop-tabs button').forEach(b => {
   b.onclick = () => {
     shop = b.dataset.shop;
@@ -3803,22 +3957,33 @@ document.querySelectorAll('.shop-tabs button').forEach(b => {
 });
 
 // Швидкі верхні кнопки (звук, повноекранний режим)
-$('soundToggle').onclick = () => {
-  sound.toggle();
-  updateSoundUI();
-};
-$('soundVolume').oninput = (e) => {
-  sound.setVolume(e.target.value);
-  if (!sound.enabled) sound.toggle();
-  updateSoundUI();
-};
-$('fullscreenToggle').onclick = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  } else {
-    document.exitFullscreen().catch(() => {});
-  }
-};
+const soundToggleBtn = $('soundToggle');
+if (soundToggleBtn) {
+  soundToggleBtn.onclick = () => {
+    sound.toggle();
+    updateSoundUI();
+  };
+}
+
+const soundVolumeInput = $('soundVolume');
+if (soundVolumeInput) {
+  soundVolumeInput.oninput = (e) => {
+    sound.setVolume(e.target.value);
+    if (!sound.enabled) sound.toggle();
+    updateSoundUI();
+  };
+}
+
+const fullscreenToggleBtn = $('fullscreenToggle');
+if (fullscreenToggleBtn) {
+  fullscreenToggleBtn.onclick = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+}
 
 const settingsSound = $('settingsSoundEnabled');
 if (settingsSound) settingsSound.onchange = (e) => {
@@ -3838,12 +4003,15 @@ if (settingsVib) settingsVib.onchange = (e) => {
 
 document.addEventListener('pointerdown', () => { if (sound.enabled) sound.init(); }, {once:true});
 document.addEventListener('visibilitychange', () => sound.updateAmbient());
-$('settingsAmbientEnabled').onchange = e => {
-  state.ambientEnabled = e.target.checked;
-  sound.init();
-  sound.updateAmbient();
-  save();
-};
+const settingsAmbient = $('settingsAmbientEnabled');
+if (settingsAmbient) {
+  settingsAmbient.onchange = e => {
+    state.ambientEnabled = e.target.checked;
+    sound.init();
+    sound.updateAmbient();
+    save();
+  };
+}
 updateSoundUI();
 showFightHud(false);
 render();

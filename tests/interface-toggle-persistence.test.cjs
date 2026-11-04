@@ -25,3 +25,12 @@ test('script.js preserves interface-hidden across renderEnvironment and fish cat
   assert.match(js, /function\s+toggleInterface\b/, 'toggleInterface function must exist');
 });
 
+test('script.js guards optional butcher buttons before binding handlers', () => {
+  const js = fs.readFileSync(path.join(__dirname, '..', 'script.js'), 'utf8');
+
+  assert.match(js, /const\s+sellAllBtn\s*=\s*\$\('sellAll'\)/, 'sellAll button should be resolved once');
+  assert.match(js, /if\s*\(sellAllBtn\)\s*sellAllBtn\.onclick\s*=\s*sellAll/, 'sellAll handler must be guarded against missing DOM element');
+  assert.match(js, /if\s*\(closeButcherBtn\)\s*closeButcherBtn\.onclick\s*=\s*closeButcherTable/, 'closeButcher handler must be guarded');
+  assert.match(js, /if\s*\(butcherAutoCleanBtn\)\s*butcherAutoCleanBtn\.onclick\s*=\s*finishButcherAutoClean/, 'butcher auto clean handler must be guarded');
+});
+
