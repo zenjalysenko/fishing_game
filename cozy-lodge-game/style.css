@@ -131,6 +131,19 @@ html, body {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  /* Скрытый скроллбар — работает везде */
+  overflow-x: auto;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge */
+}
+
+.top-controls::-webkit-scrollbar {
+  display: none;                /* Chrome/Safari */
+}
+
+/* Не даём кнопкам сжиматься при прокрутке */
+.top-controls > * {
+  flex-shrink: 0;
 }
 
 .icon-btn {
@@ -821,11 +834,17 @@ html, body {
     left: 8px;
     right: 8px;
     gap: 6px;
+    /* Вся панель становится прокручиваемой строкой */
+    flex-wrap: nowrap;
+    overflow: visible;
   }
 
   .top-controls {
     gap: 5px;
-    flex-shrink: 0;
+    /* Прокрутка кнопок свайпом */
+    overflow-x: auto;
+    max-width: calc(100vw - 100px); /* оставить место для бейджа */
+    padding-bottom: 2px; /* избегаем обрезки тени */
   }
 
   .icon-btn {
@@ -887,6 +906,7 @@ html, body {
 
   .top-controls {
     gap: 4px;
+    max-width: calc(100vw - 72px);
   }
 }
 
