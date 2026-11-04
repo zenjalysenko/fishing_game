@@ -362,7 +362,7 @@ html, body {
   bottom: 30px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10;
+  z-index: 20;
   pointer-events: auto;
 }
 
@@ -990,6 +990,40 @@ html, body {
   background: rgba(230, 126, 34, 0.5);
   border-style: solid;
   border-color: var(--c-gold);
+}
+
+/* Mobile Pier Return Button — appears bottom-center when on pier */
+.mobile-pier-return-btn {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  background: linear-gradient(180deg, #5a2d12 0%, #2a1005 100%);
+  border: 2px solid var(--c-gold);
+  border-radius: 20px;
+  color: var(--c-cream);
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.75), 0 0 16px rgba(243,194,103,0.25);
+  touch-action: manipulation;
+  white-space: nowrap;
+  z-index: 25;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mobile-pier-return-btn:active {
+  transform: translateX(-50%) scale(0.95);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.6), 0 0 20px rgba(243,194,103,0.4);
+}
+
+.mobile-pier-return-btn[hidden] {
+  display: none !important;
 }
 
 @media (max-width: 600px) {

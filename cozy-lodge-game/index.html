@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Cozy Lakeside Base — 3D First-Person Cabin</title>
   <meta name="description" content="Realistic 3D first-person game: cozy lakeside cabin with fireplace, mounted animal trophies, panoramic lake view, wooden pier, and relaxation blanket mode.">
-  <link rel="stylesheet" href="style.css?v=3d-cozy-1">
+  <link rel="stylesheet" href="style.css?v=mobile-ctrl-2">
   <!-- Local Three.js build with CDN fallback -->
   <script src="three.min.js"></script>
   <script>
@@ -150,6 +150,11 @@
       </div>
       <button type="button" class="dpad-btn dpad-down" id="dpadDown" aria-label="Look Down">▼</button>
     </div>
+
+    <!-- Pier Return Button (Mobile only — visible when on pier) -->
+    <button type="button" class="mobile-pier-return-btn" id="mobilePierReturnBtn" hidden>
+      🚪 <span>Вернуться в дом</span>
+    </button>
   </aside>
 
   <!-- ======================================================== -->
@@ -237,6 +242,6 @@
     </div>
   </div>
 
-  <script src="game.js?v=3d-cozy-1"></script>
+  <script src="game.js?v=mobile-ctrl-2"></script>
 </body>
 </html>

@@ -1658,6 +1658,15 @@
       });
     }
 
+    // 4. Mobile pier return button
+    const mobilePierReturnBtn = document.getElementById('mobilePierReturnBtn');
+    if (mobilePierReturnBtn) {
+      mobilePierReturnBtn.addEventListener('click', () => {
+        if (navigator.vibrate) navigator.vibrate(15);
+        returnToBase();
+      });
+    }
+
     // Set mobile-specific look hint if touch device
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
     const hint = document.getElementById('lookHint');
@@ -1696,6 +1705,9 @@
     document.getElementById('mainButtonsPanel').style.display = 'none';
     document.getElementById('pierReturnPanel').hidden = false;
 
+    // Update mobile controls for pier location
+    updateMobileControlsForLocation('pier');
+
     SoundSystem.setEnvironment('pier', STATE.currentBase);
     showToast('Standing on the wooden pier. Take in the peaceful lake and fresh breeze.');
   }
@@ -1710,8 +1722,32 @@
     document.getElementById('mainButtonsPanel').style.display = 'flex';
     document.getElementById('pierReturnPanel').hidden = true;
 
+    // Update mobile controls for sofa/base location
+    updateMobileControlsForLocation('sofa');
+
     SoundSystem.setEnvironment('sofa', STATE.currentBase);
     showToast('Returned inside to the warm fireplace and cozy sofa.');
+  }
+
+  // Update mobile HUD when switching between pier and base
+  function updateMobileControlsForLocation(loc) {
+    const dpad = document.getElementById('mobileDpad');
+    const poiBar = document.getElementById('mobilePoiBar');
+    const mobileReturnBtn = document.getElementById('mobilePierReturnBtn');
+
+    if (!dpad || !poiBar || !mobileReturnBtn) return;
+
+    if (loc === 'pier') {
+      // On pier: hide D-pad and POI bar, show big return button
+      dpad.style.display = 'none';
+      poiBar.style.display = 'none';
+      mobileReturnBtn.hidden = false;
+    } else {
+      // Back at base: restore D-pad and POI bar, hide return button
+      dpad.style.display = '';
+      poiBar.style.display = '';
+      mobileReturnBtn.hidden = true;
+    }
   }
 
   // --- BUTTON 2: CHANGE BASE (FOREST, MOUNTAIN, LAKESIDE, WINTER) ---
@@ -2041,6 +2077,9 @@
         }
       }
     });
+
+    // Wire up mobile touch HUD
+    setupMobileTouchHUD();
   }
 
   // =========================================================================
