@@ -96,6 +96,8 @@ html, body {
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow-cabin);
   transition: transform 0.2s ease, border-color 0.2s ease;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .badge-icon {
@@ -128,6 +130,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .icon-btn {
@@ -808,6 +811,82 @@ html, body {
 
   .back-to-game-btn .btn-text {
     display: none;
+  }
+}
+
+/* --- 480px: кнопки уменьшаются, бейдж сжимается --- */
+@media (max-width: 480px) {
+  .top-status-bar {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+
+  .top-controls {
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  .icon-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    font-size: 0.95rem;
+    border-radius: 10px;
+    gap: 4px;
+  }
+
+  /* Скрываем подзаголовок бейджа и уменьшаем его */
+  .base-badge {
+    padding: 5px 8px;
+    gap: 7px;
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+  }
+
+  .badge-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+
+  .badge-sub {
+    display: none;
+  }
+
+  .badge-title {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
+  }
+
+  .back-to-game-btn .btn-text {
+    display: none;
+  }
+}
+
+/* --- 380px: самые маленькие экраны — прячем бейдж-текст полностью --- */
+@media (max-width: 380px) {
+  .badge-info {
+    display: none;
+  }
+
+  .base-badge {
+    padding: 5px 8px;
+  }
+
+  .icon-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 6px;
+    font-size: 0.88rem;
+  }
+
+  .top-controls {
+    gap: 4px;
   }
 }
 
