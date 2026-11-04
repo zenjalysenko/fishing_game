@@ -1430,31 +1430,64 @@
     });
 
     // Touch controls for mobile
+    let touchStartDist = 0;
+    let initialFov = 65;
+    let lastTapTime = 0;
+
     dom.addEventListener('touchstart', (e) => {
+      SoundSystem.init();
+      SoundSystem.resume();
+      hideLookHint();
+
       if (e.touches.length === 1) {
         isDragging = true;
         prevPointerX = e.touches[0].clientX;
         prevPointerY = e.touches[0].clientY;
-        SoundSystem.init();
-        SoundSystem.resume();
-        hideLookHint();
+      } else if (e.touches.length === 2) {
+        // Pinch to zoom start
+        isDragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchStartDist = Math.hypot(dx, dy);
+        initialFov = STATE.camera.fov;
       }
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-      if (!isDragging || e.touches.length !== 1) return;
-      const dx = e.touches[0].clientX - prevPointerX;
-      const dy = e.touches[0].clientY - prevPointerY;
-      prevPointerX = e.touches[0].clientX;
-      prevPointerY = e.touches[0].clientY;
+      if (e.touches.length === 1 && isDragging) {
+        const dx = e.touches[0].clientX - prevPointerX;
+        const dy = e.touches[0].clientY - prevPointerY;
+        prevPointerX = e.touches[0].clientX;
+        prevPointerY = e.touches[0].clientY;
 
-      STATE.camera.targetYaw -= dx * 0.0042;
-      STATE.camera.targetPitch -= dy * 0.0036;
-      clampPitch();
+        STATE.camera.targetYaw -= dx * 0.0042;
+        STATE.camera.targetPitch -= dy * 0.0036;
+        clampPitch();
+      } else if (e.touches.length === 2 && touchStartDist > 0) {
+        // Pinch to zoom active
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const diff = (touchStartDist - dist) * 0.12;
+        STATE.camera.fov = Math.min(85, Math.max(45, initialFov + diff));
+        camera.fov = STATE.camera.fov;
+        camera.updateProjectionMatrix();
+      }
     }, { passive: true });
 
-    window.addEventListener('touchend', () => {
+    window.addEventListener('touchend', (e) => {
       isDragging = false;
+      touchStartDist = 0;
+
+      // Double-tap to recenter camera
+      if (e.changedTouches.length === 1) {
+        const now = Date.now();
+        if (now - lastTapTime < 320) {
+          recenterCameraView();
+          if (navigator.vibrate) navigator.vibrate(12);
+        }
+        lastTapTime = now;
+      }
     });
 
     // Keyboard controls for subtle look
@@ -1478,6 +1511,161 @@
     // Pitch clamped between -62 deg and +62 deg
     const maxPitch = 1.08;
     STATE.camera.targetPitch = Math.max(-maxPitch, Math.min(maxPitch, STATE.camera.targetPitch));
+  }
+
+  function recenterCameraView() {
+    STATE.camera.targetYaw = 0;
+    STATE.camera.targetPitch = 0;
+    STATE.camera.fov = 65;
+    camera.fov = 65;
+    camera.updateProjectionMatrix();
+    if (navigator.vibrate) navigator.vibrate(12);
+  }
+
+  // Focus camera smoothly on key Point of Interest (POI)
+  function focusCameraPOI(poi) {
+    if (navigator.vibrate) navigator.vibrate(10);
+    hideLookHint();
+
+    if (STATE.location === 'pier') {
+      // Pier positions
+      switch (poi) {
+        case 'fire': // lake forward
+        case 'center':
+          STATE.camera.targetYaw = 0;
+          STATE.camera.targetPitch = 0;
+          break;
+        case 'window': // left pine shore
+          STATE.camera.targetYaw = 1.25;
+          STATE.camera.targetPitch = 0.05;
+          break;
+        case 'coffee': // right shore
+          STATE.camera.targetYaw = -1.25;
+          STATE.camera.targetPitch = -0.05;
+          break;
+        case 'trophies': // cabin door behind
+          STATE.camera.targetYaw = Math.PI;
+          STATE.camera.targetPitch = 0.12;
+          break;
+      }
+    } else {
+      // Cabin interior positions
+      switch (poi) {
+        case 'fire': // direct look at fireplace
+          STATE.camera.targetYaw = 0;
+          STATE.camera.targetPitch = 0.05;
+          break;
+        case 'window': // look at panoramic lake window
+          STATE.camera.targetYaw = 1.35;
+          STATE.camera.targetPitch = 0.05;
+          break;
+        case 'coffee': // look down at coffee table & mug
+          STATE.camera.targetYaw = 0;
+          STATE.camera.targetPitch = -0.58;
+          break;
+        case 'trophies': // look up at animal trophies
+          STATE.camera.targetYaw = 0;
+          STATE.camera.targetPitch = 0.46;
+          break;
+        case 'center':
+          recenterCameraView();
+          break;
+      }
+    }
+  }
+
+  // Setup mobile on-screen D-Pad and POI buttons
+  function setupMobileTouchHUD() {
+    // 1. POI Buttons
+    const pois = {
+      poiFireplace: 'fire',
+      poiWindow: 'window',
+      poiCoffee: 'coffee',
+      poiTrophies: 'trophies',
+      poiRecenter: 'center',
+      dpadCenter: 'center'
+    };
+
+    Object.entries(pois).forEach(([id, poiKey]) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          focusCameraPOI(poiKey);
+        });
+      }
+    });
+
+    // 2. Continuous D-Pad rotation
+    let dpadTimer = null;
+    function startDpad(dir) {
+      if (navigator.vibrate) navigator.vibrate(8);
+      stopDpad();
+      hideLookHint();
+      dpadTimer = setInterval(() => {
+        if (dir === 'up') STATE.camera.targetPitch += 0.038;
+        if (dir === 'down') STATE.camera.targetPitch -= 0.038;
+        if (dir === 'left') STATE.camera.targetYaw += 0.048;
+        if (dir === 'right') STATE.camera.targetYaw -= 0.048;
+        clampPitch();
+      }, 30);
+    }
+
+    function stopDpad() {
+      if (dpadTimer) {
+        clearInterval(dpadTimer);
+        dpadTimer = null;
+      }
+    }
+
+    const dpadButtons = [
+      { id: 'dpadUp', dir: 'up' },
+      { id: 'dpadDown', dir: 'down' },
+      { id: 'dpadLeft', dir: 'left' },
+      { id: 'dpadRight', dir: 'right' }
+    ];
+
+    dpadButtons.forEach(({ id, dir }) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+
+      const onStart = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        btn.classList.add('pressed');
+        startDpad(dir);
+      };
+
+      const onEnd = () => {
+        btn.classList.remove('pressed');
+        stopDpad();
+      };
+
+      btn.addEventListener('pointerdown', onStart);
+      btn.addEventListener('pointerup', onEnd);
+      btn.addEventListener('pointercancel', onEnd);
+      btn.addEventListener('pointerleave', onEnd);
+    });
+
+    // 3. Mobile controls toggle button
+    const toggleBtn = document.getElementById('btnMobileControlsToggle');
+    const panel = document.getElementById('mobileControlsPanel');
+    if (toggleBtn && panel) {
+      toggleBtn.addEventListener('click', () => {
+        const isHidden = panel.classList.toggle('hidden');
+        if (navigator.vibrate) navigator.vibrate(10);
+        showToast(isHidden ? 'Элементы управления скрыты' : 'Элементы управления включены');
+      });
+    }
+
+    // Set mobile-specific look hint if touch device
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const hint = document.getElementById('lookHint');
+    if (isTouch && hint && hint.querySelector('span')) {
+      hint.querySelector('span').textContent = currentLang === 'ru'
+        ? '👆 Свайп: осмотр · 🤏 Щипок: зум · 2x тап: центр'
+        : '👆 Drag: look · 🤏 Pinch: zoom · 2x tap: center';
+    }
   }
 
   function hideLookHint() {

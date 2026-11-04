@@ -32,6 +32,9 @@
     </div>
 
     <div class="top-controls">
+      <button id="btnMobileControlsToggle" class="icon-btn mobile-toggle-btn" title="Мобильное управление / Mobile Controls" aria-label="Mobile Controls">
+        📱
+      </button>
       <button id="btnLangToggle" class="icon-btn lang-toggle-btn" title="Сменить язык / Switch Language" aria-label="Language">
         🌐 <span id="langLabel">RU</span>
       </button>
@@ -110,6 +113,44 @@
       <small class="btn-subtext">Step back inside to the warm fireplace</small>
     </button>
   </div>
+
+  <!-- Mobile On-Screen Touch Controls (Look D-pad & POI Focus buttons) -->
+  <aside class="mobile-controls-panel" id="mobileControlsPanel" aria-label="Mobile Touch Controls">
+    <!-- Quick Look POI Focus Bar -->
+    <div class="mobile-poi-bar" id="mobilePoiBar" aria-label="Quick Look Points">
+      <button type="button" class="mobile-poi-btn" id="poiFireplace" title="Камин / Fireplace">
+        <span class="poi-icon">🔥</span>
+        <span class="poi-label" data-poi="fire">Камин</span>
+      </button>
+      <button type="button" class="mobile-poi-btn" id="poiWindow" title="Окно / Lake Window">
+        <span class="poi-icon">🪟</span>
+        <span class="poi-label" data-poi="window">Окно</span>
+      </button>
+      <button type="button" class="mobile-poi-btn" id="poiCoffee" title="Кофе / Coffee Table">
+        <span class="poi-icon">☕</span>
+        <span class="poi-label" data-poi="coffee">Кофе</span>
+      </button>
+      <button type="button" class="mobile-poi-btn" id="poiTrophies" title="Трофеи / Animal Trophies">
+        <span class="poi-icon">🦌</span>
+        <span class="poi-label" data-poi="trophies">Трофеи</span>
+      </button>
+      <button type="button" class="mobile-poi-btn" id="poiRecenter" title="Центр / Recenter">
+        <span class="poi-icon">🎯</span>
+        <span class="poi-label" data-poi="center">Центр</span>
+      </button>
+    </div>
+
+    <!-- Touch Look D-Pad (Smooth continuous thumb rotation) -->
+    <div class="mobile-dpad" id="mobileDpad" aria-label="Touch Look D-Pad">
+      <button type="button" class="dpad-btn dpad-up" id="dpadUp" aria-label="Look Up">▲</button>
+      <div class="dpad-mid-row">
+        <button type="button" class="dpad-btn dpad-left" id="dpadLeft" aria-label="Look Left">◀</button>
+        <button type="button" class="dpad-center" id="dpadCenter" aria-label="Recenter">🎯</button>
+        <button type="button" class="dpad-btn dpad-right" id="dpadRight" aria-label="Look Right">▶</button>
+      </div>
+      <button type="button" class="dpad-btn dpad-down" id="dpadDown" aria-label="Look Down">▼</button>
+    </div>
+  </aside>
 
   <!-- ======================================================== -->
   <!-- MODAL: BASE SELECTOR (4 Realistic Bases) -->
